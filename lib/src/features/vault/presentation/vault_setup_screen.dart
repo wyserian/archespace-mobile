@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
+import 'package:archespace_mobile/src/features/onboarding/data/welcome_space.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
@@ -67,6 +68,9 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
     });
     try {
       final result = await _vault.setupVault(userId, _pin.text);
+      // A brand-new account starts with a short tour (never after a reset).
+      await WelcomeSpace.create(userId, result.masterKey);
+      if (!mounted) return;
       setState(() {
         _masterKey = result.masterKey;
         _recoveryCode = result.recoveryCode;

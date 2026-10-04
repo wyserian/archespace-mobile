@@ -28,6 +28,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 
 ## Features
 
+- **Welcome space** for new accounts: a short tour of spaces, item types and the vault, created and encrypted on the device right after the vault is set up (content shared with the web app in `spec/welcome-space.json`).
 - **Spaces** for separating projects and ideas, with one level of nesting (sub-spaces), tags, a space colour, pinning, and drag-and-drop reordering.
 - **Many item types** for different kinds of content, from notes and checklists to rich text documents, tables, whiteboards and code (see [Item types](#item-types)).
 - **Protect** any item or space so its content only opens with your vault PIN (or fingerprint / face when biometric unlock is on); its name stays visible (see [Security model](#security-model)).
@@ -270,7 +271,7 @@ archespace-mobile/
     whiteboard_editor.html # offline Whiteboard (Excalidraw), built by the same command
   scripts/
     build-apk.ps1         # local stamped release build
-  spec/                   # crypto contract + conformance vectors
+  spec/                   # crypto contract + conformance vectors, welcome space content
   test/
   pubspec.yaml
   env.example.json

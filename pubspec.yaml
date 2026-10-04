@@ -61,6 +61,8 @@ flutter:
     # Built from the web repo: `npm run build:mobile-editor`.
     - assets/rich_text_editor.html
     - assets/whiteboard_editor.html
+    # The sample space a new account starts with (shared with the web app).
+    - spec/welcome-space.json
     - assets/fonts/DejaVuSans.ttf
     - assets/fonts/DejaVuSans-Bold.ttf
     - assets/fonts/DejaVuSansMono.ttf
