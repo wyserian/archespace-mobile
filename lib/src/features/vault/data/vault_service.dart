@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/features/vault/domain/recovery_code.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 class VaultException implements Exception {
   VaultException(this.message);
@@ -23,7 +23,7 @@ class VaultException implements Exception {
 /// re-wraps the same master key under a freshly derived key, so already
 /// encrypted rows keep decrypting without a re-encrypt pass.
 class VaultService {
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   static const String _checkPlaintext = 'ARCHE_VAULT_V1_OK';
   static const String _metaCacheKey = 'user_encryption';

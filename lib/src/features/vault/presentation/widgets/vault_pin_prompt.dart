@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/data/biometric_service.dart';
 import 'package:archespace_mobile/src/features/vault/data/secure_key_store.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Ask for the vault PIN before showing protected content. Resolves
 /// true once the right PIN is entered (or, when biometric unlock is on, a
@@ -94,7 +94,7 @@ class _VaultPinDialogState extends State<_VaultPinDialog> {
 
   Future<void> _submit() async {
     final pin = _pin.text.trim();
-    final userId = AuthService().currentUser?.id;
+    final userId = currentUserId();
     if (pin.isEmpty || userId == null || _busy) return;
     setState(() {
       _busy = true;

@@ -24,6 +24,9 @@ import 'package:archespace_mobile/src/features/vault/data/secure_key_store.dart'
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/cache_store.dart';
+import 'package:archespace_mobile/src/shared/data/local_db.dart';
 
 /// Settings, grouped like the web: Account, Vault, Appearance, Backup, About.
 /// Each row shows what it is and its current state; forms open on their own
@@ -48,7 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadBiometricState();
-    _loadTwoFactorState();
+    if (!AppMode.isLocal) _loadTwoFactorState();
   }
 
   Future<void> _loadTwoFactorState() async {
@@ -151,6 +154,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  /// Local mode: back to the sign-in screen; the data stays on the device.
+  Future<void> _leaveLocalMode() async {
+    final ok = await confirmAction(
+      context,
+      title: SignOutText.title,
+      message: SignOutText.message,
+      confirmLabel: SignOutText.label,
+    );
+    if (!ok) return;
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    await AppMode.leave();
+  }
+
+  /// Local mode: delete everything kept on this device, then leave the mode.
+  Future<void> _eraseLocalData() async {
+    final ok = await confirmAction(
+      context,
+      title: 'Erase local data?',
+      message:
+          'Every space, item and your vault on this device will be deleted '
+          'permanently. Export a backup first if you might want them later.',
+      confirmLabel: 'Erase everything',
+      destructive: true,
+    );
+    if (!ok) return;
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    VaultSession.instance.lock();
+    await _store.clear();
+    await CacheStore.clear();
+    await LocalDb.instance.erase();
+    await AppMode.leave();
+  }
+
   Future<void> _signOutAll() async {
     final ok = await confirmAction(
       context,
@@ -180,7 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _exportBackup() async {
     try {
-      final userId = _auth.currentUser?.id;
+      final userId = currentUserId();
       if (userId == null) return;
       final json = await BackupRepository(
         VaultSession.instance.masterKey,
@@ -261,97 +297,152 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 8),
           children: [
-            // Account
-            const _SectionTitle(
-              'Account',
-              'Your email, login password and sign-in security.',
-            ),
-            _SettingGroup(
-              label: 'Sign-in',
-              children: [
-                _SettingTile(
-                  icon: Icons.alternate_email,
-                  title: 'Email',
-                  subtitle: email ?? 'Unknown',
-                  onTap: () => _push(const ChangeEmailScreen()),
-                ),
-                _SettingTile(
-                  icon: Icons.password_outlined,
-                  title: 'Login password',
-                  subtitle: 'Used to sign in. Separate from your vault PIN.',
-                  onTap: () => _push(const ChangePasswordScreen()),
-                ),
-                _SettingTile(
-                  icon: Icons.verified_user_outlined,
-                  title: 'Two-factor authentication',
-                  subtitle: 'A code from your authenticator app at sign-in.',
-                  // Shows that it's on; off, the row opens its set-up.
-                  trailing: _twoFactorOn == true
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const _OnPill(),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.chevron_right,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ],
-                        )
-                      : null,
-                  onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TwoFactorScreen(),
-                      ),
-                    );
-                    _loadTwoFactorState();
-                  },
-                ),
-              ],
-            ),
-            _SettingGroup(
-              label: 'Sessions',
-              children: [
-                _SettingTile(
-                  icon: Icons.logout,
-                  title: 'Sign out',
-                  subtitle: 'Sign out on this device.',
-                  onTap: _signOut,
-                  chevron: false,
-                ),
-                _SettingTile(
-                  icon: Icons.devices,
-                  title: 'Sign out of all devices',
-                  subtitle: 'Ends your session everywhere, including here.',
-                  onTap: _signOutAll,
-                  chevron: false,
-                ),
-              ],
-            ),
-            _SettingGroup(
-              label: 'Danger zone',
-              danger: true,
-              children: [
-                _SettingTile(
-                  icon: Icons.person_remove_outlined,
-                  title: 'Delete account',
-                  subtitle:
-                      'Permanently deletes your account, spaces, items and '
-                      "vault. This can't be undone.",
-                  onTap: () => _push(const DeleteAccountScreen()),
-                  destructive: true,
-                ),
-              ],
-            ),
+            if (AppMode.isLocal) ...[
+              // Local mode takes the Account section's place.
+              const _SectionTitle(
+                'Local mode',
+                'No account: everything stays on this device.',
+              ),
+              _SettingGroup(
+                label: 'Your data',
+                children: [
+                  _SettingTile(
+                    icon: Icons.phone_android,
+                    title: 'Stored on this device',
+                    subtitle:
+                        'Encrypted with your vault PIN and kept only here; '
+                        'nothing is sent to a server. Uninstalling the app '
+                        'deletes it, so export a backup now and then.',
+                    onTap: _exportBackup,
+                    chevron: false,
+                  ),
+                ],
+              ),
+              _SettingGroup(
+                label: 'Account',
+                children: [
+                  _SettingTile(
+                    icon: Icons.logout,
+                    title: 'Use an account instead',
+                    subtitle:
+                        'Export a backup, then sign in or create an account '
+                        'and import it there. Your local data stays here '
+                        'until you erase it.',
+                    onTap: _leaveLocalMode,
+                    chevron: false,
+                  ),
+                ],
+              ),
+              _SettingGroup(
+                label: 'Danger zone',
+                danger: true,
+                children: [
+                  _SettingTile(
+                    icon: Icons.delete_forever_outlined,
+                    title: 'Erase local data',
+                    subtitle:
+                        'Permanently deletes every space, item and your '
+                        "vault from this device. This can't be undone.",
+                    onTap: _eraseLocalData,
+                    destructive: true,
+                  ),
+                ],
+              ),
+            ] else ...[
+              // Account
+              const _SectionTitle(
+                'Account',
+                'Your email, login password and sign-in security.',
+              ),
+              _SettingGroup(
+                label: 'Sign-in',
+                children: [
+                  _SettingTile(
+                    icon: Icons.alternate_email,
+                    title: 'Email',
+                    subtitle: email ?? 'Unknown',
+                    onTap: () => _push(const ChangeEmailScreen()),
+                  ),
+                  _SettingTile(
+                    icon: Icons.password_outlined,
+                    title: 'Login password',
+                    subtitle: 'Used to sign in. Separate from your vault PIN.',
+                    onTap: () => _push(const ChangePasswordScreen()),
+                  ),
+                  _SettingTile(
+                    icon: Icons.verified_user_outlined,
+                    title: 'Two-factor authentication',
+                    subtitle: 'A code from your authenticator app at sign-in.',
+                    // Shows that it's on; off, the row opens its set-up.
+                    trailing: _twoFactorOn == true
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const _OnPill(),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          )
+                        : null,
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const TwoFactorScreen(),
+                        ),
+                      );
+                      _loadTwoFactorState();
+                    },
+                  ),
+                ],
+              ),
+              _SettingGroup(
+                label: 'Sessions',
+                children: [
+                  _SettingTile(
+                    icon: Icons.logout,
+                    title: 'Sign out',
+                    subtitle: 'Sign out on this device.',
+                    onTap: _signOut,
+                    chevron: false,
+                  ),
+                  _SettingTile(
+                    icon: Icons.devices,
+                    title: 'Sign out of all devices',
+                    subtitle: 'Ends your session everywhere, including here.',
+                    onTap: _signOutAll,
+                    chevron: false,
+                  ),
+                ],
+              ),
+              _SettingGroup(
+                label: 'Danger zone',
+                danger: true,
+                children: [
+                  _SettingTile(
+                    icon: Icons.person_remove_outlined,
+                    title: 'Delete account',
+                    subtitle:
+                        'Permanently deletes your account, spaces, items and '
+                        "vault. This can't be undone.",
+                    onTap: () => _push(const DeleteAccountScreen()),
+                    destructive: true,
+                  ),
+                ],
+              ),
+            ],
 
             // Vault
-            const _SectionTitle(
+            _SectionTitle(
               'Vault',
-              'Your vault PIN encrypts everything you store. It is separate '
-                  'from your login password.',
+              AppMode.isLocal
+                  ? 'Your vault PIN encrypts everything you store.'
+                  : 'Your vault PIN encrypts everything you store. It is '
+                        'separate from your login password.',
             ),
             _SettingGroup(
               label: 'Unlocking',

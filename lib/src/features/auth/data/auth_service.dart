@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/config/app_config.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Thin wrapper over Supabase Auth. The client is resolved lazily so the app
 /// only touches `Supabase.instance` after `Supabase.initialize` has run.
@@ -33,6 +34,9 @@ class AuthService {
   /// in. Signing out everywhere is for password changes and
   /// [signOutAllDevices].
   Future<void> signOut() async {
+    // Local mode has no session: "signing out" leaves the mode (the data
+    // stays on the device).
+    if (AppMode.isLocal) return AppMode.leave();
     await _client.auth.signOut(scope: SignOutScope.local);
   }
 

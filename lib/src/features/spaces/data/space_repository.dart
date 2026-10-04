@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Reads spaces from Supabase and decrypts them with the master key. Encrypted
 /// columns (`name`, `description`) are `arc1` values; everything else is plain
@@ -16,7 +16,7 @@ class SpaceRepository {
 
   final List<int> _masterKey;
 
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   /// Fetch spaces, caching the encrypted rows; on a network error, fall back
   /// to the cache. `fromCache` is true when the offline fallback was used.
@@ -122,7 +122,7 @@ class SpaceRepository {
   /// Duplicate a space and all its (non-deleted, non-archived) items. Item
   /// ciphertext is copied verbatim - it's already encrypted with the same key.
   Future<void> duplicateSpace(Space space) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId == null) throw StateError('Not authenticated');
 
     final existing = await _client
@@ -181,7 +181,7 @@ class SpaceRepository {
     List<String> tags = const [],
     String? parentId,
   }) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId == null) throw StateError('Not authenticated');
 
     final existing = await _client

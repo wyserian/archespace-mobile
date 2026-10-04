@@ -28,6 +28,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 
 ## Features
 
+- **Local mode** ("Use without an account" on the sign-in screen): no account and no server. Everything is kept in the app's private storage, still encrypted with the vault PIN, and nothing is sent anywhere. The data classes talk to a local store (`lib/src/shared/data/local_db.dart`) that follows the same database rules. Move to an account later with an encrypted backup.
 - **Welcome space** for new accounts: a short tour of spaces, item types and the vault, created and encrypted on the device right after the vault is set up (content shared with the web app in `spec/welcome-space.json`).
 - **Spaces** for separating projects and ideas, with one level of nesting (sub-spaces), tags, a space colour, pinning, and drag-and-drop reordering.
 - **Many item types** for different kinds of content, from notes and checklists to rich text documents, tables, whiteboards and code (see [Item types](#item-types)).

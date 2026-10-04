@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// JSON backup export/import, matching the web format. A backup is encrypted:
 /// `{ app, version: 3, encrypted: true, exportedAt, vault, data }`, where
@@ -19,7 +19,7 @@ class BackupRepository {
 
   final List<int> _masterKey;
 
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   Future<String> _dec(Object? v) =>
       ArcheCrypto.decryptArc1((v ?? '') as String, _masterKey);
@@ -171,7 +171,7 @@ class BackupRepository {
     Future<bool> Function(Future<bool> Function(String pin) check)?
     askBackupPin,
   }) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId == null) throw StateError('Not authenticated');
 
     final sealed = jsonDecode(text);

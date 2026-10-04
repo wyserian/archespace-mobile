@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/features/items/data/secret_migration.dart';
 import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
@@ -31,6 +30,7 @@ import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// The dashboard: the user's top-level spaces, then their dashboard items
 /// (items that belong to no space), laid out like the inside of a space and
@@ -108,7 +108,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     );
     // Realtime filters can't express "space_id is null", so the dashboard
     // listens to all of the user's item changes (the watcher debounces).
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId != null) {
       _itemsWatcher = TableWatcher(
         channelName: 'items-dashboard',

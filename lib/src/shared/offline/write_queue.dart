@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/shared/util/errors.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 /// A durable queue of pending writes for offline support. Each entry is an
 /// idempotent **upsert** into a table (rows carry a client-generated id), so
@@ -54,7 +54,7 @@ class WriteQueue {
   /// (offline), false if it committed online. Non-network errors are rethrown.
   Future<bool> upsert(String table, Map<String, dynamic> row) async {
     try {
-      await Supabase.instance.client.from(table).upsert(row);
+      await Db.instance.from(table).upsert(row);
       return false;
     } catch (e) {
       if (!isNetworkError(e)) rethrow;
@@ -75,7 +75,7 @@ class WriteQueue {
       while (ops.isNotEmpty) {
         final op = ops.first;
         try {
-          await Supabase.instance.client
+          await Db.instance
               .from(op['table'] as String)
               .upsert(op['row'] as Map<String, dynamic>);
         } catch (e) {

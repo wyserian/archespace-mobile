@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Reads and decrypts the items in a space, or - for a `null` space id - the
 /// dashboard's items, which belong to no space. The `title` column is an `arc1`
@@ -17,23 +17,20 @@ class ItemRepository {
 
   final List<int> _masterKey;
 
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   /// Offline cache key for a space's items, or the dashboard's for `null`.
   static String cacheKeyFor(String? spaceId) =>
       'items_${spaceId ?? 'dashboard'}';
 
   /// Restrict an items query to one space, or to the dashboard for `null`.
-  PostgrestFilterBuilder<T> _whereSpace<T>(
-    PostgrestFilterBuilder<T> query,
-    String? spaceId,
-  ) => spaceId == null
+  DbQuery _whereSpace(DbQuery query, String? spaceId) => spaceId == null
       ? query.isFilter('space_id', null)
       : query.eq('space_id', spaceId);
 
   /// The owner, set explicitly on new rows: a dashboard item has no space for
   /// the database trigger to derive it from.
-  String? get _userId => _client.auth.currentUser?.id;
+  String? get _userId => currentUserId();
 
   /// Fetch a space's (or the dashboard's) items, caching the encrypted rows; on
   /// a network error, fall back to the cache. `fromCache` is true when the
@@ -54,10 +51,7 @@ class ItemRepository {
   /// [cacheKey]; on a network error, fall back to that cache.
   Future<({List<SpaceItem> items, bool fromCache})> _list(
     String cacheKey,
-    PostgrestFilterBuilder<List<Map<String, dynamic>>> Function(
-      PostgrestFilterBuilder<List<Map<String, dynamic>>>,
-    )
-    where,
+    DbQuery Function(DbQuery) where,
   ) async {
     List<dynamic> rows;
     try {

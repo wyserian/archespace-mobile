@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Subscribes to Supabase postgres changes on [table] (optionally filtered by
 /// [filterColumn] == [filterValue]) and calls [onChange], debounced to coalesce
@@ -15,6 +16,9 @@ class TableWatcher {
     String? filterValue,
     this.debounce = const Duration(milliseconds: 300),
   }) {
+    // Local mode has no server to hear changes from; this device is the only
+    // writer.
+    if (AppMode.isLocal) return;
     _channel = Supabase.instance.client
         .channel(channelName)
         .onPostgresChanges(
@@ -35,7 +39,7 @@ class TableWatcher {
 
   final void Function() onChange;
   final Duration debounce;
-  late final RealtimeChannel _channel;
+  RealtimeChannel? _channel;
   Timer? _timer;
 
   void _schedule() {
@@ -45,6 +49,7 @@ class TableWatcher {
 
   void dispose() {
     _timer?.cancel();
-    Supabase.instance.client.removeChannel(_channel);
+    final channel = _channel;
+    if (channel != null) Supabase.instance.client.removeChannel(channel);
   }
 }

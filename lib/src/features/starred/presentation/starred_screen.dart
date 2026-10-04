@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
@@ -21,6 +20,7 @@ import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// Quick access to starred spaces and items from anywhere. Starring never
 /// moves anything - spaces and items keep their place in their own lists; this
@@ -77,7 +77,7 @@ class _StarredScreenState extends State<StarredScreen>
       table: 'spaces',
       onChange: reloadWhenShown,
     );
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId != null) {
       _itemsWatcher = TableWatcher(
         channelName: 'starred-items',

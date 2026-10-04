@@ -9,6 +9,7 @@ import 'package:archespace_mobile/src/features/auth/domain/email.dart';
 import 'package:archespace_mobile/src/features/auth/domain/password_policy.dart';
 import 'package:archespace_mobile/src/shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/config/legal.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 enum _Mode { signIn, signUp }
 
@@ -530,6 +531,36 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
+                    // Local mode: no account; everything stays on this device.
+                    const SizedBox(height: 20),
+                    const Row(
+                      children: [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('or'),
+                        ),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _loading ? null : AppMode.enter,
+                      icon: const Icon(Icons.phone_android, size: 18),
+                      label: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text('Use without an account'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your data stays encrypted on this device only; nothing '
+                      'is sent to a server.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),

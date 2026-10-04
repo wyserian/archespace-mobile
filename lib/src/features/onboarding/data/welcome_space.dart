@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 /// The sample space a new account starts with: a short tour of spaces, items
 /// and the vault (`spec/welcome-space.json`, shared with the web app).
@@ -26,7 +26,7 @@ class WelcomeSpace {
       final spec =
           jsonDecode(await rootBundle.loadString(_specAsset))
               as Map<String, dynamic>;
-      final client = Supabase.instance.client;
+      final client = Db.instance;
       final created = await client
           .from('spaces')
           .insert(await spaceRow(spec, userId, masterKey))

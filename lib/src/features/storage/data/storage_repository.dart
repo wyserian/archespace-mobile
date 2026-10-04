@@ -1,6 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 /// A space or item that is archived or in the recycle bin.
 class StoredEntry {
@@ -25,7 +24,7 @@ class StorageRepository {
 
   final List<int> _masterKey;
 
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   String _now() => DateTime.now().toUtc().toIso8601String();
 

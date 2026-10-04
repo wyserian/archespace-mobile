@@ -1,8 +1,7 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 /// One searchable entry: either a space or an item. [haystack] is the
 /// lowercased text matched against; the rest is for display/navigation.
@@ -57,7 +56,7 @@ class SearchRepository {
 
   final List<int> _masterKey;
 
-  SupabaseClient get _client => Supabase.instance.client;
+  Db get _client => Db.instance;
 
   Future<List<SearchHit>> loadIndex() async {
     final spaceRows = await _client

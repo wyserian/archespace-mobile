@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 class UnlockScreen extends StatefulWidget {
   const UnlockScreen({super.key});
@@ -93,7 +94,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   }
 
   Future<void> _unlockWithPin() async {
-    final userId = _auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId == null) return;
 
     if (_pin.text.trim().isEmpty) {
@@ -192,12 +193,13 @@ class _UnlockScreenState extends State<UnlockScreen> {
   /// re-verify the account password, then wipe all data and create a fresh
   /// vault. Old data is unrecoverable (that is the point).
   Future<void> _resetVault() async {
-    final user = _auth.currentUser;
-    final userId = user?.id;
-    final email = user?.email;
-    if (userId == null || email == null) return;
+    final userId = currentUserId();
+    final email = _auth.currentUser?.email;
+    // Local mode has no account, so no account password to re-check.
+    final local = AppMode.isLocal;
+    if (userId == null || (!local && email == null)) return;
 
-    if (_accountPassword.text.isEmpty) {
+    if (!local && _accountPassword.text.isEmpty) {
       setState(() => _error = 'Enter your account password.');
       return;
     }
@@ -220,11 +222,13 @@ class _UnlockScreenState extends State<UnlockScreen> {
     });
     try {
       // Re-verify the account password before destroying anything.
-      try {
-        await _auth.signIn(email: email, password: _accountPassword.text);
-      } on AuthException {
-        setState(() => _error = 'Incorrect account password.');
-        return;
+      if (!local) {
+        try {
+          await _auth.signIn(email: email!, password: _accountPassword.text);
+        } on AuthException {
+          setState(() => _error = 'Incorrect account password.');
+          return;
+        }
       }
       final result = await _vault.resetVault(userId, _newPin.text.trim());
       // The old biometric key wrapped the destroyed master key - clear it.
@@ -247,7 +251,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   /// Verify the recovery code, set the new PIN, and rotate the recovery code.
   /// The master key is unchanged, so any saved biometric key still works.
   Future<void> _resetWithRecovery() async {
-    final userId = _auth.currentUser?.id;
+    final userId = currentUserId();
     if (userId == null) return;
 
     if (_recoveryCode.text.trim().isEmpty) {
@@ -293,10 +297,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Future<void> _confirmSignOut() async {
     final ok = await confirmAction(
       context,
-      title: 'Sign out?',
-      message:
-          'You will need your login password and vault PIN to sign back in.',
-      confirmLabel: 'Sign out',
+      title: SignOutText.title,
+      message: SignOutText.message,
+      confirmLabel: SignOutText.label,
       destructive: true,
     );
     if (ok) await _auth.signOut();
@@ -318,7 +321,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
           IconButton(
             onPressed: _confirmSignOut,
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+            tooltip: SignOutText.label,
           ),
         ],
       ),
@@ -513,14 +516,16 @@ class _UnlockScreenState extends State<UnlockScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _accountPassword,
-          obscureText: true,
-          enabled: !_loading,
-          onChanged: (_) => setState(() => _error = null),
-          decoration: const InputDecoration(labelText: 'Account password'),
-        ),
-        const SizedBox(height: 12),
+        if (!AppMode.isLocal) ...[
+          TextField(
+            controller: _accountPassword,
+            obscureText: true,
+            enabled: !_loading,
+            onChanged: (_) => setState(() => _error = null),
+            decoration: const InputDecoration(labelText: 'Account password'),
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _newPin,
           obscureText: true,

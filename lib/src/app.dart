@@ -16,6 +16,7 @@ import 'package:archespace_mobile/src/features/spaces/presentation/spaces_screen
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/unlock_screen.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/vault_setup_screen.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 
 class ArcheApp extends StatelessWidget {
@@ -128,6 +129,7 @@ class ArcheApp extends StatelessWidget {
 
 /// Decides which screen to show: login (no session), unlock (session but locked
 /// vault), or the spaces list (session + unlocked). Locks the vault on sign-out.
+/// Local mode (AppMode) needs no session: it goes straight to the vault.
 class _RootGate extends StatefulWidget {
   const _RootGate();
 
@@ -146,6 +148,7 @@ class _RootGateState extends State<_RootGate> {
   @override
   void initState() {
     super.initState();
+    AppMode.local.addListener(_onModeChanged);
     _sub = _auth.onAuthStateChange.listen((state) {
       if (state.event == AuthChangeEvent.signedOut) {
         VaultSession.instance.lock();
@@ -157,15 +160,22 @@ class _RootGateState extends State<_RootGate> {
     });
   }
 
+  /// Entering or leaving local mode; leaving locks the vault.
+  void _onModeChanged() {
+    if (!AppMode.isLocal) VaultSession.instance.lock();
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    AppMode.local.removeListener(_onModeChanged);
     _sub.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_auth.currentSession == null) {
+    if (!AppMode.isLocal && _auth.currentSession == null) {
       // Cross-fade + slide from the splash to the login screen on continue.
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 450),
@@ -218,7 +228,9 @@ class _MfaGateState extends State<_MfaGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_passed || !_mfa.needsChallenge()) return widget.child;
+    if (AppMode.isLocal || _passed || !_mfa.needsChallenge()) {
+      return widget.child;
+    }
     return MfaChallengeScreen(onVerified: () => setState(() => _passed = true));
   }
 }
@@ -238,7 +250,7 @@ class _VaultGateState extends State<_VaultGate> {
   @override
   void initState() {
     super.initState();
-    final userId = AuthService().currentUser?.id;
+    final userId = currentUserId();
     _hasVault = userId == null
         ? Future<bool>.value(true)
         : VaultService().hasVault(userId);

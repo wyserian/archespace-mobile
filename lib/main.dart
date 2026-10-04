@@ -9,6 +9,7 @@ import 'package:archespace_mobile/src/features/vault/application/auto_lock_contr
 import 'package:archespace_mobile/src/shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/error/error_handling.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 Future<void> main() async {
   // Run everything inside a guarded zone so uncaught async errors are reported
@@ -37,6 +38,7 @@ Future<void> main() async {
         authFlowType: AuthFlowType.implicit,
       ),
     );
+    await AppMode.load();
     await AppearanceController.instance.load();
     await AutoLockController.instance.load();
     await WriteQueue.instance.init();

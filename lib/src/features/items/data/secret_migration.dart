@@ -1,8 +1,7 @@
 import 'dart:convert';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/db.dart';
 
 /// The Secret item type was removed; existing secrets become plain Notes.
 ///
@@ -38,7 +37,7 @@ class SecretMigration {
   static Future<int> runOnce(List<int> masterKey) async {
     if (_ranThisSession) return 0;
     _ranThisSession = true;
-    final client = Supabase.instance.client;
+    final client = Db.instance;
 
     List<dynamic> rows;
     try {
