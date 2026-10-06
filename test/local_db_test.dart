@@ -151,22 +151,24 @@ void main() {
     expect((await d.rpc('get_vault_pin_lock_status'))['locked'], isFalse);
   });
 
-  test(
-    'empties recycle bin entries older than 30 days when it opens',
-    () async {
-      final store = MemoryStore();
-      final old = DateTime.now()
-          .subtract(const Duration(days: 31))
-          .toUtc()
-          .toIso8601String();
-      store.tables['space_items'] = [
-        {'id': 'old', 'deleted_at': old},
-        {'id': 'new', 'deleted_at': DateTime.now().toUtc().toIso8601String()},
-      ];
-      final rows = await LocalDb(store).from('space_items').select('id');
-      expect(rows, [
-        {'id': 'new'},
-      ]);
-    },
-  );
+  test('keeps recycle bin entries however old they are', () async {
+    final store = MemoryStore();
+    final old = DateTime.now()
+        .subtract(const Duration(days: 400))
+        .toUtc()
+        .toIso8601String();
+    store.tables['space_items'] = [
+      {'id': 'old', 'deleted_at': old},
+    ];
+    store.tables['spaces'] = [
+      {'id': 'gone', 'deleted_at': old},
+    ];
+    final db = LocalDb(store);
+    expect(await db.from('space_items').select('id'), [
+      {'id': 'old'},
+    ]);
+    expect(await db.from('spaces').select('id'), [
+      {'id': 'gone'},
+    ]);
+  });
 }

@@ -314,7 +314,8 @@ class _StorageScreenState extends State<StorageScreen> {
         icon: _isBin ? Icons.delete_outline : Icons.archive_outlined,
         title: _isBin ? 'Recycle bin is empty' : 'Nothing archived yet',
         message: _isBin
-            ? 'Spaces and items you delete appear here for 30 days.'
+            ? 'Spaces and items you delete stay here until you delete them '
+                  'for good.'
             : 'Archive a space or item to tuck it away without deleting it.',
       );
     }

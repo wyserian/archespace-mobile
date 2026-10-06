@@ -14,8 +14,9 @@ import 'package:archespace_mobile/src/shared/util/uuid.dart';
 ///
 /// It mirrors what the database does for these tables (the web repo's
 /// schema.sql): column defaults, `updated_at`, cascading deletes, the
-/// read-only space guards, the vault PIN lockout and the 30-day recycle bin
-/// purge. The web app's local mode works the same way.
+/// read-only space guards and the vault PIN lockout. Like the server, it never
+/// empties the recycle bin by itself. The web app's local mode works the same
+/// way.
 class LocalDb implements Db {
   LocalDb(this._store);
 
@@ -31,7 +32,6 @@ class LocalDb implements Db {
     'user_encryption': 'user_id',
   };
 
-  static const _binDays = 30;
   static const _pinMaxAttempts = 5;
   static const _pinLock = Duration(minutes: 5);
 
@@ -71,7 +71,7 @@ class LocalDb implements Db {
     },
   };
 
-  /// The tables, loaded once (and the recycle bin purged).
+  /// The tables, loaded once.
   Future<Map<String, Map<String, Map<String, dynamic>>>> get _tables =>
       _loading ??= () async {
         final loaded = <String, Map<String, Map<String, dynamic>>>{};
@@ -81,7 +81,6 @@ class LocalDb implements Db {
             for (final row in await _store.read(table)) row[key] as String: row,
           };
         }
-        await _purgeBin(loaded);
         return loaded;
       }();
 
@@ -294,24 +293,6 @@ class LocalDb implements Db {
     return _saving = _saving
         .catchError((Object _) {})
         .then((_) => _store.write(table, rows));
-  }
-
-  /// The recycle bin keeps things for 30 days (purge_old_deleted_records).
-  Future<void> _purgeBin(
-    Map<String, Map<String, Map<String, dynamic>>> t,
-  ) async {
-    final cutoff = DateTime.now().subtract(const Duration(days: _binDays));
-    bool expired(Map<String, dynamic> row) {
-      final at = DateTime.tryParse((row['deleted_at'] ?? '').toString());
-      return at != null && at.isBefore(cutoff);
-    }
-
-    await _erase(
-      t,
-      'space_items',
-      t['space_items']!.values.where(expired).toList(),
-    );
-    await _erase(t, 'spaces', t['spaces']!.values.where(expired).toList());
   }
 
   @override
