@@ -13,7 +13,7 @@ class BuildInfo {
     defaultValue: 'dev',
   );
 
-  static const String repoUrl = 'https://github.com/bitwyser/archespace-mobile';
+  static const String repoUrl = 'https://github.com/wyserian/archespace-mobile';
 
   /// Link to the exact source commit this build was compiled from, or the repo
   /// root for unstamped ("dev") builds.
