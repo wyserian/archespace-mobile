@@ -326,6 +326,7 @@ class _StarredScreenState extends State<StarredScreen>
       onTap: isEditableType(item.type) ? () => editItem(item) : null,
       onTogglePin: readOnly ? null : () => togglePinItem(item),
       onToggleStar: () => toggleStarItem(item),
+      onSetReminder: _offline ? null : () => editItemReminder(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),

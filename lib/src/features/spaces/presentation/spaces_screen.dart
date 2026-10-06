@@ -1072,6 +1072,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     onTap: isEditableType(item.type) ? () => editItem(item) : null,
     onTogglePin: () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
+    onSetReminder: _offline ? null : () => editItemReminder(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: () => duplicateItem(item),
     onMove: () => moveItem(item),

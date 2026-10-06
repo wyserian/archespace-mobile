@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
@@ -43,9 +44,34 @@ class ItemRepository {
   Future<({List<SpaceItem> items, bool fromCache})> listStarredItems() =>
       _list('items_starred', (q) => q.eq('starred', true));
 
+  /// Items with a reminder, from every space and the dashboard (Upcoming).
+  Future<({List<SpaceItem> items, bool fromCache})> listUpcomingItems() =>
+      _list('items_upcoming', (q) => q.not('reminder', 'is', null));
+
+  /// Every active item's reminder, by item id (for the notifications and the
+  /// Upcoming badge). Only the ids and reminders are fetched and decrypted.
+  Future<Map<String, Reminder>> listReminders() async {
+    final rows = await _client
+        .from('space_items')
+        .select('id, reminder')
+        .not('reminder', 'is', null)
+        .isFilter('deleted_at', null)
+        .isFilter('archived_at', null);
+    final reminders = <String, Reminder>{};
+    for (final row in rows as List) {
+      try {
+        final reminder = await _decryptReminder((row as Map)['reminder']);
+        if (reminder != null) reminders[row['id'] as String] = reminder;
+      } catch (_) {
+        // Left over from another vault key.
+      }
+    }
+    return reminders;
+  }
+
   static const _columns =
-      'id, space_id, type, title, content, tags, pinned, starred, locked, '
-      'position, created_at';
+      'id, space_id, type, title, content, tags, reminder, pinned, starred, '
+      'locked, position, created_at';
 
   /// Fetch active items matching [where], caching the encrypted rows under
   /// [cacheKey]; on a network error, fall back to that cache.
@@ -88,6 +114,7 @@ class ItemRepository {
             ),
             content: await ArcheCrypto.decryptJsonMap(m['content'], _masterKey),
             tags: await ArcheCrypto.decryptTags(m['tags'], _masterKey),
+            reminder: await _decryptReminder(m['reminder']),
             pinned: (m['pinned'] ?? false) as bool,
             starred: (m['starred'] ?? false) as bool,
             locked: (m['locked'] ?? false) as bool,
@@ -112,6 +139,31 @@ class ItemRepository {
     await _client
         .from('space_items')
         .update({'tags': await _encTags(tags)})
+        .eq('id', id);
+  }
+
+  /// An item's reminder, or null (an encrypted JSON object, like the tags).
+  Future<Reminder?> _decryptReminder(Object? value) async {
+    if (value is Map) return Reminder.fromJson(value);
+    if (value is! String || value.isEmpty) return null;
+    return Reminder.fromJson(
+      jsonDecode(await ArcheCrypto.decryptArc1(value, _masterKey)),
+    );
+  }
+
+  /// Set or (with null) remove an item's reminder. Not content, so a
+  /// read-only space allows it too, like a star.
+  Future<void> setReminder(String id, Reminder? reminder) async {
+    await _client
+        .from('space_items')
+        .update({
+          'reminder': reminder == null
+              ? null
+              : await ArcheCrypto.encryptArc1(
+                  jsonEncode(reminder.toJson()),
+                  _masterKey,
+                ),
+        })
         .eq('id', id);
   }
 

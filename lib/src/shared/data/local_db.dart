@@ -54,6 +54,7 @@ class LocalDb implements Db {
       'title': '',
       'content': <String, dynamic>{},
       'tags': <dynamic>[],
+      'reminder': null,
       'position': 0,
       'pinned': false,
       'starred': false,

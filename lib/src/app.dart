@@ -14,6 +14,7 @@ import 'package:archespace_mobile/src/features/auth/presentation/login_screen.da
 import 'package:archespace_mobile/src/features/onboarding/presentation/splash_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/spaces_screen.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
+import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/unlock_screen.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/vault_setup_screen.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -29,6 +30,8 @@ class ArcheApp extends StatelessWidget {
       listenable: appearance,
       builder: (context, _) => MaterialApp(
         title: 'ArcheSpace',
+        // Lets a tapped reminder open Upcoming.
+        navigatorKey: ReminderNotifications.navigatorKey,
         themeMode: appearance.themeMode,
         theme: _theme(appearance.accent, Brightness.light),
         darkTheme: _theme(appearance.accent, Brightness.dark),
@@ -149,26 +152,41 @@ class _RootGateState extends State<_RootGate> {
   void initState() {
     super.initState();
     AppMode.local.addListener(_onModeChanged);
+    VaultSession.instance.unlocked.addListener(_onUnlockChanged);
     _sub = _auth.onAuthStateChange.listen((state) {
       if (state.event == AuthChangeEvent.signedOut) {
         VaultSession.instance.lock();
-        // Don't leave a stored key or cached data behind for the next account.
+        // Don't leave a stored key, cached data or reminders behind for the
+        // next account.
         SecureKeyStore().clear();
         CacheStore.clear();
+        ReminderNotifications.instance.clear();
       }
       if (mounted) setState(() {});
     });
   }
 
-  /// Entering or leaving local mode; leaving locks the vault.
+  /// Entering or leaving local mode; leaving locks the vault. The other
+  /// mode's reminders are set again on its next unlock.
   void _onModeChanged() {
     if (!AppMode.isLocal) VaultSession.instance.lock();
+    ReminderNotifications.instance.clear();
     if (mounted) setState(() {});
+  }
+
+  /// Unlocked: schedule the reminders (only an unlocked device can read the
+  /// reminders), and open Upcoming for a reminder tapped while locked.
+  void _onUnlockChanged() {
+    if (!VaultSession.instance.unlocked.value) return;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ReminderNotifications.instance.sync(),
+    );
   }
 
   @override
   void dispose() {
     AppMode.local.removeListener(_onModeChanged);
+    VaultSession.instance.unlocked.removeListener(_onUnlockChanged);
     _sub.cancel();
     super.dispose();
   }

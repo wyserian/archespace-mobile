@@ -903,10 +903,12 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     selectMode: _selectMode,
     selected: _selected.contains(item.id),
     onSelectToggle: () => _toggleSelect(item.id),
-    // Read-only: the card opens a viewer, and only star, copy and export stay.
+    // Read-only: the card opens a viewer, and only star, reminder, copy and
+    // export stay.
     onTap: isEditableType(item.type) ? () => editItem(item) : null,
     onTogglePin: _readOnly ? null : () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
+    onSetReminder: _offline ? null : () => editItemReminder(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: _readOnly ? null : () => duplicateItem(item),
     onMove: _readOnly ? null : () => moveItem(item),

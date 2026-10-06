@@ -1,3 +1,5 @@
+import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
+
 /// A decrypted item within a space. [content] is the decrypted JSON object,
 /// whose shape depends on [type] (see the web item type definitions).
 class SpaceItem {
@@ -11,6 +13,7 @@ class SpaceItem {
     this.locked = false,
     this.spaceId,
     this.tags = const [],
+    this.reminder,
     this.createdAt,
   });
 
@@ -32,5 +35,8 @@ class SpaceItem {
   /// to its own space.
   final String? spaceId;
   final List<String> tags;
+
+  /// The item's reminder, or null (encrypted like the tags).
+  final Reminder? reminder;
   final DateTime? createdAt;
 }

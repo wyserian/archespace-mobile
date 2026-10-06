@@ -15,6 +15,7 @@ import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_text_html.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/domain/whiteboard.dart';
+import 'package:archespace_mobile/src/features/upcoming/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
@@ -37,6 +38,7 @@ class ItemCard extends StatefulWidget {
     this.onDelete,
     this.onExport,
     this.onSetTags,
+    this.onSetReminder,
     this.selectMode = false,
     this.selected = false,
     this.onSelectToggle,
@@ -70,6 +72,9 @@ class ItemCard extends StatefulWidget {
 
   /// Persist a new tag list for this item. Null hides tag editing.
   final void Function(List<String>)? onSetTags;
+
+  /// Open the reminder sheet. Null hides reminder editing.
+  final VoidCallback? onSetReminder;
   final bool selectMode;
   final bool selected;
   final VoidCallback? onSelectToggle;
@@ -182,6 +187,7 @@ class _ItemCardState extends State<ItemCard>
     final onDelete = widget.onDelete;
     final onExport = widget.onExport;
     final onToggleLock = widget.onToggleLock;
+    final onSetReminder = widget.onSetReminder;
     final scheme = Theme.of(context).colorScheme;
     // Protected (itself or its space) and not opened with the PIN: the content,
     // Copy and Export PDF stay out of reach.
@@ -356,6 +362,7 @@ class _ItemCardState extends State<ItemCard>
                   if (!selectMode &&
                       (onTogglePin != null ||
                           onToggleStar != null ||
+                          onSetReminder != null ||
                           onToggleLock != null ||
                           onDuplicate != null ||
                           onMove != null ||
@@ -385,6 +392,7 @@ class _ItemCardState extends State<ItemCard>
                           }
                           if (value == 'pin') onTogglePin?.call();
                           if (value == 'star') onToggleStar?.call();
+                          if (value == 'reminder') onSetReminder?.call();
                           if (value == 'lock') onToggleLock?.call();
                           if (value == 'duplicate') onDuplicate?.call();
                           if (value == 'move') onMove?.call();
@@ -410,6 +418,16 @@ class _ItemCardState extends State<ItemCard>
                               height: 40,
                               value: 'star',
                               child: Text(item.starred ? 'Unstar' : 'Star'),
+                            ),
+                          if (onSetReminder != null)
+                            PopupMenuItem(
+                              height: 40,
+                              value: 'reminder',
+                              child: Text(
+                                item.reminder == null
+                                    ? 'Add reminder'
+                                    : 'Change reminder',
+                              ),
                             ),
                           if (onToggleLock != null)
                             PopupMenuItem(
@@ -570,8 +588,11 @@ class _ItemCardState extends State<ItemCard>
 
   Widget _tagsRow(BuildContext context, ColorScheme scheme) {
     final tags = widget.item.tags;
+    final reminder = widget.item.reminder;
     final canEdit = widget.onSetTags != null && !widget.selectMode;
-    if (tags.isEmpty && !canEdit) return const SizedBox.shrink();
+    if (tags.isEmpty && reminder == null && !canEdit) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Wrap(
@@ -579,6 +600,11 @@ class _ItemCardState extends State<ItemCard>
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (reminder != null)
+            ReminderChip(
+              reminder: reminder,
+              onTap: widget.selectMode ? null : widget.onSetReminder,
+            ),
           for (final tag in tags)
             _TagChip(
               label: tag,

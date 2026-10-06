@@ -10,6 +10,8 @@ import 'package:archespace_mobile/src/features/items/presentation/item_editor_sc
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
+import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
+import 'package:archespace_mobile/src/features/upcoming/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
@@ -143,6 +145,28 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       }
     } catch (_) {
       showItemError("Couldn't update the star.");
+    }
+  }
+
+  /// Set, change or remove [item]'s reminder. Asks to show notifications the
+  /// first time one is saved, then reschedules them.
+  Future<void> editItemReminder(SpaceItem item) async {
+    final edit = await showReminderSheet(context, initial: item.reminder);
+    if (edit == null) return;
+    final notifications = ReminderNotifications.instance;
+    if (edit.reminder != null) await notifications.requestPermission();
+    try {
+      await _repo.setReminder(item.id, edit.reminder);
+      notifications.sync();
+      if (mounted) {
+        reloadItems();
+        showSuccessSnack(
+          context,
+          edit.reminder == null ? 'Reminder removed' : 'Reminder saved',
+        );
+      }
+    } catch (_) {
+      showItemError("Couldn't save the reminder.");
     }
   }
 
@@ -363,6 +387,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     locked: item.locked,
     spaceId: item.spaceId,
     tags: tags,
+    reminder: item.reminder,
     createdAt: item.createdAt,
   );
 

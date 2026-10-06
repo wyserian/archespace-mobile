@@ -10,17 +10,28 @@ import 'package:archespace_mobile/src/features/settings/presentation/settings_sc
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/storage/presentation/storage_screen.dart';
 import 'package:archespace_mobile/src/features/starred/presentation/starred_screen.dart';
+import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
+import 'package:archespace_mobile/src/features/upcoming/presentation/upcoming_screen.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
 const _spacesOpenKey = 'drawer_spaces_open';
 
 /// The drawer's destinations, to mark the screen it was opened on.
-enum DrawerPage { dashboard, space, starred, archive, bin, settings, other }
+enum DrawerPage {
+  dashboard,
+  space,
+  upcoming,
+  starred,
+  archive,
+  bin,
+  settings,
+  other,
+}
 
 /// The app's navigation drawer: a theme "shuffle" at the top, All spaces and
-/// the top-level spaces (folding under their heading), the library (Starred,
-/// Archive, Recycle bin) with counts, and Lock vault and Settings at the
-/// bottom. Sign out lives in Settings.
+/// the top-level spaces (folding under their heading), the library (Upcoming,
+/// Starred, Archive, Recycle bin) with counts, and Lock vault and Settings at
+/// the bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
 /// dashboard also has a menu button). Its destinations go back to the
@@ -207,6 +218,19 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
         ],
         _sectionLabel(context, 'Library'),
+        // Reminders for today or past, as an accent badge.
+        ValueListenableBuilder<int>(
+          valueListenable: ReminderNotifications.instance.nowCount,
+          builder: (context, nowCount, _) => _tile(
+            context,
+            icon: Icons.event_outlined,
+            label: 'Upcoming',
+            badge: nowCount,
+            selected: _isCurrent(DrawerPage.upcoming),
+            onTap: () =>
+                _open(context, DrawerPage.upcoming, const UpcomingScreen()),
+          ),
+        ),
         ListenableBuilder(
           listenable: StorageCounts.instance,
           builder: (context, _) => Column(
@@ -305,6 +329,7 @@ class _AppDrawerState extends State<AppDrawer> {
     bool protected = false,
     Color? iconColor,
     int? count,
+    int badge = 0,
   }) {
     final scheme = Theme.of(context).colorScheme;
     // The current page reads through a soft fill and an accent icon, not an
@@ -335,6 +360,25 @@ class _AppDrawerState extends State<AppDrawer> {
                 size: 14,
                 color: scheme.onSurfaceVariant,
                 semanticLabel: 'Protected',
+              )
+            : badge > 0
+            ? Container(
+                constraints: const BoxConstraints(minWidth: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge > 99 ? '99+' : '$badge',
+                  textAlign: TextAlign.center,
+                  semanticsLabel: '$badge for today or past',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onPrimary,
+                  ),
+                ),
               )
             : count == null
             ? null

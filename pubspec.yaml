@@ -38,6 +38,11 @@ dependencies:
   url_launcher: ^6.3.2
   # QR code for two-factor auth (TOTP) enrolment.
   qr_flutter: ^4.1.0
+  # Item reminders, scheduled on the device (the server can't read the
+  # encrypted reminders), at the user's local time.
+  flutter_local_notifications: ^22.3.1
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.1
 
 dev_dependencies:
   flutter_test:

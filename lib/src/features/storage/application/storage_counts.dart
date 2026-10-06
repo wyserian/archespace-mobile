@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:archespace_mobile/src/features/storage/data/storage_repository.dart';
+import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
 /// Holds the starred, archive and recycle-bin counts app-wide so the drawer
@@ -19,6 +20,9 @@ class StorageCounts extends ChangeNotifier {
   Future<void> refresh() async {
     if (_loading) return;
     _loading = true;
+    // Archiving, deleting or restoring changes which reminders are set too,
+    // and so does the day (the Upcoming badge).
+    ReminderNotifications.instance.sync();
     try {
       final repo = StorageRepository(VaultSession.instance.masterKey);
       final counts = await Future.wait([

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
@@ -12,7 +13,7 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// vault key, and `vault` is that key wrapped with the vault PIN (as the
 /// server stores it). So it opens as-is in the same vault, and anywhere else
 /// with the vault PIN of the time. Each space carries its fields and an
-/// `items` array ({ type, title, content, position, pinned }); the top-level
+/// `items` array ({ type, title, content, position, pinned, reminder }); the top-level
 /// `items` are the dashboard's (no space).
 class BackupRepository {
   BackupRepository(this._masterKey);
@@ -32,7 +33,7 @@ class BackupRepository {
   Future<List<Map<String, dynamic>>> _exportItems(String? spaceId) async {
     final query = _client
         .from('space_items')
-        .select('type, title, content, position, pinned, locked');
+        .select('type, title, content, reminder, position, pinned, locked');
     final itemRows =
         await (spaceId == null
                 ? query.isFilter('space_id', null)
@@ -43,6 +44,9 @@ class BackupRepository {
 
     final items = <Map<String, dynamic>>[];
     for (final it in itemRows) {
+      final reminder = it['reminder'] is String
+          ? Reminder.fromJson(jsonDecode(await _dec(it['reminder'])))
+          : null;
       items.add({
         'type': it['type'],
         'title': await _dec(it['title']),
@@ -50,6 +54,7 @@ class BackupRepository {
         'position': it['position'],
         'pinned': it['pinned'] ?? false,
         if (it['locked'] == true) 'locked': true,
+        'reminder': ?reminder?.toJson(),
       });
     }
     return items;
@@ -143,6 +148,7 @@ class BackupRepository {
         continue;
       }
       final title = it['title'] is String ? (it['title'] as String).trim() : '';
+      final reminder = Reminder.fromJson(it['reminder']);
       rows.add({
         'space_id': spaceId,
         'user_id': userId,
@@ -152,6 +158,9 @@ class BackupRepository {
         'position': it['position'] is int ? it['position'] : rows.length,
         'pinned': it['pinned'] == true,
         'locked': it['locked'] == true,
+        'reminder': ?(reminder == null
+            ? null
+            : await _encJson(reminder.toJson())),
       });
     }
     if (rows.isNotEmpty) {
