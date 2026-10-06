@@ -1,3 +1,4 @@
+import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
@@ -177,6 +178,8 @@ String _itemText(String type, String title, Map<String, dynamic> content) {
           }
         }
       }
+    case 'kanban':
+      parts.addAll(kanbanSearchParts(content));
   }
   return parts.join(' ');
 }

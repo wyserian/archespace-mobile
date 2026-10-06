@@ -12,6 +12,8 @@ import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/items/domain/code_highlight.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_clipboard.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
+import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_text_html.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/domain/whiteboard.dart';
@@ -795,6 +797,8 @@ class _ItemBody extends StatelessWidget {
         return _Cards(items: (c['items'] as List?) ?? const []);
       case 'table':
         return _TableView(columns: _columns(c), rows: _rows(c));
+      case 'kanban':
+        return _Kanban(content: c);
       case 'whiteboard':
         return _Whiteboard(content: c);
       default:
@@ -1079,6 +1083,97 @@ class _TableView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A Kanban preview: its columns side by side (scrolling sideways), each with
+/// its count and first few cards. Tapping the card opens the full editor.
+class _Kanban extends StatelessWidget {
+  const _Kanban({required this.content});
+
+  final Map<String, dynamic> content;
+
+  static const _shown = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = kanbanColumns(content);
+    if (columns.isEmpty) return const _Empty();
+    final scheme = Theme.of(context).colorScheme;
+    final muted = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final col in columns)
+            Container(
+              width: 150,
+              margin: const EdgeInsets.only(right: 8),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color:
+                    spaceColor(col.color)?.withValues(alpha: 0.08) ??
+                    scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // The column's colour as a strip along its top.
+                  if (spaceColor(col.color) != null)
+                    Container(height: 3, color: spaceColor(col.color)),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _column(col, scheme, muted),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _column(KanbanColumn col, ColorScheme scheme, TextStyle muted) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  col.title.isEmpty ? 'Untitled' : col.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text('${col.cards.length}', style: muted),
+            ],
+          ),
+          for (final card in col.cards.take(_shown))
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                card.title.isEmpty ? 'Untitled' : card.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          if (col.cards.length > _shown)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('+${col.cards.length - _shown} more', style: muted),
+            ),
+        ],
+      );
 }
 
 /// A Whiteboard's saved preview image. Decoded once per preview, not on every

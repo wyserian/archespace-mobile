@@ -8,6 +8,7 @@ import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
 import 'package:archespace_mobile/src/features/items/domain/code_highlight.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
+import 'package:archespace_mobile/src/features/items/presentation/kanban_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/rich_text_web_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web_editor.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
@@ -348,6 +349,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
         return _CardsEditor(content: _content, readOnly: readOnly);
       case 'table':
         return _TableEditor(content: _content, readOnly: readOnly);
+      case 'kanban':
+        return KanbanEditor(content: _content, readOnly: readOnly);
       case 'whiteboard':
         return WhiteboardWebEditor(
           content: Map<String, dynamic>.of(_content),

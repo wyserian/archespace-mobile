@@ -1,3 +1,4 @@
+import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 
@@ -12,6 +13,7 @@ bool isCopyableType(String type) => const {
   'checkbox_list',
   'card_list',
   'table',
+  'kanban',
 }.contains(type);
 
 /// Serialize an item's content to plain text for copy-to-clipboard, matching
@@ -36,6 +38,8 @@ String itemClipboardText(SpaceItem item) {
       return _cards(c);
     case 'table':
       return _table(c);
+    case 'kanban':
+      return kanbanText(c);
     default:
       return '';
   }

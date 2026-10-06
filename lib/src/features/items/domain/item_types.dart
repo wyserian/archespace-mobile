@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 
 /// Definition of an item type: label, description, icon and colour.
@@ -44,6 +45,7 @@ const Map<int, Color> _kLightTypeColors = {
   0xFFE879F9: Color(0xFFC026D3), // fuchsia
   0xFFFB923C: Color(0xFFC2410C), // orange
   0xFF34D399: Color(0xFF047857), // emerald
+  0xFF2DD4BF: Color(0xFF0F766E), // teal
 };
 
 const List<ItemTypeDef> kItemTypes = [
@@ -109,6 +111,13 @@ const List<ItemTypeDef> kItemTypes = [
     color: Color(0xFF38BDF8), // sky
   ),
   ItemTypeDef(
+    type: 'kanban',
+    label: 'Kanban',
+    description: 'Cards in columns, from to do to done',
+    icon: Icons.view_kanban_outlined,
+    color: Color(0xFF2DD4BF), // teal
+  ),
+  ItemTypeDef(
     type: 'whiteboard',
     label: 'Whiteboard',
     description: 'Shapes, arrows, text and sketches',
@@ -163,6 +172,8 @@ Map<String, dynamic> defaultContentFor(String type) {
       };
     case 'whiteboard':
       return {'elements': <dynamic>[]};
+    case 'kanban':
+      return defaultKanban();
     default:
       return <String, dynamic>{};
   }

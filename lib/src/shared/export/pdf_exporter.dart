@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_text_html.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
@@ -182,6 +183,8 @@ class PdfExporter {
         return _cards(c);
       case 'table':
         return [_table(c)];
+      case 'kanban':
+        return _kanban(c);
       case 'whiteboard':
         return [_whiteboard(c)];
       default:
@@ -434,6 +437,36 @@ class PdfExporter {
           ),
         if ((items[i]['description'] ?? '').toString().isNotEmpty)
           _text((items[i]['description']).toString()),
+      ],
+    ];
+  }
+
+  /// Each column as a heading with its count, then its cards (split-safe bare
+  /// Texts, like [_cards]).
+  static List<pw.Widget> _kanban(Map<String, dynamic> c) {
+    final columns = kanbanColumns(c);
+    if (!columns.any((col) => col.cards.isNotEmpty || col.title.isNotEmpty)) {
+      return [pw.Text('(empty)')];
+    }
+    return [
+      for (final col in columns) ...[
+        pw.SizedBox(height: 4),
+        _text(
+          '${col.title.isEmpty ? 'Untitled' : col.title}  (${col.cards.length})',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 2),
+        if (col.cards.isEmpty) pw.Text('(empty)'),
+        for (var i = 0; i < col.cards.length; i++) ...[
+          if (i > 0) pw.Divider(height: 8, thickness: 0.3),
+          _text(col.cards[i].title.isEmpty ? 'Untitled' : col.cards[i].title),
+          if (col.cards[i].description.isNotEmpty)
+            _text(
+              col.cards[i].description,
+              style: const pw.TextStyle(color: PdfColors.grey700),
+            ),
+        ],
+        pw.SizedBox(height: 6),
       ],
     ];
   }
