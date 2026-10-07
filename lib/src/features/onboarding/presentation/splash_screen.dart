@@ -22,11 +22,28 @@ class SplashScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'ArcheSpace',
+                  // The name as on the web and in the emails: caps, ARCHE in
+                  // the brand mint (deeper on light for contrast).
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'ARCHE',
+                          style: TextStyle(
+                            color: theme.brightness == Brightness.dark
+                                ? const Color(0xFF32D3AA)
+                                : const Color(0xFF0B7F64),
+                          ),
+                        ),
+                        const TextSpan(text: 'SPACE'),
+                      ],
+                    ),
+                    semanticsLabel: 'ArcheSpace',
                     style: theme.textTheme.headlineSmall?.copyWith(
+                      fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -0.4,
+                      letterSpacing: 0.72,
+                      color: scheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 10),
