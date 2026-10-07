@@ -37,7 +37,7 @@ class Reminder {
   const Reminder({
     this.name = '',
     required this.date,
-    this.time = defaultTime,
+    this.time = _defaultTime,
     this.mode = ReminderMode.once,
     this.every = ReminderEvery.day,
     this.until,
@@ -60,7 +60,7 @@ class Reminder {
   final String? until;
 
   /// A new reminder's time, unless that's already past today.
-  static const defaultTime = '09:00';
+  static const _defaultTime = '09:00';
   static const maxName = 100;
 
   static final _dateRe = RegExp(r'^\d{4}-\d{2}-\d{2}$');
@@ -90,7 +90,7 @@ class Reminder {
     return Reminder(
       name: name.length > maxName ? name.substring(0, maxName) : name,
       date: date,
-      time: time is String && _timeRe.hasMatch(time) ? time : defaultTime,
+      time: time is String && _timeRe.hasMatch(time) ? time : _defaultTime,
       mode: mode,
       every: every,
       // A repeat ends on its until day (never before it starts).
@@ -116,7 +116,7 @@ class Reminder {
   static Reminder initial([DateTime? now]) {
     now ??= DateTime.now();
     final today = dayString(now);
-    if (_local(today, defaultTime).isAfter(now)) return Reminder(date: today);
+    if (_local(today, _defaultTime).isAfter(now)) return Reminder(date: today);
     if (now.hour < 23) {
       return Reminder(
         date: today,
@@ -129,7 +129,7 @@ class Reminder {
   bool get repeats => mode != ReminderMode.once;
 
   /// The [index]th time it goes off (0 = the first), ignoring its end.
-  DateTime occurrence(int index) {
+  DateTime _occurrence(int index) {
     final d = date.split('-').map(int.parse).toList();
     final t = time.split(':').map(int.parse).toList();
     DateTime clamped(int year, int month) {
@@ -148,7 +148,7 @@ class Reminder {
 
   /// The index of the first time at or after [from], ignoring its end.
   int _indexAtOrAfter(DateTime from) {
-    final start = occurrence(0);
+    final start = _occurrence(0);
     if (!start.isBefore(from)) return 0;
     if (!repeats) return 1;
     // Start just before [from], then step to it.
@@ -161,7 +161,7 @@ class Reminder {
       ReminderEvery.year => months ~/ 12 - 1,
     };
     if (index < 0) index = 0;
-    while (occurrence(index).isBefore(from)) {
+    while (_occurrence(index).isBefore(from)) {
       index++;
     }
     return index;
@@ -169,29 +169,29 @@ class Reminder {
 
   bool _withinEnd(int index) => switch (mode) {
     ReminderMode.once => index == 0,
-    ReminderMode.repeat => dayString(occurrence(index)).compareTo(until!) <= 0,
+    ReminderMode.repeat => dayString(_occurrence(index)).compareTo(until!) <= 0,
     ReminderMode.permanent => true,
   };
 
   /// The next time it goes off at or after [from], or null when it's over.
   DateTime? nextOccurrence([DateTime? from]) {
     final index = _indexAtOrAfter(from ?? DateTime.now());
-    return _withinEnd(index) ? occurrence(index) : null;
+    return _withinEnd(index) ? _occurrence(index) : null;
   }
 
   /// The times it goes off from [from], up to [limit] of them.
   Iterable<DateTime> occurrencesFrom(DateTime from, int limit) sync* {
     var index = _indexAtOrAfter(from);
     for (var n = 0; n < limit && _withinEnd(index); n++, index++) {
-      yield occurrence(index);
+      yield _occurrence(index);
     }
   }
 
   /// The last time it went off (for a finished reminder).
   DateTime _lastOccurrence() {
-    if (mode != ReminderMode.repeat) return occurrence(0);
+    if (mode != ReminderMode.repeat) return _occurrence(0);
     final index = _indexAtOrAfter(_local(addDays(until!, 1)));
-    return occurrence(index > 0 ? index - 1 : 0);
+    return _occurrence(index > 0 ? index - 1 : 0);
   }
 
   /// The time to show: the next one, or the last once it's over.

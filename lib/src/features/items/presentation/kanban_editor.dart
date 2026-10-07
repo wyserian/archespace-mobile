@@ -151,7 +151,6 @@ class _KanbanEditorState extends State<KanbanEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // A compact Add column above the columns.
         if (!widget.readOnly)
           Align(
             alignment: Alignment.centerRight,
@@ -194,8 +193,8 @@ class _KanbanEditorState extends State<KanbanEditor> {
     final index = _columns.indexOf(col);
     final color = spaceColor(col.color);
     return Container(
-      // Borderless: a soft fill sets the column apart. A colour shows as a
-      // strip along its top and a light tint of that colour.
+      // A soft fill sets the column apart; a colour adds a strip along the
+      // top and tints it.
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color:

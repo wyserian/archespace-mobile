@@ -174,8 +174,8 @@ class _RootGateState extends State<_RootGate> {
     if (mounted) setState(() {});
   }
 
-  /// Unlocked: schedule the reminders (only an unlocked device can read the
-  /// reminders), and open Upcoming for a reminder tapped while locked.
+  /// Unlocked: schedule the reminders (readable only now), and open Upcoming
+  /// for one tapped while locked.
   void _onUnlockChanged() {
     if (!VaultSession.instance.unlocked.value) return;
     WidgetsBinding.instance.addPostFrameCallback(

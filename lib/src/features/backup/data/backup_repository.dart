@@ -13,8 +13,8 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// vault key, and `vault` is that key wrapped with the vault PIN (as the
 /// server stores it). So it opens as-is in the same vault, and anywhere else
 /// with the vault PIN of the time. Each space carries its fields and an
-/// `items` array ({ type, title, content, position, pinned, reminder }); the top-level
-/// `items` are the dashboard's (no space).
+/// `items` array ({ type, title, content, position, pinned, reminder }); the
+/// top-level `items` are the dashboard's (no space).
 class BackupRepository {
   BackupRepository(this._masterKey);
 

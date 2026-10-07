@@ -42,8 +42,8 @@ class ReminderNotifications {
   final ValueNotifier<int> nowCount = ValueNotifier<int>(0);
   Map<String, Reminder> _reminders = const {};
 
-  /// Recount [nowCount] (it changes at midnight) from the last reminders read.
-  void refreshBadge() =>
+  /// Recount [nowCount] from the last reminders read.
+  void _refreshBadge() =>
       nowCount.value = _reminders.values.where((r) => r.isNow()).length;
 
   Future<void> _ensureInit() => _init ??= _initialize();
@@ -92,7 +92,7 @@ class ReminderNotifications {
       return;
     }
     _reminders = reminders;
-    refreshBadge();
+    _refreshBadge();
     try {
       await _ensureInit();
       final android = _plugin
