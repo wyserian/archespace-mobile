@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 /// The create button. With both actions it is a speed dial: tapping + opens
-/// "New space" and "Add item" above it (Add item nearest, the thumb-reach
-/// spot) over a dimmed screen, and the + turns into a close button. Pass no
-/// [onNewSpace] to show a plain Add item button (e.g. inside a sub-space,
-/// which can't hold further spaces).
+/// two options above it over a dimmed screen, "Add item" then "New space",
+/// and the + turns into a close button. Pass no [onNewSpace] to show a plain
+/// Add item button (e.g. inside a sub-space, which can't hold further spaces).
 class CreateFabs extends StatefulWidget {
   const CreateFabs({super.key, required this.onAddItem, this.onNewSpace});
 
@@ -136,16 +135,16 @@ class _CreateFabsState extends State<CreateFabs>
             children: [
               _option(
                 index: 1,
-                icon: Icons.create_new_folder_outlined,
-                label: 'New space',
-                onTap: () => _pick(widget.onNewSpace!),
-              ),
-              const SizedBox(height: 14),
-              _option(
-                index: 0,
                 icon: Icons.note_add_outlined,
                 label: 'Add item',
                 onTap: () => _pick(widget.onAddItem),
+              ),
+              const SizedBox(height: 12),
+              _option(
+                index: 0,
+                icon: Icons.create_new_folder_outlined,
+                label: 'New space',
+                onTap: () => _pick(widget.onNewSpace!),
               ),
               const SizedBox(height: 18),
               AnimatedBuilder(
@@ -179,15 +178,21 @@ class _CreateFabsState extends State<CreateFabs>
     );
   }
 
-  /// One option row: a label pill and its button, both tappable. Rows nearer
-  /// the + button ([index] 0) appear first.
+  /// One option: a pill with its icon and label in the + button's accent.
+  /// Options nearer the + button ([index] 0) appear first.
   Widget _option({
     required int index,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final color =
+        theme.floatingActionButtonTheme.backgroundColor ??
+        theme.colorScheme.primary;
+    final fg =
+        theme.floatingActionButtonTheme.foregroundColor ??
+        theme.colorScheme.onPrimary;
     final anim = _stagger[index];
     return FadeTransition(
       opacity: anim,
@@ -196,41 +201,31 @@ class _CreateFabsState extends State<CreateFabs>
           begin: const Offset(0, 0.3),
           end: Offset.zero,
         ).animate(anim),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // The button's tooltip already names it for screen readers.
-            ExcludeSemantics(
-              child: Material(
-                color: scheme.surfaceContainerHighest,
-                shape: const StadiumBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
-                    ),
-                    child: Text(
+        child: Semantics(
+          button: true,
+          child: Material(
+            color: color,
+            elevation: 2,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 20, color: fg),
+                    const SizedBox(width: 10),
+                    Text(
                       label,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleSmall?.copyWith(color: scheme.onSurface),
+                      style: theme.textTheme.titleSmall?.copyWith(color: fg),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 14),
-            FloatingActionButton(
-              heroTag: null,
-              onPressed: onTap,
-              tooltip: label,
-              elevation: 2,
-              child: Icon(icon),
-            ),
-          ],
+          ),
         ),
       ),
     );
