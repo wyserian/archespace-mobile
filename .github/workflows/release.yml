@@ -1,12 +1,19 @@
 name: Release APK
 
-# Builds a release APK stamped with the exact source commit, so the build hash
-# shown in Settings links to verifiable, open-source code. Publishes the APK and
-# a SHA-256 checksum to a GitHub Release. Triggered by pushing a v* tag.
+# Builds release APKs stamped with the exact source commit, so the build hash
+# shown in Settings links to verifiable, open-source code: a universal APK and
+# a smaller arm64 one (nearly every phone). Publishes both with SHA-256
+# checksums to a GitHub Release. Triggered by pushing a vX.Y.Z tag.
 #
-# Requires two repository secrets (Settings -> Secrets and variables -> Actions):
-#   SUPABASE_URL       - same value as env.json / the web VITE_SUPABASE_URL
-#   SUPABASE_ANON_KEY  - same value as env.json / the web VITE_SUPABASE_ANON_KEY
+# Requires these repository secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL               - same value as env.json / the web VITE_SUPABASE_URL
+#   SUPABASE_ANON_KEY          - same value as env.json / the web VITE_SUPABASE_ANON_KEY
+#   ANDROID_KEYSTORE_BASE64    - the release keystore (.jks), base64-encoded
+#   ANDROID_KEYSTORE_PASSWORD  - its store password
+#   ANDROID_KEY_ALIAS          - the key's alias
+#   ANDROID_KEY_PASSWORD       - the key's password
+# Every release must be signed with the same key, or Android won't install
+# it as an update, so the build stops if the key is missing.
 
 on:
   push:
@@ -14,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Tag or ref to build (e.g. v0.1.0)'
+        description: 'Release tag to build (vX.Y.Z, e.g. v0.2.0)'
         required: true
 
 permissions:
@@ -48,33 +55,78 @@ jobs:
 
       - run: flutter pub get
 
-      # Derive the build-provenance values from git so the APK is stamped.
+      # Derive the build-provenance values from git so the APK is stamped. The
+      # version name is the tag, and the version code is derived from it
+      # (1.2.3 -> 1002003), so every newer release installs as an update.
       - name: Compute build metadata
         run: |
           echo "BUILD_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
           VERSION="${REF#v}"
+          if ! [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Release ref must be a vX.Y.Z tag, got '$REF'"
+            exit 1
+          fi
           echo "APP_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$(( 10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]} ))" >> "$GITHUB_ENV"
 
-      - name: Build release APK
+      - name: Set up the release key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing the $name secret; refusing to publish an APK without the release key"
+              exit 1
+            fi
+          done
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APKs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          flutter build apk --release \
-            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-            --dart-define=APP_VERSION="$APP_VERSION" \
-            --dart-define=BUILD_HASH="$BUILD_HASH"
+          build() {
+            flutter build apk --release "$@" \
+              --build-name="$APP_VERSION" \
+              --build-number="$BUILD_NUMBER" \
+              --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+              --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+              --dart-define=APP_VERSION="$APP_VERSION" \
+              --dart-define=BUILD_HASH="$BUILD_HASH"
+          }
+          # Universal first, copied out before the arm64-only build replaces it.
+          build
+          cp build/app/outputs/flutter-apk/app-release.apk universal.apk
+          build --target-platform android-arm64
+          cp build/app/outputs/flutter-apk/app-release.apk arm64.apk
 
-      - name: Rename and checksum the APK
+      - name: Check the signature, rename and checksum
         run: |
-          APK="build/app/outputs/flutter-apk/app-release.apk"
-          OUT="archespace-${REF}-${BUILD_HASH}.apk"
-          cp "$APK" "$OUT"
-          sha256sum "$OUT" > "${OUT}.sha256"
-          echo "APK_OUT=$OUT" >> "$GITHUB_ENV"
-          echo "Built $OUT (commit $BUILD_HASH):"
-          cat "${OUT}.sha256"
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)/apksigner"
+          UNIVERSAL="archespace-${REF}-${BUILD_HASH}.apk"
+          ARM64="archespace-${REF}-${BUILD_HASH}-arm64.apk"
+          mv universal.apk "$UNIVERSAL"
+          mv arm64.apk "$ARM64"
+          for apk in "$UNIVERSAL" "$ARM64"; do
+            CERTS="$("$APKSIGNER" verify --print-certs "$apk")"
+            if echo "$CERTS" | grep -q "CN=Android Debug"; then
+              echo "::error::$apk is signed with a debug key"
+              exit 1
+            fi
+            sha256sum "$apk" > "${apk}.sha256"
+            cat "${apk}.sha256"
+          done
+          echo "CERT_SHA256=$(echo "$CERTS" | grep -m1 'certificate SHA-256 digest' | awk '{print $NF}')" >> "$GITHUB_ENV"
+          echo "APK_UNIVERSAL=$UNIVERSAL" >> "$GITHUB_ENV"
+          echo "APK_ARM64=$ARM64" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         env:
@@ -89,11 +141,19 @@ jobs:
               echo "---"
               echo
             fi
-            echo "Release APK built from commit \`${BUILD_HASH}\`."
+            echo "Release APKs built from commit \`${BUILD_HASH}\`."
             echo "The build hash in Settings links to this commit's source."
+            echo
+            echo "**Which APK**"
+            echo "- \`${APK_ARM64}\` - smaller; for nearly every phone (64-bit ARM)"
+            echo "- \`${APK_UNIVERSAL}\` - works on any device"
+            echo
+            echo "Signing certificate SHA-256: \`${CERT_SHA256}\`"
           } > release-notes.md
           gh release create "$REF" \
             --title "$REF" \
             --notes-file release-notes.md \
-            "$APK_OUT" \
-            "${APK_OUT}.sha256"
+            "$APK_ARM64" \
+            "${APK_ARM64}.sha256" \
+            "$APK_UNIVERSAL" \
+            "${APK_UNIVERSAL}.sha256"

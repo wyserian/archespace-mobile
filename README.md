@@ -139,16 +139,32 @@ Or invoke Flutter directly:
 flutter build apk --release --dart-define-from-file=env.json --dart-define=BUILD_HASH=$(git rev-parse --short HEAD)
 ```
 
-Commit your changes first so the stamped hash exists on GitHub. The release APK is currently signed with the debug key (see `android/app/build.gradle.kts`); add a real keystore before distributing through an app store.
+Commit your changes first so the stamped hash exists on GitHub. A local release build is signed with the key in `android/key.properties` (git-ignored) when it exists, and with the debug key otherwise:
+
+```properties
+storeFile=C:/path/to/archespace-release.jks
+storePassword=...
+keyAlias=archespace
+keyPassword=...
+```
+
+### Release key
+
+Every release must be signed with the same key, or Android refuses to install it as an update. Create it once, keep it backed up somewhere safe, and never commit it:
+
+```bash
+keytool -genkeypair -v -keystore archespace-release.jks -alias archespace -keyalg RSA -keysize 4096 -validity 10000
+```
 
 ## Release verification
 
-Pushing a `v*` tag runs the **Release APK** workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)), which builds the APK on CI, stamps it with the exact commit, and publishes it to a GitHub Release with a SHA-256 checksum. The app version shown in Settings links to that commit, so anyone can confirm the installed binary was built from the audited, open-source code.
+Pushing a `vX.Y.Z` tag runs the **Release APK** workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)), which builds on CI, stamps the exact commit, and publishes to a GitHub Release with SHA-256 checksums: a universal APK and a smaller arm64 one for nearly every phone. The version comes from the tag. The app version shown in Settings links to that commit, so anyone can confirm the installed binary was built from the audited, open-source code. The release notes list the signing certificate's SHA-256, and the workflow refuses to publish without the release key.
 
-The workflow needs two repository secrets (the same values as `env.json`), set under **Settings > Secrets and variables > Actions**:
+The workflow needs these repository secrets, set under **Settings > Secrets and variables > Actions**:
 
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` - the same values as `env.json`
+- `ANDROID_KEYSTORE_BASE64` - the release key file, base64-encoded (`base64 -w0 archespace-release.jks`)
+- `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`
 
 Cut a release by tagging and pushing:
 
@@ -226,7 +242,7 @@ Each feature follows a `data` / `domain` / `application` / `presentation` layeri
 ## Roadmap
 
 - **Push notifications**: "something changed" signals only (never content), sent server-side.
-- **Release signing**: ship a real Android keystore (and iOS signing) so releases are store-ready.
+- **iOS signing**: so iOS releases are store-ready.
 - **First-party backend**: mirrors the web roadmap - a self-contained backend the project owns, landing incrementally behind configuration. The zero-knowledge design does not change.
 
 Other improvements are tracked as issues. If there is something you want to see, propose it there.
