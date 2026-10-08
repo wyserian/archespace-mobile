@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:archespace_mobile/src/shared/widgets/brand_name.dart';
+
 /// The app-open landing screen: the name and a one-line value prop, with a
 /// single clear "Get started" action that continues to the sign-in /
 /// create-account screen.
@@ -22,30 +24,7 @@ class SplashScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // The name as on the web and in the emails: caps, ARCHE in
-                  // the brand mint (deeper on light for contrast).
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'ARCHE',
-                          style: TextStyle(
-                            color: theme.brightness == Brightness.dark
-                                ? const Color(0xFF32D3AA)
-                                : const Color(0xFF0B7F64),
-                          ),
-                        ),
-                        const TextSpan(text: 'SPACE'),
-                      ],
-                    ),
-                    semanticsLabel: 'ArcheSpace',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.72,
-                      color: scheme.onSurface,
-                    ),
-                  ),
+                  const BrandName(),
                   const SizedBox(height: 10),
                   Text(
                     'Everything in One Encrypted Space',

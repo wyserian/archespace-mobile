@@ -13,6 +13,7 @@ import 'package:archespace_mobile/src/features/starred/presentation/starred_scre
 import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/upcoming/presentation/upcoming_screen.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
+import 'package:archespace_mobile/src/shared/widgets/brand_name.dart';
 
 const _spacesOpenKey = 'drawer_spaces_open';
 
@@ -28,10 +29,10 @@ enum DrawerPage {
   other,
 }
 
-/// The app's navigation drawer: a theme "shuffle" at the top, All spaces and
-/// the top-level spaces (folding under their heading), the library (Upcoming,
-/// Starred, Archive, Recycle bin) with counts, and Lock vault and Settings at
-/// the bottom. Sign out lives in Settings.
+/// The app's navigation drawer: the name and a theme "shuffle" at the top, All
+/// spaces and the top-level spaces (folding under their heading), the library
+/// (Upcoming, Starred, Archive, Recycle bin) with counts, and Lock vault and
+/// Settings at the bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
 /// dashboard also has a menu button). Its destinations go back to the
@@ -134,16 +135,18 @@ class _AppDrawerState extends State<AppDrawer> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  icon: const Icon(Icons.palette_outlined),
-                  tooltip: 'Shuffle accent and theme',
-                  onPressed: () => AppearanceController.instance.randomize(
-                    Theme.of(context).brightness,
+              padding: const EdgeInsets.fromLTRB(22, 4, 8, 0),
+              child: Row(
+                children: [
+                  const Expanded(child: BrandName(fontSize: 20)),
+                  IconButton(
+                    icon: const Icon(Icons.palette_outlined),
+                    tooltip: 'Shuffle accent and theme',
+                    onPressed: () => AppearanceController.instance.randomize(
+                      Theme.of(context).brightness,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             Expanded(
