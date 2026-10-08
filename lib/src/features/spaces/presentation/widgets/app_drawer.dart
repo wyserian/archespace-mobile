@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:archespace_mobile/src/features/spaces/application/drawer_spaces.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
-import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
 import 'package:archespace_mobile/src/features/settings/presentation/settings_screen.dart';
@@ -207,10 +206,6 @@ class _AppDrawerState extends State<AppDrawer> {
                   for (final space in spaces)
                     _tile(
                       context,
-                      icon: Icons.folder_outlined,
-                      iconColor: spaceColor(
-                        space.color,
-                      )?.withValues(alpha: 0.8),
                       label: space.name.isEmpty ? 'Untitled' : space.name,
                       protected: space.locked,
                       selected: _isCurrent(DrawerPage.space, space.id),
@@ -323,36 +318,46 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
+  /// A drawer row. Without an [icon] it's a space under the Spaces heading:
+  /// smaller, tighter, and indented a step past the heading.
   Widget _tile(
     BuildContext context, {
-    required IconData icon,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
     bool selected = false,
     bool protected = false,
-    Color? iconColor,
     int? count,
     int badge = 0,
   }) {
     final scheme = Theme.of(context).colorScheme;
-    // The current page reads through a soft fill and an accent icon, not an
-    // accent-tinted row.
-    final tint = selected
-        ? scheme.primary
-        : iconColor ?? scheme.onSurfaceVariant;
+    final nested = icon == null;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: nested ? 0 : 1),
       child: ListTile(
         dense: true,
-        visualDensity: const VisualDensity(vertical: -1),
+        visualDensity: const VisualDensity(vertical: -2),
+        minTileHeight: nested ? 36 : null,
+        minVerticalPadding: nested ? 0 : null,
         minLeadingWidth: 0,
         horizontalTitleGap: 10,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-        leading: Icon(icon, size: 22, color: tint),
+        // A nested row starts a step (12) past its heading's text (22).
+        contentPadding: EdgeInsets.fromLTRB(nested ? 26 : 14, 0, 14, 0),
+        // The current page reads through a soft fill and an accent icon, not
+        // an accent-tinted row.
+        leading: nested
+            ? null
+            : Icon(
+                icon,
+                size: 22,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
         title: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: nested ? 13 : 15,
             color: selected ? scheme.onSurface : null,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
           ),
