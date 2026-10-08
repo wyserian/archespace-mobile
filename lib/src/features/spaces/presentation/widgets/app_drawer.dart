@@ -9,8 +9,8 @@ import 'package:archespace_mobile/src/features/settings/presentation/settings_sc
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/storage/presentation/storage_screen.dart';
 import 'package:archespace_mobile/src/features/starred/presentation/starred_screen.dart';
-import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
-import 'package:archespace_mobile/src/features/upcoming/presentation/upcoming_screen.dart';
+import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminders_screen.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/brand_name.dart';
 
@@ -20,7 +20,7 @@ const _spacesOpenKey = 'drawer_spaces_open';
 enum DrawerPage {
   dashboard,
   space,
-  upcoming,
+  reminders,
   starred,
   archive,
   bin,
@@ -30,7 +30,7 @@ enum DrawerPage {
 
 /// The app's navigation drawer: the name and a theme "shuffle" at the top, All
 /// spaces and the top-level spaces (folding under their heading), the library
-/// (Upcoming, Starred, Archive, Recycle bin) with counts, and Lock vault and
+/// (Reminders, Starred, Archive, Recycle bin) with counts, and Lock vault and
 /// Settings at the bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
@@ -222,11 +222,11 @@ class _AppDrawerState extends State<AppDrawer> {
           builder: (context, nowCount, _) => _tile(
             context,
             icon: Icons.event_outlined,
-            label: 'Upcoming',
+            label: 'Reminders',
             badge: nowCount,
-            selected: _isCurrent(DrawerPage.upcoming),
+            selected: _isCurrent(DrawerPage.reminders),
             onTap: () =>
-                _open(context, DrawerPage.upcoming, const UpcomingScreen()),
+                _open(context, DrawerPage.reminders, const RemindersScreen()),
           ),
         ),
         ListenableBuilder(

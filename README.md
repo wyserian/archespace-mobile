@@ -33,7 +33,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Protected** items and spaces, and **read-only** spaces
 - **Spaces** with sub-spaces, tags and colours
 - **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types))
-- **Reminders** as notifications that repeat or stay until turned off, with an **Upcoming** screen
+- **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
 - **Starred**, **archive** and **recycle bin**
 - **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **offline mode**
@@ -196,7 +196,7 @@ archespace-mobile/
         spaces/           # spaces list, editor, cards, read-only and protect
         items/            # item types, editors (incl. the Rich text and Whiteboard WebViews), cards, clipboard
         starred/          # starred spaces and items
-        upcoming/         # reminders: the Upcoming screen and local notifications
+        reminders/        # the Reminders screen and local notifications
         search/           # unified search + jump-to-item
         storage/          # archive + recycle bin
         settings/         # account, security, appearance, backup, build footer

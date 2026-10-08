@@ -22,15 +22,15 @@ import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 /// off (Today, Tomorrow, Next 7 days, Later), earliest first, and Past for
 /// those that have gone off for the last time. Each item is labelled with
 /// where it lives; removing its reminder takes it off.
-class UpcomingScreen extends StatefulWidget {
-  const UpcomingScreen({super.key});
+class RemindersScreen extends StatefulWidget {
+  const RemindersScreen({super.key});
 
   @override
-  State<UpcomingScreen> createState() => _UpcomingScreenState();
+  State<RemindersScreen> createState() => _RemindersScreenState();
 }
 
-class _UpcomingScreenState extends State<UpcomingScreen>
-    with ItemActions<UpcomingScreen>, ReloadWhenShown<UpcomingScreen> {
+class _RemindersScreenState extends State<RemindersScreen>
+    with ItemActions<RemindersScreen>, ReloadWhenShown<RemindersScreen> {
   // Realtime changes reload this screen only while it's showing.
   @override
   Future<void> reloadShown() => _load();
@@ -72,7 +72,7 @@ class _UpcomingScreenState extends State<UpcomingScreen>
     final userId = currentUserId();
     if (userId != null) {
       _itemsWatcher = TableWatcher(
-        channelName: 'upcoming-items',
+        channelName: 'reminder-items',
         table: 'space_items',
         filterColumn: 'user_id',
         filterValue: userId,
@@ -96,7 +96,7 @@ class _UpcomingScreenState extends State<UpcomingScreen>
       final key = VaultSession.instance.masterKey;
       final results = await Future.wait([
         SpaceRepository(key).listSpaces(),
-        ItemRepository(key).listUpcomingItems(),
+        ItemRepository(key).listReminderItems(),
       ]);
       final spaces = results[0] as ({List<Space> spaces, bool fromCache});
       final items = results[1] as ({List<SpaceItem> items, bool fromCache});
@@ -132,7 +132,7 @@ class _UpcomingScreenState extends State<UpcomingScreen>
         .where((i) => i.reminder != null)
         .length;
     return Scaffold(
-      drawer: const AppDrawer(current: DrawerPage.upcoming),
+      drawer: const AppDrawer(current: DrawerPage.reminders),
       drawerEdgeDragWidth: AppDrawer.edgeDragWidth(context),
       // Keep Back; the drawer opens with a slide from the left.
       appBar: AppBar(
@@ -140,7 +140,7 @@ class _UpcomingScreenState extends State<UpcomingScreen>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Upcoming'),
+            const Text('Reminders'),
             if (total > 0)
               Text(
                 '$total ${total == 1 ? 'reminder' : 'reminders'}'
@@ -172,7 +172,7 @@ class _UpcomingScreenState extends State<UpcomingScreen>
     if (_items == null && _error != null) {
       return StateMessage(
         icon: Icons.cloud_off_outlined,
-        title: "Couldn't load Upcoming",
+        title: "Couldn't load reminders",
         message: 'Something went wrong. Check your connection and try again.',
         actionLabel: 'Retry',
         actionIcon: Icons.refresh,

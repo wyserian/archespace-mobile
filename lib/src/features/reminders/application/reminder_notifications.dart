@@ -6,7 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
 import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
-import 'package:archespace_mobile/src/features/upcoming/presentation/upcoming_screen.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminders_screen.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
 /// Item reminders as local notifications.
@@ -15,13 +15,13 @@ import 'package:archespace_mobile/src/features/vault/application/vault_session.d
 /// is unlocked (and whenever a reminder changes) this reads them and
 /// schedules their coming times on the device itself. They go off even when
 /// the app is closed or the vault locked, showing the reminder's name (or
-/// generic text without one). Tapping one opens Upcoming.
+/// generic text without one). Tapping one opens Reminders.
 class ReminderNotifications {
   ReminderNotifications._();
 
   static final ReminderNotifications instance = ReminderNotifications._();
 
-  /// The app's navigator, for opening Upcoming from a notification.
+  /// The app's navigator, for opening Reminders from a notification.
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -123,7 +123,7 @@ class ReminderNotifications {
         );
       }
     } catch (_) {
-      // Notifications unavailable on this device; Upcoming still shows them.
+      // Notifications unavailable on this device; Reminders still lists them.
     }
     _openIfReady();
   }
@@ -144,7 +144,7 @@ class ReminderNotifications {
     _openIfReady();
   }
 
-  /// Open Upcoming for a tapped reminder, once the vault is unlocked.
+  /// Open Reminders for a tapped reminder, once the vault is unlocked.
   void _openIfReady() {
     final navigator = navigatorKey.currentState;
     if (!_openPending ||
@@ -155,7 +155,7 @@ class ReminderNotifications {
     _openPending = false;
     navigator.popUntil((route) => route.isFirst);
     navigator.push(
-      MaterialPageRoute<void>(builder: (_) => const UpcomingScreen()),
+      MaterialPageRoute<void>(builder: (_) => const RemindersScreen()),
     );
   }
 

@@ -44,12 +44,12 @@ class ItemRepository {
   Future<({List<SpaceItem> items, bool fromCache})> listStarredItems() =>
       _list('items_starred', (q) => q.eq('starred', true));
 
-  /// Items with a reminder, from every space and the dashboard (Upcoming).
-  Future<({List<SpaceItem> items, bool fromCache})> listUpcomingItems() =>
-      _list('items_upcoming', (q) => q.not('reminder', 'is', null));
+  /// Items with a reminder, from every space and the dashboard (Reminders).
+  Future<({List<SpaceItem> items, bool fromCache})> listReminderItems() =>
+      _list('items_reminders', (q) => q.not('reminder', 'is', null));
 
   /// Every active item's reminder, by item id (for the notifications and the
-  /// Upcoming badge). Only the ids and reminders are fetched and decrypted.
+  /// Reminders badge). Only the ids and reminders are fetched and decrypted.
   Future<Map<String, Reminder>> listReminders() async {
     final rows = await _client
         .from('space_items')

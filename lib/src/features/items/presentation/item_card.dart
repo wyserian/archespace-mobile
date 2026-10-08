@@ -17,7 +17,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_text_html.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/domain/whiteboard.dart';
-import 'package:archespace_mobile/src/features/upcoming/presentation/reminder_widgets.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';

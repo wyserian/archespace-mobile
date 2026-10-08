@@ -14,7 +14,7 @@ import 'package:archespace_mobile/src/features/auth/presentation/login_screen.da
 import 'package:archespace_mobile/src/features/onboarding/presentation/splash_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/spaces_screen.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
-import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
+import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/unlock_screen.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/vault_setup_screen.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -30,7 +30,7 @@ class ArcheApp extends StatelessWidget {
       listenable: appearance,
       builder: (context, _) => MaterialApp(
         title: 'ArcheSpace',
-        // Lets a tapped reminder open Upcoming.
+        // Lets a tapped reminder open Reminders.
         navigatorKey: ReminderNotifications.navigatorKey,
         themeMode: appearance.themeMode,
         theme: _theme(appearance.accent, Brightness.light),
@@ -174,7 +174,7 @@ class _RootGateState extends State<_RootGate> {
     if (mounted) setState(() {});
   }
 
-  /// Unlocked: schedule the reminders (readable only now), and open Upcoming
+  /// Unlocked: schedule the reminders (readable only now), and open Reminders
   /// for one tapped while locked.
   void _onUnlockChanged() {
     if (!VaultSession.instance.unlocked.value) return;

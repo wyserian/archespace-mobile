@@ -212,7 +212,7 @@ class Reminder {
     return current(now).compareTo(other.current(now));
   }
 
-  /// Which Upcoming group it falls in (by its next time).
+  /// Which group it falls in (by its next time).
   ReminderGroup group([DateTime? now]) {
     now ??= DateTime.now();
     final next = nextOccurrence(now);
@@ -309,7 +309,7 @@ class Reminder {
   }
 }
 
-/// Upcoming's groups, in order.
+/// The Reminders screen's groups, in order.
 enum ReminderGroup {
   past('Past'),
   today('Today'),

@@ -10,8 +10,8 @@ import 'package:archespace_mobile/src/features/items/presentation/item_editor_sc
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
-import 'package:archespace_mobile/src/features/upcoming/application/reminder_notifications.dart';
-import 'package:archespace_mobile/src/features/upcoming/presentation/reminder_widgets.dart';
+import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
