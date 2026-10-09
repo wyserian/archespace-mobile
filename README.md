@@ -158,7 +158,7 @@ keytool -genkeypair -v -keystore archespace-release.jks -alias archespace -keyal
 
 ## Release verification
 
-Pushing a `vX.Y.Z` tag runs the **Release APK** workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)), which builds on CI, stamps the exact commit, and publishes to a GitHub Release with SHA-256 checksums: a universal APK and a smaller arm64 one for nearly every phone. The version comes from the tag. The app version shown in Settings links to that commit, so anyone can confirm the installed binary was built from the audited, open-source code. The release notes list the signing certificate's SHA-256, and the workflow refuses to publish without the release key.
+Pushing a `vX.Y.Z` tag runs the **Release APK** workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)), which builds on CI, stamps the exact commit, and publishes to a GitHub Release with SHA-256 checksums: a universal APK and a smaller arm64 one for nearly every phone. The version comes from the tag. The app version shown in Settings links to that commit, so anyone can confirm the installed binary was built from the audited, open-source code. The release notes list the signing certificate's SHA-256, and the workflow refuses to publish if any secret below is missing.
 
 The workflow needs these repository secrets, set under **Settings > Secrets and variables > Actions**:
 

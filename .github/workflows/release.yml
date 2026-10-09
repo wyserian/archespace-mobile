@@ -13,7 +13,7 @@ name: Release APK
 #   ANDROID_KEY_ALIAS          - the key's alias
 #   ANDROID_KEY_PASSWORD       - the key's password
 # Every release must be signed with the same key, or Android won't install
-# it as an update, so the build stops if the key is missing.
+# it as an update. The build stops if any of these is missing.
 
 on:
   push:
@@ -69,16 +69,20 @@ jobs:
           echo "APP_VERSION=${VERSION}" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=$(( 10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]} ))" >> "$GITHUB_ENV"
 
-      - name: Set up the release key
+      # Without the Supabase values the app can't reach its backend, and
+      # without the key it can't install as an update: stop before building.
+      - name: Check the secrets and set up the release key
         env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+          for name in SUPABASE_URL SUPABASE_ANON_KEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::Missing the $name secret; refusing to publish an APK without the release key"
+              echo "::error::Missing the $name secret; refusing to publish the release"
               exit 1
             fi
           done
