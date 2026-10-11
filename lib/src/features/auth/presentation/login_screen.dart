@@ -210,78 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Password requirements on sign-up: a 2x2 grid of rules that tick green as
-  /// the password meets each one.
-  Widget _buildPasswordChecklist(BuildContext context) {
-    final pw = _password.text;
-    final checks = <(String, bool)>[
-      ('At least $passwordMinLength characters', pw.length >= passwordMinLength),
-      ('An uppercase letter', RegExp('[A-Z]').hasMatch(pw)),
-      ('A lowercase letter', RegExp('[a-z]').hasMatch(pw)),
-      ('A number', RegExp(r'\d').hasMatch(pw)),
-    ];
-    Widget row(int a, int b) => Row(
-      children: [
-        Expanded(child: _checkItem(context, checks[a].$1, checks[a].$2)),
-        Expanded(child: _checkItem(context, checks[b].$1, checks[b].$2)),
-      ],
-    );
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [row(0, 1), const SizedBox(height: 4), row(2, 3)],
-      ),
-    );
-  }
-
-  Widget _checkItem(BuildContext context, String label, bool ok) {
-    final scheme = Theme.of(context).colorScheme;
-    final muted = Theme.of(
-      context,
-    ).textTheme.bodySmall?.color?.withValues(alpha: 0.6);
-    final color = ok ? scheme.primary : muted;
-    return Row(
-      children: [
-        Icon(
-          ok ? Icons.check_circle : Icons.circle_outlined,
-          size: 14,
-          color: color,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 11, color: color),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Live "passwords match" feedback under the confirm field on sign-up.
-  Widget _buildMatchIndicator(BuildContext context) {
-    if (_confirm.text.isEmpty) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    final matches = _password.text == _confirm.text;
-    final color = matches ? scheme.primary : scheme.error;
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        children: [
-          Icon(
-            matches ? Icons.check_circle : Icons.error_outline,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            matches ? 'Passwords match' : 'Passwords do not match',
-            style: TextStyle(fontSize: 11, color: color),
-          ),
-        ],
-      ),
-    );
+  /// Editing a field clears the last error, as it no longer applies.
+  void _clearError(String _) {
+    if (_error != null) setState(() => _error = null);
   }
 
   @override
@@ -331,8 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       autofillHints: _isSignUp
                           ? const [AutofillHints.newPassword]
                           : const [AutofillHints.password],
-                      // Live-refresh the requirements checklist as they type.
-                      onChanged: _isSignUp ? (_) => setState(() {}) : null,
+                      onChanged: _clearError,
                       onSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -350,20 +280,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     if (_isSignUp) ...[
-                      _buildPasswordChecklist(context),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _confirm,
                         obscureText: _obscure,
                         enabled: !_loading,
                         autofillHints: const [AutofillHints.newPassword],
-                        onChanged: (_) => setState(() {}),
+                        onChanged: _clearError,
                         onSubmitted: (_) => _submit(),
                         decoration: const InputDecoration(
                           labelText: 'Confirm password',
                         ),
                       ),
-                      _buildMatchIndicator(context),
                       const SizedBox(height: 10),
                       InkWell(
                         onTap: _loading
