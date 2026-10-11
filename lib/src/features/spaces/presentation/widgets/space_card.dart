@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 
 /// A space as a borderless card: the space colour as a curved top border, the
@@ -198,97 +199,70 @@ class SpaceCard extends StatelessWidget {
                         ),
                       ),
                       if (!selectMode)
-                        SizedBox(
-                          height: 32,
-                          width: 32,
-                          child: PopupMenuButton<String>(
-                            icon: Icon(
-                              Icons.more_vert,
-                              size: 18,
-                              color: scheme.onSurfaceVariant.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                            padding: EdgeInsets.zero,
-                            tooltip: 'Space actions',
-                            menuPadding: const EdgeInsets.symmetric(vertical: 4),
-                            // Clip the item hover highlight to the menu's
-                            // rounded corners (otherwise its square corners
-                            // poke past them).
-                            clipBehavior: Clip.antiAlias,
-                            onSelected: (value) {
-                              if (value == 'pin') onTogglePin();
-                              if (value == 'star') onToggleStar?.call();
-                              if (value == 'read-only') {
-                                onToggleReadOnly?.call();
-                              }
-                              if (value == 'lock') onToggleLock?.call();
-                              if (value == 'edit') onEdit();
-                              if (value == 'duplicate') onDuplicate();
-                              if (value == 'archive') onArchive();
-                              if (value == 'delete') onDelete();
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                height: 40,
-                                value: 'pin',
-                                child: Text(space.pinned ? 'Unpin' : 'Pin'),
-                              ),
-                              if (onToggleStar != null)
-                                PopupMenuItem(
-                                  height: 40,
-                                  value: 'star',
-                                  child: Text(
-                                    space.starred ? 'Unstar' : 'Star',
-                                  ),
-                                ),
-                              // Read-only freezes the space's content (details
-                              // and items); managing the space itself stays.
-                              if (onToggleReadOnly != null)
-                                PopupMenuItem(
-                                  height: 40,
-                                  value: 'read-only',
-                                  child: Text(
-                                    space.readOnly
-                                        ? 'Allow editing'
-                                        : 'Read-only',
-                                  ),
-                                ),
-                              if (onToggleLock != null)
-                                PopupMenuItem(
-                                  height: 40,
-                                  value: 'lock',
-                                  child: Text(
-                                    space.locked
-                                        ? 'Remove protection'
-                                        : 'Protect',
-                                  ),
-                                ),
-                              // Editing shows the description, so a hidden
-                              // protected space opens first.
-                              if (!space.readOnly && !hidden)
-                                const PopupMenuItem(
-                                  height: 40,
-                                  value: 'edit',
-                                  child: Text('Edit'),
-                                ),
-                              const PopupMenuItem(
-                                height: 40,
-                                value: 'duplicate',
-                                child: Text('Duplicate'),
-                              ),
-                              const PopupMenuItem(
-                                height: 40,
-                                value: 'archive',
-                                child: Text('Archive'),
-                              ),
-                              const PopupMenuItem(
-                                height: 40,
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
+                        ActionMenuButton(
+                          tooltip: 'Space actions',
+                          iconColor: scheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
                           ),
+                          entries: [
+                            ActionMenuEntry(
+                              icon: Icons.push_pin_outlined,
+                              label: space.pinned ? 'Unpin' : 'Pin',
+                              onSelected: onTogglePin,
+                            ),
+                            if (onToggleStar != null)
+                              ActionMenuEntry(
+                                icon: Icons.star_outline_rounded,
+                                label: space.starred ? 'Unstar' : 'Star',
+                                onSelected: onToggleStar!,
+                              ),
+                            // Read-only freezes the space's content (details
+                            // and items); managing the space itself stays.
+                            if (onToggleReadOnly != null)
+                              ActionMenuEntry(
+                                icon: space.readOnly
+                                    ? Icons.edit_outlined
+                                    : Icons.edit_off_outlined,
+                                label: space.readOnly
+                                    ? 'Allow editing'
+                                    : 'Read-only',
+                                onSelected: onToggleReadOnly!,
+                              ),
+                            if (onToggleLock != null)
+                              ActionMenuEntry(
+                                icon: space.locked
+                                    ? Icons.remove_moderator_outlined
+                                    : Icons.shield_outlined,
+                                label: space.locked
+                                    ? 'Remove protection'
+                                    : 'Protect',
+                                onSelected: onToggleLock!,
+                              ),
+                            // Editing shows the description, so a hidden
+                            // protected space opens first.
+                            if (!space.readOnly && !hidden)
+                              ActionMenuEntry(
+                                icon: Icons.edit_outlined,
+                                label: 'Edit',
+                                onSelected: onEdit,
+                              ),
+                            ActionMenuEntry(
+                              icon: Icons.content_copy_outlined,
+                              label: 'Duplicate',
+                              onSelected: onDuplicate,
+                            ),
+                            ActionMenuEntry(
+                              icon: Icons.archive_outlined,
+                              label: 'Archive',
+                              onSelected: onArchive,
+                            ),
+                            ActionMenuEntry(
+                              icon: Icons.delete_outline,
+                              label: 'Delete',
+                              onSelected: onDelete,
+                              danger: true,
+                            ),
+                          ],
                         ),
                       if (selectMode)
                         Padding(

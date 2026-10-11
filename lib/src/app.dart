@@ -67,12 +67,10 @@ class ArcheApp extends StatelessWidget {
         sizeConstraints: const BoxConstraints.tightFor(width: 50, height: 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       ),
-      // Pop-up (card action) menus float above the cards: a lighter surface
-      // than the cards' surfaceContainer, a real shadow, and a hairline border
-      // so the menu is clearly distinguishable from the content behind it.
+      // Pop-up menus as on the web (see ActionMenuButton): the cards' surface,
+      // set off from the content behind by a real shadow and a hairline.
       popupMenuTheme: PopupMenuThemeData(
-        // White on light (cards are white too; shadow + hairline set it off).
-        color: light ? Colors.white : scheme.surfaceContainerHighest,
+        color: light ? Colors.white : scheme.surfaceContainer,
         elevation: 8,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),

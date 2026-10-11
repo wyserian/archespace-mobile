@@ -20,6 +20,7 @@ import 'package:archespace_mobile/src/features/items/domain/whiteboard.dart';
 import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 
@@ -372,105 +373,87 @@ class _ItemCardState extends State<ItemCard>
                           (onExport != null && !hidden) ||
                           onDelete != null ||
                           (widget.grid && canCopy)))
-                    SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert, size: 18),
-                        padding: EdgeInsets.zero,
-                        tooltip: 'Item actions',
-                        menuPadding: const EdgeInsets.symmetric(vertical: 4),
-                        // Clip the item hover highlight to the menu's rounded
-                        // corners so it doesn't poke past them.
-                        clipBehavior: Clip.antiAlias,
-                        onSelected: (value) async {
-                          if (value == 'copy') {
-                            await Clipboard.setData(
-                              ClipboardData(text: itemClipboardText(item)),
-                            );
-                            if (context.mounted) {
-                              showSuccessSnack(context, 'Copied to clipboard');
-                            }
-                          }
-                          if (value == 'pin') onTogglePin?.call();
-                          if (value == 'star') onToggleStar?.call();
-                          if (value == 'reminder') onSetReminder?.call();
-                          if (value == 'lock') onToggleLock?.call();
-                          if (value == 'duplicate') onDuplicate?.call();
-                          if (value == 'move') onMove?.call();
-                          if (value == 'export') onExport?.call();
-                          if (value == 'archive') onArchive?.call();
-                          if (value == 'delete') onDelete?.call();
-                        },
-                        itemBuilder: (context) => [
-                          if (widget.grid && canCopy)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'copy',
-                              child: Text('Copy'),
-                            ),
-                          if (onTogglePin != null)
-                            PopupMenuItem(
-                              height: 40,
-                              value: 'pin',
-                              child: Text(item.pinned ? 'Unpin' : 'Pin'),
-                            ),
-                          if (onToggleStar != null)
-                            PopupMenuItem(
-                              height: 40,
-                              value: 'star',
-                              child: Text(item.starred ? 'Unstar' : 'Star'),
-                            ),
-                          if (onSetReminder != null)
-                            PopupMenuItem(
-                              height: 40,
-                              value: 'reminder',
-                              child: Text(
-                                item.reminder == null
-                                    ? 'Add reminder'
-                                    : 'Change reminder',
-                              ),
-                            ),
-                          if (onToggleLock != null)
-                            PopupMenuItem(
-                              height: 40,
-                              value: 'lock',
-                              child: Text(
-                                item.locked ? 'Remove protection' : 'Protect',
-                              ),
-                            ),
-                          if (onDuplicate != null)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'duplicate',
-                              child: Text('Duplicate'),
-                            ),
-                          if (onMove != null)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'move',
-                              child: Text('Move'),
-                            ),
-                          if (onExport != null && !hidden)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'export',
-                              child: Text('Export PDF'),
-                            ),
-                          if (onArchive != null)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'archive',
-                              child: Text('Archive'),
-                            ),
-                          if (onDelete != null)
-                            const PopupMenuItem(
-                              height: 40,
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                        ],
-                      ),
+                    ActionMenuButton(
+                      tooltip: 'Item actions',
+                      entries: [
+                        if (widget.grid && canCopy)
+                          ActionMenuEntry(
+                            icon: Icons.content_paste_outlined,
+                            label: 'Copy',
+                            onSelected: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: itemClipboardText(item)),
+                              );
+                              if (context.mounted) {
+                                showSuccessSnack(
+                                  context,
+                                  'Copied to clipboard',
+                                );
+                              }
+                            },
+                          ),
+                        if (onTogglePin != null)
+                          ActionMenuEntry(
+                            icon: Icons.push_pin_outlined,
+                            label: item.pinned ? 'Unpin' : 'Pin',
+                            onSelected: onTogglePin,
+                          ),
+                        if (onToggleStar != null)
+                          ActionMenuEntry(
+                            icon: Icons.star_outline_rounded,
+                            label: item.starred ? 'Unstar' : 'Star',
+                            onSelected: onToggleStar,
+                          ),
+                        if (onSetReminder != null)
+                          ActionMenuEntry(
+                            icon: Icons.notifications_none_rounded,
+                            label: item.reminder == null
+                                ? 'Add reminder'
+                                : 'Change reminder',
+                            onSelected: onSetReminder,
+                          ),
+                        if (onToggleLock != null)
+                          ActionMenuEntry(
+                            icon: item.locked
+                                ? Icons.remove_moderator_outlined
+                                : Icons.shield_outlined,
+                            label: item.locked
+                                ? 'Remove protection'
+                                : 'Protect',
+                            onSelected: onToggleLock,
+                          ),
+                        if (onDuplicate != null)
+                          ActionMenuEntry(
+                            icon: Icons.content_copy_outlined,
+                            label: 'Duplicate',
+                            onSelected: onDuplicate,
+                          ),
+                        if (onMove != null)
+                          ActionMenuEntry(
+                            icon: Icons.arrow_forward,
+                            label: 'Move',
+                            onSelected: onMove,
+                          ),
+                        if (onExport != null && !hidden)
+                          ActionMenuEntry(
+                            icon: Icons.file_download_outlined,
+                            label: 'Export PDF',
+                            onSelected: onExport,
+                          ),
+                        if (onArchive != null)
+                          ActionMenuEntry(
+                            icon: Icons.archive_outlined,
+                            label: 'Archive',
+                            onSelected: onArchive,
+                          ),
+                        if (onDelete != null)
+                          ActionMenuEntry(
+                            icon: Icons.delete_outline,
+                            label: 'Delete',
+                            onSelected: onDelete,
+                            danger: true,
+                          ),
+                      ],
                     ),
                   if (selectMode)
                     Padding(
