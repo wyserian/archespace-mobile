@@ -38,6 +38,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- The sign-up confirmation link opens the app, signed in. A
+                 verified App Link: archespace.app/.well-known/assetlinks.json
+                 names this app's signing key, so no other app can claim it. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="archespace.app" android:path="/auth/mobile"/>
+            </intent-filter>
+            <!-- supabase_flutter reads that link for the session; Flutter's own
+                 routing would otherwise try to open it as a screen. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
         </activity>
         <!-- Item reminders (flutter_local_notifications). -->
         <receiver

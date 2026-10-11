@@ -196,8 +196,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _password.clear();
         _confirm.clear();
         _info =
-            'Check your email to confirm your address and finish signing up. '
-            'Already have an account? Sign in instead.';
+            'Check your email and open the confirmation link on this phone to '
+            'finish signing up. Already have an account? Sign in instead.';
       });
     } on AuthException catch (e) {
       setState(() => _error = e.message);

@@ -18,7 +18,8 @@ class AuthService {
 
   /// Register a new account. When email confirmation is disabled in Supabase,
   /// the response carries a live [Session] and the user is signed in
-  /// immediately; otherwise they must confirm via email before signing in.
+  /// immediately; otherwise they confirm via email, and the link opens this
+  /// app signed in (see [AppConfig.signUpRedirectUrl]).
   ///
   /// [data] is written to the user's metadata; we pass the accepted Terms
   /// version so the server can record consent (see the user_consent trigger).
@@ -27,7 +28,12 @@ class AuthService {
     required String password,
     Map<String, dynamic>? data,
   }) {
-    return _client.auth.signUp(email: email, password: password, data: data);
+    return _client.auth.signUp(
+      email: email,
+      password: password,
+      data: data,
+      emailRedirectTo: AppConfig.signUpRedirectUrl,
+    );
   }
 
   /// Sign out of this device only (local scope); other devices stay signed

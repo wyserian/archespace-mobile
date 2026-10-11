@@ -19,13 +19,18 @@ class AppConfig {
     defaultValue: true,
   );
 
-  /// The web app's address. Email links (password reset, email change) are
-  /// completed there, since this app doesn't handle deep links. Override with
-  /// `--dart-define=WEB_URL=...` for a local or staging web build.
+  /// The web app's address. Password reset and email change links are
+  /// completed there. Override with `--dart-define=WEB_URL=...` for a local or
+  /// staging web build.
   static const String webUrl = String.fromEnvironment(
     'WEB_URL',
     defaultValue: 'https://archespace.app',
   );
+
+  /// Where a sign-up confirmation link leads: a verified Android App Link
+  /// (see AndroidManifest.xml and the web's assetlinks.json) that opens this
+  /// app, or the web app on a device without it.
+  static const String signUpRedirectUrl = '$webUrl/auth/mobile';
 
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
