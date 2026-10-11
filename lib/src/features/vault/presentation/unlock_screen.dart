@@ -373,7 +373,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
         TextField(
           controller: _pin,
           obscureText: true,
-          keyboardType: TextInputType.number,
+          autocorrect: false,
+          enableSuggestions: false,
           enabled: !_loading,
           onSubmitted: (_) => _unlockWithPin(),
           decoration: const InputDecoration(labelText: 'PIN or passphrase'),
