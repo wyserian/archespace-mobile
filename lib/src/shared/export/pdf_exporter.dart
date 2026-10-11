@@ -90,7 +90,11 @@ class PdfExporter {
     color: PdfColors.grey600,
   );
 
-  /// Every page's header: export time top-left, the site URL top-right.
+  /// The mint accent's deeper shade, readable on white paper.
+  static const PdfColor _brandAccent = PdfColor.fromInt(0xFF0B7F64);
+
+  /// Every page's header: export time top-left, the name top-right (as on
+  /// the site and in the emails: caps, ARCHE in the accent).
   static pw.Widget _pageHeader(String stamp) => pw.Container(
     margin: const pw.EdgeInsets.only(bottom: 12),
     child: pw.Row(
@@ -98,16 +102,34 @@ class PdfExporter {
       children: [
         pw.Text(stamp, style: _chromeStyle),
         pw.Spacer(),
-        pw.Text('https://archespace.app/', style: _chromeStyle),
+        pw.RichText(
+          text: pw.TextSpan(
+            style: pw.TextStyle(
+              fontSize: 9.5,
+              fontWeight: pw.FontWeight.bold,
+              letterSpacing: 0.3,
+              color: PdfColor.fromInt(0xFF111111),
+            ),
+            children: [
+              pw.TextSpan(
+                text: 'ARCHE',
+                style: pw.TextStyle(color: _brandAccent),
+              ),
+              pw.TextSpan(text: 'SPACE'),
+            ],
+          ),
+        ),
       ],
     ),
   );
 
-  /// Every page's footer: the page number bottom-right.
+  /// Every page's footer: the site URL bottom-left, the page number
+  /// bottom-right.
   static pw.Widget _pageFooter(pw.Context context) => pw.Container(
     margin: const pw.EdgeInsets.only(top: 8),
     child: pw.Row(
       children: [
+        pw.Text('https://archespace.app/', style: _chromeStyle),
         pw.Spacer(),
         pw.Text(
           '${context.pageNumber}/${context.pagesCount}',
