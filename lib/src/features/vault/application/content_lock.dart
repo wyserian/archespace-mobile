@@ -2,13 +2,14 @@ import 'package:flutter/foundation.dart';
 
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
 /// Protected items and spaces. A protected item keeps its title and tags in
 /// view and a protected space its name, but the content needs the vault PIN
-/// again. An item in a protected space (or in a sub-space of one) is hidden
-/// too, wherever it's listed. Protect is the `locked` flag on the row; the
-/// content is encrypted with the vault key as always.
+/// again. An item in a protected space (or in a sub-space of one, at any
+/// depth) is hidden too, wherever it's listed. Protect is the `locked` flag
+/// on the row; the content is encrypted with the vault key as always.
 ///
 /// What has been opened lives only in memory: restarting the app, or the
 /// vault locking, hides it all again.
@@ -25,19 +26,17 @@ class ContentLock extends ChangeNotifier {
 
   bool isRevealed(String id) => _revealed.contains(id);
 
-  /// Whether a space's contents must stay hidden: it, or its parent, is
+  /// A space and every space above it that has been seen.
+  Iterable<String> _chain(String? spaceId) => chainOf(
+    spaceId,
+    (id) => _spaces[id]?.parentId,
+  ).where(_spaces.containsKey);
+
+  /// Whether a space's contents must stay hidden: it, or a space above it, is
   /// protected and not opened.
-  bool isSpaceHidden(String? spaceId) {
-    var id = spaceId;
-    // Spaces nest one level; the bound only guards against a bad cycle.
-    for (var depth = 0; id != null && depth < 4; depth++) {
-      final space = _spaces[id];
-      if (space == null) return false;
-      if (space.locked && !_revealed.contains(id)) return true;
-      id = space.parentId;
-    }
-    return false;
-  }
+  bool isSpaceHidden(String? spaceId) => _chain(
+    spaceId,
+  ).any((id) => _spaces[id]!.locked && !_revealed.contains(id));
 
   /// Whether an item's content must stay hidden.
   bool isItemHidden(SpaceItem item) =>
@@ -52,12 +51,8 @@ class ContentLock extends ChangeNotifier {
   void revealItem(SpaceItem item) {
     var changed = false;
     if (item.locked) changed |= _revealed.add(item.id);
-    var id = item.spaceId;
-    for (var depth = 0; id != null && depth < 4; depth++) {
-      final space = _spaces[id];
-      if (space == null) break;
-      if (space.locked) changed |= _revealed.add(id);
-      id = space.parentId;
+    for (final id in _chain(item.spaceId)) {
+      if (_spaces[id]!.locked) changed |= _revealed.add(id);
     }
     if (changed) notifyListeners();
   }
@@ -65,12 +60,8 @@ class ContentLock extends ChangeNotifier {
   /// Open a space and any protected space above it.
   void revealSpace(String spaceId) {
     var changed = false;
-    String? id = spaceId;
-    for (var depth = 0; id != null && depth < 4; depth++) {
-      final space = _spaces[id];
-      if (space == null) break;
-      if (space.locked) changed |= _revealed.add(id);
-      id = space.parentId;
+    for (final id in _chain(spaceId)) {
+      if (_spaces[id]!.locked) changed |= _revealed.add(id);
     }
     if (changed) notifyListeners();
   }

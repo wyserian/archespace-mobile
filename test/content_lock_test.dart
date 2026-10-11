@@ -56,6 +56,34 @@ void main() {
     expect(lock.isRevealed('top'), isTrue);
   });
 
+  test('a locked space hides spaces nested deep under it', () {
+    lock.setSpaces([
+      for (var i = 0; i < 8; i++)
+        _space(
+          'd$i',
+          locked: i == 0 || i == 5,
+          parentId: i == 0 ? null : 'd${i - 1}',
+        ),
+    ]);
+    final deep = _item('z', spaceId: 'd7');
+    expect(lock.isSpaceHidden('d7'), isTrue);
+    expect(lock.isItemHidden(deep), isTrue);
+
+    // Opening the deepest space opens every protected space above it.
+    lock.revealSpace('d7');
+    expect(lock.isRevealed('d0'), isTrue);
+    expect(lock.isRevealed('d5'), isTrue);
+    expect(lock.isItemHidden(deep), isFalse);
+  });
+
+  test('a parent loop does not hang', () {
+    lock.setSpaces([
+      _space('loop-a', parentId: 'loop-b'),
+      _space('loop-b', parentId: 'loop-a'),
+    ]);
+    expect(lock.isSpaceHidden('loop-a'), isFalse);
+  });
+
   test('locking a space hides it at once; the vault locking hides all', () {
     lock.setSpaces([_space('s')]);
     lock.setSpaceLocked('s', true);

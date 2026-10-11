@@ -33,7 +33,8 @@ class Space {
   final bool locked;
   final List<String> tags;
 
-  /// Parent space id for a sub-space (one-level nesting), or null for top-level.
+  /// Parent space id for a sub-space (nested to any depth), or null for
+  /// top-level.
   final String? parentId;
 
   /// Preset colour id (violet/blue/green/amber/rose/slate), or null.

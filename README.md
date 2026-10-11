@@ -31,7 +31,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Zero-knowledge encryption**: the server only ever stores ciphertext ([Security model](#security-model))
 - **Vault PIN** with a recovery code, auto-lock and fingerprint / face unlock
 - **Protected** items and spaces, and **read-only** spaces
-- **Spaces** with sub-spaces, tags and colours
+- **Spaces** with sub-spaces nested to any depth, tags and colours
 - **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types))
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content

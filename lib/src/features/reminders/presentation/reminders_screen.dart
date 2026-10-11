@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/items/presentation/item_actions.d
 import 'package:archespace_mobile/src/features/items/presentation/item_card.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -193,10 +194,8 @@ class _RemindersScreenState extends State<RemindersScreen>
         message: 'Add a reminder to an item from its menu to see it here.',
       );
     }
-    final names = {
-      for (final s in _spaces ?? const <Space>[])
-        s.id: s.name.isEmpty ? 'Untitled' : s.name,
-    };
+    // Where each item lives: its space's path.
+    final names = spacePathLabels(_spaces ?? const <Space>[]);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 4, bottom: 32),

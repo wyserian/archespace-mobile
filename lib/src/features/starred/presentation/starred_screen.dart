@@ -7,6 +7,7 @@ import 'package:archespace_mobile/src/features/items/presentation/item_actions.d
 import 'package:archespace_mobile/src/features/items/presentation/item_card.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
@@ -254,9 +255,8 @@ class _StarredScreenState extends State<StarredScreen>
             'quick access.',
       );
     }
-    final names = {
-      for (final s in allSpaces) s.id: s.name.isEmpty ? 'Untitled' : s.name,
-    };
+    // Where each item lives: its space's path.
+    final names = spacePathLabels(allSpaces);
     final both = spaces.isNotEmpty && items.isNotEmpty;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),

@@ -8,6 +8,7 @@ import 'package:archespace_mobile/src/features/items/presentation/item_actions.d
 import 'package:archespace_mobile/src/features/items/presentation/item_card.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
@@ -66,6 +67,9 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
 
   List<SpaceItem>? _items;
   List<Space> _subSpaces = const [];
+
+  /// The spaces above this one, top first.
+  List<Space> _ancestors = const [];
   Object? _error;
   bool _offline = false;
   TableWatcher? _watcher;
@@ -173,22 +177,35 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Future<void> _load() async {
     _refreshReadOnly();
     try {
-      // Sub-spaces (one-level nesting): only a top-level space can have them.
-      // They load alongside the items rather than after them.
-      final subsFuture = widget.space.parentId == null
-          ? SpaceRepository(VaultSession.instance.masterKey)
-                .listSubSpaces(widget.space.id)
-                // Non-fatal: items still load without the sub-space list.
-                .catchError((Object _) => const <Space>[])
-          : Future.value(const <Space>[]);
+      // All spaces (spaces nest to any depth): this one's sub-spaces, and the
+      // spaces above it for the path in the title. They load alongside the
+      // items rather than after them.
+      final spacesFuture = SpaceRepository(VaultSession.instance.masterKey)
+          .listSpaces()
+          .then((r) => r.spaces)
+          // Non-fatal: items still load without the sub-spaces and path.
+          .catchError((Object _) => const <Space>[]);
       final result = await ItemRepository(
         VaultSession.instance.masterKey,
       ).listItems(widget.space.id);
-      final subs = await subsFuture;
+      final spaces = await spacesFuture;
+      final byId = {for (final s in spaces) s.id: s};
+      // The loaded row knows the parent even when this screen was opened
+      // with a bare space (from search).
+      String? parentOf(String id) =>
+          byId[id]?.parentId ??
+          (id == widget.space.id ? widget.space.parentId : null);
       if (mounted) {
         setState(() {
           _items = result.items;
-          _subSpaces = subs;
+          _subSpaces = [
+            for (final s in spaces)
+              if (s.parentId == widget.space.id) s,
+          ];
+          _ancestors = [
+            for (final id in ancestorsOf(widget.space.id, parentOf).reversed)
+              ?byId[id],
+          ];
           _offline = result.fromCache;
           _error = null;
         });
@@ -409,7 +426,13 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   void _showError(String message) => showItemError(message);
 
   Future<void> _exportSpace() => exportPdf(
-    build: () => PdfExporter.buildSpace(widget.space.name, _items ?? const []),
+    build: () => PdfExporter.buildSpace(
+      widget.space.name,
+      _items ?? const [],
+      subSpaceNames: [
+        for (final s in _subSpaces) s.name.isEmpty ? 'Untitled' : s.name,
+      ],
+    ),
     filename: pdfFileName(widget.space.name),
     label: 'space',
   );
@@ -547,11 +570,44 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     if (mounted) setState(() {});
   }
 
+  /// The space's name, with the spaces above it on a small line above
+  /// ("A › B", or "A › … › D" when deeper).
+  Widget _title(BuildContext context) {
+    final name = Text(
+      widget.space.name.isEmpty ? 'Untitled' : widget.space.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (_ancestors.isEmpty) return name;
+    final names = [
+      for (final s in _ancestors) s.name.isEmpty ? 'Untitled' : s.name,
+    ];
+    final path = names.length > 2
+        ? '${names.first} › … › ${names.last}'
+        : names.join(' › ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          path,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        name,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final drawer = AppDrawer(
       current: DrawerPage.space,
-      spaceId: widget.space.id,
+      // The drawer lists top-level spaces: mark the one this sits under.
+      spaceId: _ancestors.isEmpty ? widget.space.id : _ancestors.first.id,
     );
     if (_hidden) {
       return Scaffold(
@@ -561,9 +617,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           // Keep Back; the drawer opens with a slide from the left.
           leading: const BackButton(),
           titleSpacing: 0,
-          title: Text(
-            widget.space.name.isEmpty ? 'Untitled' : widget.space.name,
-          ),
+          title: _title(context),
         ),
         body: LockedView(
           message: 'Enter your vault PIN to open this space.',
@@ -594,20 +648,15 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           : AppBar(
               leading: const BackButton(),
               titleSpacing: 0,
-              title: Text(
-                widget.space.name.isEmpty ? 'Untitled' : widget.space.name,
-              ),
+              title: _title(context),
               actions: _buildBarActions(hasItems),
             ),
       floatingActionButton: _selectMode || _readOnly
           ? null
           : CreateFabs(
               onAddItem: openAddItemSheet,
-              // Sub-spaces are one level deep, so only a top-level space can
-              // create them.
-              onNewSpace: _items != null && widget.space.parentId == null
-                  ? _createSubSpace
-                  : null,
+              // A sub-space of this one, at any depth.
+              onNewSpace: _items != null ? _createSubSpace : null,
             ),
       bottomNavigationBar: _selectMode
           ? BulkActionBar(

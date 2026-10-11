@@ -1,5 +1,6 @@
 import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
@@ -15,9 +16,10 @@ class SearchHit {
     required this.title,
     required this.type,
     required this.haystack,
+    String? spacePath,
     this.contentText = '',
     this.locked = false,
-  });
+  }) : spacePath = spacePath ?? spaceName;
 
   final bool isSpace;
   final String id;
@@ -44,6 +46,9 @@ class SearchHit {
   /// The item's space, or null for a dashboard item (belongs to no space).
   final String? spaceId;
   final String spaceName;
+
+  /// Where the item lives, for its subtitle: the space's path ("A › B").
+  final String spacePath;
   final String title;
   final String type;
   final String haystack;
@@ -68,6 +73,10 @@ class SearchRepository {
 
     final hits = <SearchHit>[];
     final spaceNameById = <String, String>{};
+    final parentById = <String, String?>{
+      for (final row in spaceRows)
+        row['id'] as String: row['parent_id'] as String?,
+    };
     ContentLock.instance.registerSpaces([
       for (final row in spaceRows)
         (
@@ -111,6 +120,18 @@ class SearchRepository {
         .isFilter('deleted_at', null)
         .isFilter('archived_at', null);
 
+    // "A › B › C", folded to "A › … › D" when deeper (as spacePathLabels).
+    String pathOf(String spaceId) {
+      final names = [
+        for (final id in chainOf(spaceId, (id) => parentById[id]).reversed)
+          if (spaceNameById[id] case final name?)
+            name.isEmpty ? 'Untitled' : name,
+      ];
+      return names.length > 3
+          ? '${names.first} › … › ${names.last}'
+          : names.join(' › ');
+    }
+
     for (final row in itemRows) {
       final type = (row['type'] ?? '') as String;
       final title = await ArcheCrypto.decryptArc1(
@@ -131,6 +152,7 @@ class SearchRepository {
           spaceName: spaceId == null
               ? 'Dashboard'
               : spaceNameById[spaceId] ?? '',
+          spacePath: spaceId == null ? 'Dashboard' : pathOf(spaceId),
           title: title,
           type: type,
           haystack: '$title ${tags.join(' ')}'.toLowerCase(),

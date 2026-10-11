@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:archespace_mobile/src/features/spaces/data/space_lifecycle.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
@@ -119,24 +121,33 @@ class SpaceRepository {
   Future<String> _encTags(List<String> tags) =>
       ArcheCrypto.encryptArc1(jsonEncode(tags), _masterKey);
 
-  /// Duplicate a space and all its (non-deleted, non-archived) items. Item
-  /// ciphertext is copied verbatim - it's already encrypted with the same key.
+  /// Duplicate a space beside it (same parent), with its active items and its
+  /// active sub-spaces at every level. Only the copy itself is renamed
+  /// "(copy)"; sub-spaces and items are copied as stored - their ciphertext
+  /// is already encrypted with the same key.
   Future<void> duplicateSpace(Space space) async {
     final userId = currentUserId();
     if (userId == null) throw StateError('Not authenticated');
 
-    final existing = await _client
-        .from('spaces')
-        .select('id')
-        .isFilter('deleted_at', null)
-        .isFilter('archived_at', null);
+    final active =
+        await _client
+                .from('spaces')
+                .select(
+                  'id, parent_id, name, description, tags, color, position, '
+                  'pinned, locked',
+                )
+                .isFilter('deleted_at', null)
+                .isFilter('archived_at', null)
+            as List;
 
     final payload = <String, dynamic>{
       'user_id': userId,
       'name': await _enc('${space.name} (copy)'),
       'description': await _enc(space.description),
       'color': space.color,
-      'position': existing.length,
+      'parent_id': space.parentId,
+      // After the spaces that share its parent.
+      'position': active.where((s) => s['parent_id'] == space.parentId).length,
       // A copy of a protected space stays protected.
       'locked': space.locked,
     };
@@ -147,30 +158,59 @@ class SpaceRepository {
         .insert(payload)
         .select('id')
         .single();
-    final newId = created['id'] as String;
+    final copies = {space.id: created['id'] as String};
+    await _copyItems(space.id, copies[space.id]!);
 
+    final byId = {for (final s in active) s['id'] as String: s};
+    // Parents come before their children, so each copy's parent exists.
+    for (final id in descendantsOf(
+      [space.id],
+      active,
+      idOf: (s) => s['id'] as String,
+      parentOf: (s) => s['parent_id'] as String?,
+    )) {
+      final s = byId[id]!;
+      final copy = await _client
+          .from('spaces')
+          .insert({
+            'user_id': userId,
+            'parent_id': copies[s['parent_id']],
+            'name': s['name'],
+            'description': s['description'],
+            'tags': s['tags'],
+            'color': s['color'],
+            'position': s['position'],
+            'pinned': s['pinned'] ?? false,
+            'locked': s['locked'] ?? false,
+          })
+          .select('id')
+          .single();
+      copies[id] = copy['id'] as String;
+      await _copyItems(id, copies[id]!);
+    }
+  }
+
+  /// Copy a space's active items into another space.
+  Future<void> _copyItems(String fromId, String toId) async {
     final srcItems = await _client
         .from('space_items')
         .select('type, title, content, position, pinned, locked')
-        .eq('space_id', space.id)
+        .eq('space_id', fromId)
         .isFilter('deleted_at', null)
         .isFilter('archived_at', null);
-
-    if (srcItems.isNotEmpty) {
-      final rows = [
-        for (final it in srcItems)
-          {
-            'space_id': newId,
-            'type': it['type'],
-            'title': it['title'],
-            'content': it['content'],
-            'position': it['position'],
-            'pinned': it['pinned'] ?? false,
-            'locked': it['locked'] ?? false,
-          },
-      ];
-      await _client.from('space_items').insert(rows);
-    }
+    if (srcItems.isEmpty) return;
+    await _client.from('space_items').insert([
+      for (final it in srcItems)
+        {
+          'space_id': toId,
+          'type': it['type'],
+          'title': it['title'],
+          'content': it['content'],
+          'position': it['position'],
+          'pinned': it['pinned'] ?? false,
+          'locked': it['locked'] ?? false,
+        },
+    ]);
   }
 
   /// Create a new space at the end of the list (position = current count).
@@ -204,7 +244,7 @@ class SpaceRepository {
     await _client.from('spaces').insert(payload);
   }
 
-  /// Sub-spaces of a top-level space (one-level nesting).
+  /// The direct sub-spaces of a space.
   Future<List<Space>> listSubSpaces(String parentId) async {
     final result = await listSpaces();
     return result.spaces.where((s) => s.parentId == parentId).toList();
@@ -261,15 +301,8 @@ class SpaceRepository {
     return (row['read_only'] ?? false) as bool;
   }
 
-  Future<void> archiveSpace(String id) async {
-    // Cascade to child spaces (one-level nesting).
-    await _client
-        .from('spaces')
-        .update({'archived_at': DateTime.now().toUtc().toIso8601String()})
-        .or('id.eq.$id,parent_id.eq.$id');
-  }
-
-  String _nowIso() => DateTime.now().toUtc().toIso8601String();
+  /// Archive a space with its sub-spaces at every level (see SpaceLifecycle).
+  Future<void> archiveSpace(String id) => SpaceLifecycle().archive([id]);
 
   /// Persist a new order (positions 0..N-1) via the batch RPC.
   Future<void> reorder(List<String> orderedIds) async {
@@ -285,49 +318,15 @@ class SpaceRepository {
     await _client.from('spaces').update({'pinned': pinned}).inFilter('id', ids);
   }
 
-  Future<void> bulkArchive(List<String> ids) async {
-    if (ids.isEmpty) return;
-    final now = _nowIso();
-    await _client
-        .from('spaces')
-        .update({'archived_at': now})
-        .inFilter('id', ids);
-    // Cascade to child spaces of any archived top-level space.
-    await _client
-        .from('spaces')
-        .update({'archived_at': now})
-        .inFilter('parent_id', ids);
-  }
+  Future<void> bulkArchive(List<String> ids) => SpaceLifecycle().archive(ids);
 
-  Future<void> bulkDelete(List<String> ids) async {
-    if (ids.isEmpty) return;
-    final now = _nowIso();
-    await _client
-        .from('spaces')
-        .update({'deleted_at': now})
-        .inFilter('id', ids);
-    // Cascade to child spaces.
-    await _client
-        .from('spaces')
-        .update({'deleted_at': now})
-        .inFilter('parent_id', ids);
-  }
+  Future<void> bulkDelete(List<String> ids) => SpaceLifecycle().delete(ids);
 
-  /// Soft-delete to the recycle bin (sets deleted_at), matching the web.
-  /// Cascades to child spaces (one-level nesting).
-  Future<void> deleteSpace(String id) async {
-    await _client
-        .from('spaces')
-        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
-        .or('id.eq.$id,parent_id.eq.$id');
-  }
+  /// Soft-delete to the recycle bin (sets deleted_at), matching the web, with
+  /// the space's sub-spaces at every level.
+  Future<void> deleteSpace(String id) => SpaceLifecycle().delete([id]);
 
-  /// Undo an archive or move-to-bin: clears both timestamps for the spaces and
-  /// their child spaces (one-level nesting).
-  Future<void> restoreSpaces(List<String> ids) async {
-    if (ids.isEmpty) return;
-    const cleared = {'archived_at': null, 'deleted_at': null};
-    await _client.from('spaces').update(cleared).inFilter('id', ids);
-    await _client.from('spaces').update(cleared).inFilter('parent_id', ids);
-  }
+  /// Undo an archive or move-to-bin, with what went along with it.
+  Future<void> restoreSpaces(List<String> ids) =>
+      SpaceLifecycle().undoRemove(ids);
 }

@@ -1,3 +1,4 @@
+import 'package:archespace_mobile/src/features/spaces/data/space_lifecycle.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 
@@ -139,21 +140,15 @@ class StorageRepository {
 
   String _table(StoredEntry e) => e.isSpace ? 'spaces' : 'space_items';
 
-  Future<void> restoreArchived(StoredEntry e) async {
-    await _client.from(_table(e)).update({'archived_at': null}).eq('id', e.id);
-  }
+  // Spaces restore and move with what went along with them, and restoring
+  // anything brings back the removed spaces above it (see SpaceLifecycle).
 
-  Future<void> restoreDeleted(StoredEntry e) async {
-    await _client.from(_table(e)).update({'deleted_at': null}).eq('id', e.id);
-  }
+  Future<void> restoreArchived(StoredEntry e) => restoreArchivedMany([e]);
+
+  Future<void> restoreDeleted(StoredEntry e) => restoreDeletedMany([e]);
 
   /// Move an archived entry to the recycle bin.
-  Future<void> moveToBin(StoredEntry e) async {
-    await _client
-        .from(_table(e))
-        .update({'deleted_at': _now(), 'archived_at': null})
-        .eq('id', e.id);
-  }
+  Future<void> moveToBin(StoredEntry e) => moveManyToBin([e]);
 
   /// Permanently delete (hard delete). For spaces, the DB cascade removes items.
   Future<void> purge(StoredEntry e) async {
@@ -170,42 +165,32 @@ class StorageRepository {
 
   Future<void> restoreDeletedMany(Iterable<StoredEntry> entries) async {
     final (spaceIds, itemIds) = _split(entries);
-    if (spaceIds.isNotEmpty) {
-      await _client
-          .from('spaces')
-          .update({'deleted_at': null})
-          .inFilter('id', spaceIds);
-    }
+    if (spaceIds.isNotEmpty) await SpaceLifecycle().restore(spaceIds);
     if (itemIds.isNotEmpty) {
       await _client
           .from('space_items')
           .update({'deleted_at': null})
           .inFilter('id', itemIds);
+      await SpaceLifecycle().reviveItemSpaces(itemIds);
     }
   }
 
   Future<void> restoreArchivedMany(Iterable<StoredEntry> entries) async {
     final (spaceIds, itemIds) = _split(entries);
-    if (spaceIds.isNotEmpty) {
-      await _client
-          .from('spaces')
-          .update({'archived_at': null})
-          .inFilter('id', spaceIds);
-    }
+    if (spaceIds.isNotEmpty) await SpaceLifecycle().unarchive(spaceIds);
     if (itemIds.isNotEmpty) {
       await _client
           .from('space_items')
           .update({'archived_at': null})
           .inFilter('id', itemIds);
+      await SpaceLifecycle().reviveItemSpaces(itemIds);
     }
   }
 
   Future<void> moveManyToBin(Iterable<StoredEntry> entries) async {
     final (spaceIds, itemIds) = _split(entries);
     final patch = {'deleted_at': _now(), 'archived_at': null};
-    if (spaceIds.isNotEmpty) {
-      await _client.from('spaces').update(patch).inFilter('id', spaceIds);
-    }
+    if (spaceIds.isNotEmpty) await SpaceLifecycle().binArchived(spaceIds);
     if (itemIds.isNotEmpty) {
       await _client.from('space_items').update(patch).inFilter('id', itemIds);
     }

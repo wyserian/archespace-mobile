@@ -9,6 +9,7 @@ import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/presentation/item_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
@@ -256,9 +257,12 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       return null;
     }
     // A read-only space takes no new items, so it's never a destination.
-    final destinations = spaces
-        .where((s) => s.id != fromSpaceId && !s.readOnly)
-        .toList();
+    // Listed as a tree: each space followed by its sub-spaces, indented, with
+    // a sub-space's path as its subtitle.
+    final paths = spacePathLabels(spaces);
+    final destinations = spaceTreeOrder(
+      spaces,
+    ).where((e) => e.$1.id != fromSpaceId && !e.$1.readOnly).toList();
     final canMoveToDashboard = fromSpaceId != null;
     if (!mounted) return null;
     if (destinations.isEmpty && !canMoveToDashboard) {
@@ -288,10 +292,21 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
                 onTap: () =>
                     Navigator.pop(sheetContext, (id: null, name: 'Dashboard')),
               ),
-            for (final s in destinations)
+            for (final (s, depth) in destinations)
               ListTile(
+                contentPadding: EdgeInsets.only(
+                  left: 16 + (depth < 4 ? depth : 4) * 16.0,
+                  right: 16,
+                ),
                 leading: const Icon(Icons.folder_outlined),
                 title: Text(s.name.isEmpty ? 'Untitled' : s.name),
+                subtitle: depth > 0 && s.parentId != null
+                    ? Text(
+                        paths[s.parentId] ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : null,
                 onTap: () => Navigator.pop(sheetContext, (
                   id: s.id,
                   name: s.name.isEmpty ? 'Untitled' : s.name,

@@ -137,9 +137,13 @@ class _SearchScreenState extends State<SearchScreen> {
           ListTile(
             leading: Icon(itemTypeDef(hit.type)?.icon ?? Icons.notes),
             title: Text(hit.title.isEmpty ? 'Untitled' : hit.title),
-            subtitle: hit.spaceName.isEmpty
+            subtitle: hit.spacePath.isEmpty
                 ? null
-                : Text('in ${hit.spaceName}'),
+                : Text(
+                    'in ${hit.spacePath}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
             onTap: () => _open(hit),
           ),
       ],

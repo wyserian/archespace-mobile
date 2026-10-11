@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
+import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
@@ -157,13 +158,18 @@ class LocalDb implements Db {
       case 'delete':
         final removed = matching();
         if (q._table == 'spaces') {
-          // ON DELETE CASCADE: sub-spaces, and the items of every space.
-          final ids = removed.map((r) => r['id'] as String).toSet();
-          for (final space in t['spaces']!.values) {
-            if (ids.contains(space['parent_id'])) {
-              ids.add(space['id'] as String);
-            }
-          }
+          // ON DELETE CASCADE: sub-spaces at every level, and the items of
+          // every space.
+          final roots = removed.map((r) => r['id'] as String).toList();
+          final ids = {
+            ...roots,
+            ...descendantsOf(
+              roots,
+              t['spaces']!.values,
+              idOf: (s) => s['id'] as String,
+              parentOf: (s) => s['parent_id'] as String?,
+            ),
+          };
           await _erase(t, 'space_items', [
             for (final item in t['space_items']!.values)
               if (ids.contains(item['space_id'])) item,

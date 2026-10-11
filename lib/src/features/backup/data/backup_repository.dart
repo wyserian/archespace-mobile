@@ -12,9 +12,10 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// `data` is the contents `{ spaces: [...], items: [...] }` encrypted with the
 /// vault key, and `vault` is that key wrapped with the vault PIN (as the
 /// server stores it). So it opens as-is in the same vault, and anywhere else
-/// with the vault PIN of the time. Each space carries its fields and an
-/// `items` array ({ type, title, content, position, pinned, reminder }); the
-/// top-level `items` are the dashboard's (no space).
+/// with the vault PIN of the time. Each space carries its fields, its nesting
+/// (`key`, and its parent's as `parentKey`) and an `items` array ({ type,
+/// title, content, position, pinned, reminder }); the top-level `items` are
+/// the dashboard's (no space).
 class BackupRepository {
   BackupRepository(this._masterKey);
 
@@ -66,14 +67,24 @@ class BackupRepository {
   Future<String> exportJson(Map<String, String> vaultMeta) async {
     final spaceRows = await _client
         .from('spaces')
-        .select('id, name, description, tags, color, pinned, locked, position')
+        .select(
+          'id, parent_id, name, description, tags, color, pinned, locked, '
+          'position',
+        )
         .isFilter('deleted_at', null)
         .isFilter('archived_at', null)
         .order('position');
 
+    // Nesting: each space's `key` is its place in the list, and a sub-space
+    // names its parent's as `parentKey`.
+    final keyOf = {
+      for (var i = 0; i < spaceRows.length; i++) spaceRows[i]['id']: i,
+    };
     final out = <Map<String, dynamic>>[];
-    for (final s in spaceRows) {
+    for (final (i, s) in spaceRows.indexed) {
       out.add({
+        'key': i,
+        'parentKey': ?keyOf[s['parent_id']],
         'name': await _dec(s['name']),
         'description': await _dec(s['description']),
         'color': s['color'],
@@ -98,6 +109,59 @@ class BackupRepository {
       'data': await _encJson(contents),
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  /// The order to import a backup's spaces in, parents first: (index,
+  /// parentIndex). A space's `parentKey` names another space's `key`; one
+  /// that names no space (or loops) imports at the top level, as do older
+  /// backups, which have neither. Matches the web `nestingOrder`.
+  static List<(int, int?)> nestingOrder(List<dynamic> spaces) {
+    Object? field(int i, String name) {
+      final s = spaces[i];
+      return s is Map ? s[name] : null;
+    }
+
+    final indexOfKey = <Object, int>{};
+    for (var i = 0; i < spaces.length; i++) {
+      final key = field(i, 'key');
+      if (key != null) indexOfKey.putIfAbsent(key, () => i);
+    }
+    final parentOf = <int?>[
+      for (var i = 0; i < spaces.length; i++)
+        switch (field(i, 'parentKey')) {
+          null => null,
+          final key => indexOfKey[key] == i ? null : indexOfKey[key],
+        },
+    ];
+    final children = <int, List<int>>{};
+    for (var i = 0; i < spaces.length; i++) {
+      final p = parentOf[i];
+      if (p != null) children.putIfAbsent(p, () => []).add(i);
+    }
+    final order = <(int, int?)>[];
+    final placed = <int>{};
+    void place(int start) {
+      final queue = [start];
+      while (queue.isNotEmpty) {
+        final i = queue.removeAt(0);
+        if (!placed.add(i)) continue;
+        final p = parentOf[i];
+        order.add((
+          i,
+          i != start && p != null && placed.contains(p) ? p : null,
+        ));
+        queue.addAll(children[i] ?? const []);
+      }
+    }
+
+    for (var i = 0; i < spaces.length; i++) {
+      if (parentOf[i] == null) place(i);
+    }
+    // Whatever is left is in a parent loop: break it at the top level.
+    for (var i = 0; i < spaces.length; i++) {
+      place(i);
+    }
+    return order;
   }
 
   static bool _isEncrypted(Object? parsed) =>
@@ -229,9 +293,13 @@ class BackupRepository {
     var itemsImported = 0;
     var itemsSkipped = 0;
     var spacesImported = 0;
+    // Backup position -> new space id, for the sub-spaces that follow.
+    final newIds = <int, String>{};
 
-    for (final raw in parsedSpaces) {
+    for (final (index, parentIndex) in nestingOrder(parsedSpaces)) {
+      final raw = parsedSpaces[index];
       if (raw is! Map) continue;
+      final parentId = parentIndex == null ? null : newIds[parentIndex];
 
       final rawName = raw['name'];
       final name = (rawName is String && rawName.trim().isNotEmpty)
@@ -255,11 +323,19 @@ class BackupRepository {
             'tags': await _encJson(tags),
             'pinned': raw['pinned'] == true,
             'locked': raw['locked'] == true,
-            'position': spacePos++,
+            'parent_id': parentId,
+            // Top-level spaces go after the existing ones; sub-spaces keep
+            // their order.
+            'position': parentId == null
+                ? spacePos++
+                : raw['position'] is int
+                ? raw['position']
+                : 0,
           })
           .select('id')
           .single();
       final spaceId = created['id'] as String;
+      newIds[index] = spaceId;
       spacesImported++;
 
       final items = raw['items'];

@@ -16,10 +16,13 @@ import 'package:archespace_mobile/src/features/vault/application/content_lock.da
 class PdfExporter {
   const PdfExporter._();
 
+  /// A whole space: its items, with its sub-spaces listed by name only (each
+  /// exports on its own).
   static Future<Uint8List> buildSpace(
     String name,
-    List<SpaceItem> items,
-  ) async {
+    List<SpaceItem> items, {
+    List<String> subSpaceNames = const [],
+  }) async {
     final stamp = _timestamp();
     final theme = await _theme();
     final doc = pw.Document(theme: theme);
@@ -33,6 +36,13 @@ class PdfExporter {
             name.isEmpty ? 'Space' : name,
             style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
           ),
+          if (subSpaceNames.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            _text(
+              'Sub-spaces: ${subSpaceNames.join(', ')}',
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+            ),
+          ],
           pw.SizedBox(height: 12),
           if (items.isEmpty) pw.Text('This space has no items.'),
           for (final item in items) ..._section(item),
