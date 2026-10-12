@@ -244,12 +244,6 @@ class SpaceRepository {
     await _client.from('spaces').insert(payload);
   }
 
-  /// The direct sub-spaces of a space.
-  Future<List<Space>> listSubSpaces(String parentId) async {
-    final result = await listSpaces();
-    return result.spaces.where((s) => s.parentId == parentId).toList();
-  }
-
   Future<void> updateSpace({
     required String id,
     required String name,

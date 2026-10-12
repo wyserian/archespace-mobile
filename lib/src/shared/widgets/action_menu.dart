@@ -18,7 +18,7 @@ class ActionMenuEntry {
 /// A 3-dot button opening a compact menu, styled like the web's: a panel the
 /// colour of the cards with a hairline border and soft shadow, icon + label
 /// rows, and destructive rows in red. It fades and scales in from the
-/// button's corner instead of unrolling top to bottom.
+/// button's corner.
 class ActionMenuButton extends StatelessWidget {
   const ActionMenuButton({
     super.key,

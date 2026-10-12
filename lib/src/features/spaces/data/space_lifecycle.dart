@@ -9,8 +9,8 @@ typedef _Node = ({
 });
 
 /// Deleting, archiving, restoring and moving spaces as whole subtrees (spaces
-/// nest to any depth). Each step first reads the user's space tree (ids, parents and
-/// dates only), so it reaches every level. Ported from the web
+/// nest to any depth). Each step first reads the user's space tree (ids,
+/// parents and dates only), so it reaches every level. Ported from the web
 /// `spaceLifecycle.js`; the same rules:
 ///
 /// - Deleting or archiving a space takes its active sub-spaces with it, at
