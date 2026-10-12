@@ -31,28 +31,6 @@ class ActionMenuButton extends StatelessWidget {
   final List<ActionMenuEntry> entries;
   final Color? iconColor;
 
-  Future<void> _open(BuildContext context) async {
-    final navigator = Navigator.of(context);
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay = navigator.overlay!.context.findRenderObject()! as RenderBox;
-    final anchor = Rect.fromPoints(
-      button.localToGlobal(Offset.zero, ancestor: overlay),
-      button.localToGlobal(
-        button.size.bottomRight(Offset.zero),
-        ancestor: overlay,
-      ),
-    );
-    final picked = await navigator.push(
-      _ActionMenuRoute(
-        anchor: anchor,
-        entries: entries,
-        themes: InheritedTheme.capture(from: context, to: navigator.context),
-      ),
-    );
-    // After the menu has closed, so an action can open its own dialog.
-    if (picked != null) entries[picked].onSelected();
-  }
-
   @override
   Widget build(BuildContext context) => SizedBox(
     height: 32,
@@ -61,9 +39,36 @@ class ActionMenuButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       tooltip: tooltip,
       icon: Icon(Icons.more_vert, size: 18, color: iconColor),
-      onPressed: () => _open(context),
+      onPressed: () => showActionMenu(context, entries),
     ),
   );
+}
+
+/// Open the [ActionMenuButton] menu at the widget of [context] (for a control
+/// that isn't a 3-dot button, like a table grip).
+Future<void> showActionMenu(
+  BuildContext context,
+  List<ActionMenuEntry> entries,
+) async {
+  final navigator = Navigator.of(context);
+  final button = context.findRenderObject()! as RenderBox;
+  final overlay = navigator.overlay!.context.findRenderObject()! as RenderBox;
+  final anchor = Rect.fromPoints(
+    button.localToGlobal(Offset.zero, ancestor: overlay),
+    button.localToGlobal(
+      button.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    ),
+  );
+  final picked = await navigator.push(
+    _ActionMenuRoute(
+      anchor: anchor,
+      entries: entries,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+    ),
+  );
+  // After the menu has closed, so an action can open its own dialog.
+  if (picked != null) entries[picked].onSelected();
 }
 
 const double _rowHeight = 40;

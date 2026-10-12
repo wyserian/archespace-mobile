@@ -1027,45 +1027,61 @@ class _TableView extends StatelessWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final soft = scheme.outlineVariant.withValues(alpha: 0.5);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: soft),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        clipBehavior: Clip.antiAlias,
-        // Soften the DataTable's built-in row dividers to match the border.
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: soft),
-          child: DataTable(
-            // Row dividers come from the theme above; add soft vertical
-            // dividers so there are borders between columns too.
-            border: TableBorder(verticalInside: BorderSide(color: soft)),
-            columns: [
-              for (var i = 0; i < colCount; i++)
-                DataColumn(
-                  label: Text(
-                    i < columns.length && columns[i].isNotEmpty
-                        ? columns[i]
-                        : ' ',
-                  ),
-                ),
-            ],
-            rows: [
-              for (final r in rows)
-                DataRow(
-                  cells: [
-                    for (var i = 0; i < colCount; i++)
-                      DataCell(Text(i < r.length ? r[i] : '')),
-                  ],
-                ),
-            ],
-          ),
-        ),
+    Widget cell(String text, {bool header = false}) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Text(
+        text,
+        style: header ? const TextStyle(fontWeight: FontWeight.w600) : null,
       ),
     );
+    // The full width of the card, split equally between the columns; it
+    // scrolls sideways only when the columns would get too narrow.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = (constraints.maxWidth / colCount)
+            .clamp(_kMinColumnWidth, double.infinity)
+            .toDouble();
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: soft),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Table(
+              // Less the outer border, so the table fits inside it.
+              defaultColumnWidth: FixedColumnWidth(width - 2 / colCount),
+              border: TableBorder(
+                horizontalInside: BorderSide(color: soft),
+                verticalInside: BorderSide(color: soft),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                  ),
+                  children: [
+                    for (var i = 0; i < colCount; i++)
+                      cell(i < columns.length ? columns[i] : '', header: true),
+                  ],
+                ),
+                for (final r in rows)
+                  TableRow(
+                    children: [
+                      for (var i = 0; i < colCount; i++)
+                        cell(i < r.length ? r[i] : ''),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
+
+  static const double _kMinColumnWidth = 90;
 }
 
 /// A Kanban preview: its columns side by side (scrolling sideways), each with

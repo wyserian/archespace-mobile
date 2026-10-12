@@ -12,6 +12,7 @@ import 'package:archespace_mobile/src/features/items/presentation/kanban_editor.
 import 'package:archespace_mobile/src/features/items/presentation/rich_text_web_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web_editor.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
 
@@ -902,11 +903,18 @@ class _CardsEditorState extends State<_CardsEditor> {
   }
 }
 
-const double _kCellWidth = 150;
+const double _kMinCellWidth = 110;
+const double _kGripWidth = 32;
+// The column after the grid: add-column in the header, row grips below it.
+const double _kEndColumnWidth = 40;
 
-/// Grid editor for `table` (`{ columns: [labels], rows: [[cells]] }`). Edit the
-/// header + cells, add/remove columns and rows. The grid is kept rectangular
-/// (every row has one cell per column). Scrolls both axes.
+/// Grid editor for `table` (`{ columns: [labels], rows: [[cells]] }`). The
+/// grid is kept rectangular (every row has one cell per column); the columns
+/// share the width equally, and it scrolls sideways when they don't fit.
+///
+/// Each row (at its end) and column (in its header) has a grip: tap it to
+/// insert, move or delete, or press and hold it to drag the row or column
+/// somewhere else.
 class _TableEditor extends StatefulWidget {
   const _TableEditor({required this.content, this.readOnly = false});
 
@@ -958,7 +966,8 @@ class _TableEditorState extends State<_TableEditor> {
         [for (final cell in row) TextEditingController(text: cell)],
     ];
 
-    // Share the same list instances so edits flow into the saved content.
+    // Share the same list instances so edits flow into the saved content (so
+    // every change below is made in place).
     widget.content['columns'] = _columns;
     widget.content['rows'] = _rows;
   }
@@ -976,13 +985,16 @@ class _TableEditorState extends State<_TableEditor> {
     super.dispose();
   }
 
-  void _addColumn() {
+  static void _move<T>(List<T> list, int from, int to) =>
+      list.insert(to, list.removeAt(from));
+
+  void _insertColumn(int at) {
     setState(() {
-      _columns.add('');
-      _colCtrls.add(TextEditingController());
+      _columns.insert(at, '');
+      _colCtrls.insert(at, TextEditingController());
       for (var r = 0; r < _rows.length; r++) {
-        _rows[r].add('');
-        _cellCtrls[r].add(TextEditingController());
+        _rows[r].insert(at, '');
+        _cellCtrls[r].insert(at, TextEditingController());
       }
     });
   }
@@ -999,10 +1011,25 @@ class _TableEditorState extends State<_TableEditor> {
     });
   }
 
-  void _addRow() {
+  void _moveColumn(int from, int to) {
+    if (from == to || to < 0 || to >= _columns.length) return;
     setState(() {
-      _rows.add(List<String>.filled(_columns.length, '', growable: true));
-      _cellCtrls.add([
+      _move(_columns, from, to);
+      _move(_colCtrls, from, to);
+      for (var r = 0; r < _rows.length; r++) {
+        _move(_rows[r], from, to);
+        _move(_cellCtrls[r], from, to);
+      }
+    });
+  }
+
+  void _insertRow(int at) {
+    setState(() {
+      _rows.insert(
+        at,
+        List<String>.filled(_columns.length, '', growable: true),
+      );
+      _cellCtrls.insert(at, [
         for (var c = 0; c < _columns.length; c++) TextEditingController(),
       ]);
     });
@@ -1018,125 +1045,293 @@ class _TableEditorState extends State<_TableEditor> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final border = Border.all(color: Theme.of(context).dividerColor);
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header row + add-column button.
-                  Row(
-                    children: [
-                      for (var c = 0; c < _columns.length; c++)
-                        Container(
-                          width: _kCellWidth,
-                          decoration: BoxDecoration(
-                            border: border,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                          ),
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _colCtrls[c],
-                                  readOnly: widget.readOnly,
-                                  onChanged: (v) => _columns[c] = v,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: widget.readOnly
-                                        ? null
-                                        : 'Column ${c + 1}',
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
-                                ),
-                              ),
-                              if (!widget.readOnly && _columns.length > 1)
-                                InkWell(
-                                  onTap: () => _removeColumn(c),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(6),
-                                    child: Icon(Icons.close, size: 14),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      if (!widget.readOnly)
-                        IconButton(
-                          onPressed: _addColumn,
-                          icon: const Icon(Icons.add),
-                          tooltip: 'Add column',
-                        ),
-                    ],
-                  ),
-                  // Data rows + remove-row button.
-                  for (var r = 0; r < _rows.length; r++)
-                    Row(
-                      children: [
-                        for (var c = 0; c < _columns.length; c++)
-                          Container(
-                            width: _kCellWidth,
-                            decoration: BoxDecoration(border: border),
-                            child: TextField(
-                              controller: _cellCtrls[r][c],
-                              readOnly: widget.readOnly,
-                              onChanged: (v) => _rows[r][c] = v,
-                              minLines: 1,
-                              maxLines: null,
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (!widget.readOnly)
-                          IconButton(
-                            onPressed: _rows.length > 1
-                                ? () => _removeRow(r)
-                                : null,
-                            icon: const Icon(Icons.close, size: 16),
-                            tooltip: 'Remove row',
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
+  void _moveRow(int from, int to) {
+    if (from == to || to < 0 || to >= _rows.length) return;
+    setState(() {
+      _move(_rows, from, to);
+      _move(_cellCtrls, from, to);
+    });
+  }
+
+  List<ActionMenuEntry> _rowMenu(int r) => [
+    ActionMenuEntry(
+      icon: Icons.vertical_align_top,
+      label: 'Insert above',
+      onSelected: () => _insertRow(r),
+    ),
+    ActionMenuEntry(
+      icon: Icons.vertical_align_bottom,
+      label: 'Insert below',
+      onSelected: () => _insertRow(r + 1),
+    ),
+    if (r > 0)
+      ActionMenuEntry(
+        icon: Icons.arrow_upward,
+        label: 'Move up',
+        onSelected: () => _moveRow(r, r - 1),
+      ),
+    if (r < _rows.length - 1)
+      ActionMenuEntry(
+        icon: Icons.arrow_downward,
+        label: 'Move down',
+        onSelected: () => _moveRow(r, r + 1),
+      ),
+    if (_rows.length > 1)
+      ActionMenuEntry(
+        icon: Icons.delete_outline,
+        label: 'Delete row',
+        danger: true,
+        onSelected: () => _removeRow(r),
+      ),
+  ];
+
+  List<ActionMenuEntry> _columnMenu(int c) => [
+    ActionMenuEntry(
+      icon: Icons.align_horizontal_left,
+      label: 'Insert left',
+      onSelected: () => _insertColumn(c),
+    ),
+    ActionMenuEntry(
+      icon: Icons.align_horizontal_right,
+      label: 'Insert right',
+      onSelected: () => _insertColumn(c + 1),
+    ),
+    if (c > 0)
+      ActionMenuEntry(
+        icon: Icons.arrow_back,
+        label: 'Move left',
+        onSelected: () => _moveColumn(c, c - 1),
+      ),
+    if (c < _columns.length - 1)
+      ActionMenuEntry(
+        icon: Icons.arrow_forward,
+        label: 'Move right',
+        onSelected: () => _moveColumn(c, c + 1),
+      ),
+    if (_columns.length > 1)
+      ActionMenuEntry(
+        icon: Icons.delete_outline,
+        label: 'Delete column',
+        danger: true,
+        onSelected: () => _removeColumn(c),
+      ),
+  ];
+
+  /// A grip that opens [menu] on tap.
+  Widget _grip(
+    String tooltip,
+    List<ActionMenuEntry> Function() menu, {
+    double width = _kGripWidth,
+  }) => Builder(
+    builder: (gripContext) => Semantics(
+      button: true,
+      label: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showActionMenu(gripContext, menu()),
+        child: SizedBox(
+          width: width,
+          height: 36,
+          child: Icon(
+            Icons.drag_indicator,
+            size: 16,
+            color: Theme.of(
+              gripContext,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
           ),
         ),
-        if (!widget.readOnly) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addRow,
-              icon: const Icon(Icons.add),
-              label: const Text('Add row'),
-              style: TextButton.styleFrom(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+      ),
+    ),
+  );
+
+  Widget _headerCell(int c, double width, BorderSide line) {
+    final scheme = Theme.of(context).colorScheme;
+    final edit = !widget.readOnly;
+    final field = TextField(
+      key: ObjectKey(_colCtrls[c]),
+      controller: _colCtrls[c],
+      readOnly: widget.readOnly,
+      onChanged: (v) => _columns[c] = v,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      decoration: InputDecoration(
+        hintText: edit ? 'Column ${c + 1}' : null,
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      ),
+    );
+    Widget cell(bool target) => Container(
+      width: width,
+      decoration: BoxDecoration(
+        color: target
+            ? scheme.primary.withValues(alpha: 0.16)
+            : scheme.surfaceContainerHighest,
+        border: Border(
+          top: line,
+          bottom: line,
+          right: line,
+          left: c == 0 ? line : BorderSide.none,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: field),
+          // Hold the grip to drag the column onto another one's place.
+          if (edit)
+            LongPressDraggable<int>(
+              data: c,
+              axis: Axis.horizontal,
+              feedback: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(6),
+                color: scheme.surfaceContainerHighest,
+                child: Container(
+                  width: width,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 9,
+                  ),
+                  child: Text(
+                    _columns[c].isEmpty ? 'Column ${c + 1}' : _columns[c],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
+              childWhenDragging: const SizedBox(width: _kGripWidth),
+              child: _grip('Column ${c + 1} options', () => _columnMenu(c)),
+            ),
+        ],
+      ),
+    );
+    if (!edit) return cell(false);
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => details.data != c,
+      onAcceptWithDetails: (details) => _moveColumn(details.data, c),
+      builder: (context, candidates, _) => cell(candidates.isNotEmpty),
+    );
+  }
+
+  Widget _row(int r, double width, BorderSide line) {
+    final edit = !widget.readOnly;
+    return Material(
+      key: ObjectKey(_cellCtrls[r]),
+      type: MaterialType.transparency,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var c = 0; c < _columns.length; c++)
+              Container(
+                width: width,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: line,
+                    right: line,
+                    left: c == 0 ? line : BorderSide.none,
+                  ),
+                ),
+                child: TextField(
+                  key: ObjectKey(_cellCtrls[r][c]),
+                  controller: _cellCtrls[r][c],
+                  readOnly: widget.readOnly,
+                  onChanged: (v) => _rows[r][c] = v,
+                  minLines: 1,
+                  maxLines: null,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 9,
+                    ),
+                  ),
+                ),
+              ),
+            // At the row's end: tap for options, hold to drag it up or down.
+            if (edit)
+              ReorderableDelayedDragStartListener(
+                index: r,
+                child: _grip(
+                  'Row ${r + 1} options',
+                  () => _rowMenu(r),
+                  width: _kEndColumnWidth,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final edit = !widget.readOnly;
+    final line = BorderSide(
+      color: Theme.of(
+        context,
+      ).colorScheme.outlineVariant.withValues(alpha: 0.7),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final extra = edit ? _kEndColumnWidth : 0.0;
+        final cellWidth = ((constraints.maxWidth - extra) / _columns.length)
+            .clamp(_kMinCellWidth, double.infinity)
+            .toDouble();
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: cellWidth * _columns.length + extra,
+            height: constraints.maxHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row, with the add-column button after it.
+                Row(
+                  children: [
+                    for (var c = 0; c < _columns.length; c++)
+                      _headerCell(c, cellWidth, line),
+                    if (edit)
+                      SizedBox(
+                        width: _kEndColumnWidth,
+                        child: IconButton(
+                          onPressed: () => _insertColumn(_columns.length),
+                          icon: const Icon(Icons.add, size: 20),
+                          tooltip: 'Add column',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
+                ),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    itemCount: _rows.length,
+                    onReorderItem: _moveRow,
+                    itemBuilder: (context, r) => _row(r, cellWidth, line),
+                    footer: edit
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: TextButton.icon(
+                              onPressed: () => _insertRow(_rows.length),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add row'),
+                              style: TextButton.styleFrom(
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
