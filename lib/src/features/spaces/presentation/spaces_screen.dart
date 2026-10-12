@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/search/presentation/search_screen
 import 'package:archespace_mobile/src/features/spaces/application/drawer_spaces.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
@@ -455,6 +456,14 @@ class _SpacesScreenState extends State<SpacesScreen>
     await _runBulk((_, itemIds) => _itemRepo.bulkMove(itemIds, target.id));
   }
 
+  /// Move spaces into another space (with everything in them).
+  Future<void> _moveSpaces(List<String> ids) async {
+    if (await moveSpacesTo(context, ids) && mounted) {
+      if (_selectMode) _exitSelect();
+      _load();
+    }
+  }
+
   Future<void> _duplicateSpace(Space space) async {
     try {
       await _spaceRepo.duplicateSpace(space);
@@ -581,12 +590,23 @@ class _SpacesScreenState extends State<SpacesScreen>
                   label: 'Unpin',
                   onPressed: () => _bulkSetPinned(false),
                 ),
-                // Only items move (into a space); spaces can't.
+                // Spaces or items move, not both at once (a read-only space
+                // stays where it is).
                 if (_selectedItems.isNotEmpty && _selected.isEmpty)
                   BulkAction(
                     icon: Icons.drive_file_move_outlined,
                     label: 'Move',
                     onPressed: _bulkMoveItems,
+                  ),
+                if (_selected.isNotEmpty &&
+                    _selectedItems.isEmpty &&
+                    !(_spaces ?? const <Space>[]).any(
+                      (s) => _selected.contains(s.id) && s.readOnly,
+                    ))
+                  BulkAction(
+                    icon: Icons.drive_file_move_outlined,
+                    label: 'Move',
+                    onPressed: () => _moveSpaces(_selected.toList()),
                   ),
                 BulkAction(
                   icon: Icons.archive_outlined,
@@ -1050,6 +1070,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     },
     onEdit: () => _editSpace(space),
     onDuplicate: () => _duplicateSpace(space),
+    onMove: () => _moveSpaces([space.id]),
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
     activeTags: _activeTags,

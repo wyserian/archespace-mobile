@@ -137,6 +137,34 @@ void main() {
     expect(await spaces(), allActive);
   });
 
+  Future<Map<String, String?>> parents() async {
+    final rows = await db.from('spaces').select() as List;
+    final nameOf = {for (final r in rows) r['id']: r['name'] as String};
+    return {for (final r in rows) r['name'] as String: nameOf[r['parent_id']]};
+  }
+
+  test('moves a space with everything in it, never inside itself', () async {
+    await life.move([ids['c']!], ids['e']);
+    expect(await parents(), {
+      'a': null,
+      'b': 'a',
+      'c': 'e',
+      'd': 'c',
+      'e': null,
+    });
+    await life.move([ids['c']!], null);
+    expect((await parents())['c'], null);
+    await expectLater(life.move([ids['a']!], ids['b']), throwsStateError);
+    await expectLater(life.move([ids['c']!], ids['c']), throwsStateError);
+  });
+
+  test('a selection whose parent is selected too moves as one', () async {
+    await life.move([ids['b']!, ids['c']!], ids['e']);
+    final p = await parents();
+    expect(p['b'], 'e');
+    expect(p['c'], 'b');
+  });
+
   test('hard-deleting a space removes every level below it', () async {
     await db.from('spaces').delete().eq('id', ids['a']!);
     final rows = await db.from('spaces').select('name') as List;

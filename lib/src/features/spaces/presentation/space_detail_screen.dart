@@ -9,6 +9,7 @@ import 'package:archespace_mobile/src/features/items/presentation/item_card.dart
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
@@ -316,6 +317,9 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       (r) => r.duplicateSpace(sub),
       "Couldn't duplicate the space.",
     ),
+    onMove: () async {
+      if (await moveSpacesTo(context, [sub.id]) && mounted) _load();
+    },
     onArchive: () => _subSpaceOp(
       (r) => r.archiveSpace(sub.id),
       "Couldn't archive the space.",

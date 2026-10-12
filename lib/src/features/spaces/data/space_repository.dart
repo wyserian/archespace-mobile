@@ -322,6 +322,10 @@ class SpaceRepository {
 
   Future<void> bulkDelete(List<String> ids) => SpaceLifecycle().delete(ids);
 
+  /// Move spaces into [parentId], or to the top level for null.
+  Future<void> moveSpaces(List<String> ids, String? parentId) =>
+      SpaceLifecycle().move(ids, parentId);
+
   /// Soft-delete to the recycle bin (sets deleted_at), matching the web, with
   /// the space's sub-spaces at every level.
   Future<void> deleteSpace(String id) => SpaceLifecycle().delete([id]);

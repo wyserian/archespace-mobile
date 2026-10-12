@@ -8,6 +8,7 @@ import 'package:archespace_mobile/src/features/items/presentation/item_card.dart
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
@@ -313,6 +314,9 @@ class _StarredScreenState extends State<StarredScreen>
       "Couldn't duplicate the space.",
       success: 'Space duplicated',
     ),
+    onMove: () async {
+      if (await moveSpacesTo(context, [space.id]) && mounted) _load();
+    },
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
   );

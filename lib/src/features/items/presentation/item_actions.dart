@@ -9,7 +9,7 @@ import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/presentation/item_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
-import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
@@ -19,9 +19,6 @@ import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_
 import 'package:archespace_mobile/src/shared/export/pdf_exporter.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
-
-/// Where items can be moved: a space, or the dashboard when [id] is null.
-typedef MoveTarget = ({String? id, String name});
 
 /// Item actions shared by a space's screen and the dashboard: open to edit,
 /// pin, duplicate, move (to another space or the dashboard), archive and
@@ -256,65 +253,18 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       showItemError("Couldn't load spaces.");
       return null;
     }
-    // A read-only space takes no new items, so it's never a destination.
-    // Listed as a tree: each space followed by its sub-spaces, indented, with
-    // a sub-space's path as its subtitle.
-    final paths = spacePathLabels(spaces);
-    final destinations = spaceTreeOrder(
-      spaces,
-    ).where((e) => e.$1.id != fromSpaceId && !e.$1.readOnly).toList();
+    final exclude = {?fromSpaceId};
     final canMoveToDashboard = fromSpaceId != null;
     if (!mounted) return null;
-    if (destinations.isEmpty && !canMoveToDashboard) {
+    if (moveDestinations(spaces, exclude).isEmpty && !canMoveToDashboard) {
       showItemError('No space to move to.');
       return null;
     }
-    return showModalBottomSheet<MoveTarget>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                'Move to',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            if (canMoveToDashboard)
-              ListTile(
-                leading: const Icon(Icons.dashboard_outlined),
-                title: const Text('Dashboard'),
-                subtitle: const Text('Outside any space'),
-                onTap: () =>
-                    Navigator.pop(sheetContext, (id: null, name: 'Dashboard')),
-              ),
-            for (final (s, depth) in destinations)
-              ListTile(
-                contentPadding: EdgeInsets.only(
-                  left: 16 + (depth < 4 ? depth : 4) * 16.0,
-                  right: 16,
-                ),
-                leading: const Icon(Icons.folder_outlined),
-                title: Text(s.name.isEmpty ? 'Untitled' : s.name),
-                subtitle: depth > 0 && s.parentId != null
-                    ? Text(
-                        paths[s.parentId] ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    : null,
-                onTap: () => Navigator.pop(sheetContext, (
-                  id: s.id,
-                  name: s.name.isEmpty ? 'Untitled' : s.name,
-                )),
-              ),
-          ],
-        ),
-      ),
+    return showSpaceDestinations(
+      context,
+      spaces: spaces,
+      exclude: exclude,
+      dashboardSubtitle: canMoveToDashboard ? 'Outside any space' : null,
     );
   }
 

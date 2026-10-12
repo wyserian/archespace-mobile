@@ -22,6 +22,7 @@ class SpaceCard extends StatelessWidget {
     this.onToggleStar,
     this.onToggleReadOnly,
     this.onToggleLock,
+    this.onMove,
     this.selectMode = false,
     this.selected = false,
     this.onSelectToggle,
@@ -46,6 +47,9 @@ class SpaceCard extends StatelessWidget {
 
   /// Protect / remove protection. Null hides it.
   final VoidCallback? onToggleLock;
+
+  /// Move into another space or to the top level. Null hides it.
+  final VoidCallback? onMove;
   final bool selectMode;
   final bool selected;
   final VoidCallback? onSelectToggle;
@@ -251,6 +255,15 @@ class SpaceCard extends StatelessWidget {
                               label: 'Duplicate',
                               onSelected: onDuplicate,
                             ),
+                            // A read-only space stays where it is; a hidden
+                            // one opens first (moving it out of a protected
+                            // space would show it without the PIN).
+                            if (onMove != null && !space.readOnly && !hidden)
+                              ActionMenuEntry(
+                                icon: Icons.drive_file_move_outlined,
+                                label: 'Move',
+                                onSelected: onMove!,
+                              ),
                             ActionMenuEntry(
                               icon: Icons.archive_outlined,
                               label: 'Archive',

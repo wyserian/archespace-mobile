@@ -8,8 +8,8 @@ typedef _Node = ({
   String? archivedAt,
 });
 
-/// Deleting, archiving and restoring spaces as whole subtrees (spaces nest to
-/// any depth). Each step first reads the user's space tree (ids, parents and
+/// Deleting, archiving, restoring and moving spaces as whole subtrees (spaces
+/// nest to any depth). Each step first reads the user's space tree (ids, parents and
 /// dates only), so it reaches every level. Ported from the web
 /// `spaceLifecycle.js`; the same rules:
 ///
@@ -204,6 +204,34 @@ class SpaceLifecycle {
           .update(removed)
           .inFilter('space_id', spaceIds)
           .eq('archived_at', at);
+    }
+  }
+
+  /// Move spaces, with everything in them, into [parentId] (null = top
+  /// level), after the spaces already there. A space can't go inside itself or
+  /// one of its own sub-spaces, and one whose parent is moving too stays
+  /// inside it.
+  Future<void> move(List<String> ids, String? parentId) async {
+    if (ids.isEmpty) return;
+    final (:tree, :byId) = await _loadTree();
+    String? parentOf(String id) => byId[id]?.parentId;
+    final moving = ids.toSet();
+    if (parentId != null && chainOf(parentId, parentOf).any(moving.contains)) {
+      throw StateError("A space can't move inside itself.");
+    }
+    final roots = ids.where(
+      (id) =>
+          parentOf(id) != parentId &&
+          !ancestorsOf(id, parentOf).any(moving.contains),
+    );
+    var position = tree
+        .where((s) => _active(s) && s.parentId == parentId)
+        .length;
+    for (final id in roots) {
+      await _db
+          .from('spaces')
+          .update({'parent_id': parentId, 'position': position++})
+          .eq('id', id);
     }
   }
 
