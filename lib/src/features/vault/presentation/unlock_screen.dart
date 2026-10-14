@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 class UnlockScreen extends StatefulWidget {
@@ -354,7 +355,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.lock_outline, size: 40),
+        const IconTile(icon: Icons.lock_outline),
         const SizedBox(height: 16),
         Text(
           'Enter your vault PIN',
@@ -413,7 +414,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.vpn_key_outlined, size: 40),
+        const IconTile(icon: Icons.vpn_key_outlined),
         const SizedBox(height: 16),
         Text(
           'Reset with recovery code',
@@ -489,7 +490,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.warning_amber_rounded, size: 40, color: scheme.error),
+        IconTile(icon: Icons.warning_amber_rounded, color: scheme.error),
         const SizedBox(height: 16),
         Text(
           'Reset vault',

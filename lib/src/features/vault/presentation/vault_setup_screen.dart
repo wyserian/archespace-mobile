@@ -9,6 +9,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// First-run vault creation for a freshly registered account (no vault yet).
@@ -144,7 +145,7 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.shield_outlined, size: 48),
+        const IconTile(icon: Icons.lock_outline),
         const SizedBox(height: 16),
         Text(
           'Create your vault PIN',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 
 /// One-time recovery-code display, shown after creating a vault or resetting the
 /// PIN. The code is shown once and must be saved before continuing.
@@ -24,7 +25,7 @@ class RecoveryCodeStep extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.vpn_key_outlined, size: 48),
+        const IconTile(icon: Icons.vpn_key_outlined),
         const SizedBox(height: 16),
         Text(
           title,
