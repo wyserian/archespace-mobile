@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 
 /// Editor for the Kanban type (see domain/kanban.dart): columns side by side
 /// that scroll sideways under a compact Add column button, each a list of
@@ -305,61 +306,45 @@ class _KanbanEditorState extends State<KanbanEditor> {
             : null,
       ),
     );
-    Widget colorItem(String label, Color? c, bool selected) => Row(
-      children: [
-        swatch(c),
-        const SizedBox(width: 10),
-        Expanded(child: Text(label)),
-        if (selected) const Icon(Icons.check, size: 16),
-      ],
-    );
     String label(String id) => id[0].toUpperCase() + id.substring(1);
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 18),
+    final canMove = _columns.length > 1;
+    // The compact menu the cards use; it stays clear of the keyboard and
+    // scrolls if it's taller than the room left.
+    return ActionMenuButton(
       tooltip: 'Column actions',
-      onSelected: (value) {
-        if (value == 'left') _moveColumn(col, -1);
-        if (value == 'right') _moveColumn(col, 1);
-        if (value == 'delete') _removeColumn(col);
-        if (value == 'color:') _change(() => col.color = null);
-        if (value.startsWith('color:') && value.length > 6) {
-          _change(() => col.color = value.substring(6));
-        }
-      },
-      itemBuilder: (_) => [
+      entries: [
         if (index > 0)
-          const PopupMenuItem(
-            height: 40,
-            value: 'left',
-            child: Text('Move left'),
+          ActionMenuEntry(
+            icon: Icons.arrow_back,
+            label: 'Move left',
+            onSelected: () => _moveColumn(col, -1),
           ),
         if (index < _columns.length - 1)
-          const PopupMenuItem(
-            height: 40,
-            value: 'right',
-            child: Text('Move right'),
+          ActionMenuEntry(
+            icon: Icons.arrow_forward,
+            label: 'Move right',
+            onSelected: () => _moveColumn(col, 1),
           ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          height: 40,
-          value: 'color:',
-          child: colorItem('No color', null, col.color == null),
+        ActionMenuEntry(
+          leading: swatch(null),
+          label: 'No color',
+          selected: col.color == null,
+          dividerBefore: canMove,
+          onSelected: () => _change(() => col.color = null),
         ),
         for (final entry in kSpaceColors.entries)
-          PopupMenuItem(
-            height: 40,
-            value: 'color:${entry.key}',
-            child: colorItem(
-              label(entry.key),
-              entry.value,
-              col.color == entry.key,
-            ),
+          ActionMenuEntry(
+            leading: swatch(entry.value),
+            label: label(entry.key),
+            selected: col.color == entry.key,
+            onSelected: () => _change(() => col.color = entry.key),
           ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          height: 40,
-          value: 'delete',
-          child: Text('Delete column'),
+        ActionMenuEntry(
+          icon: Icons.delete_outline,
+          label: 'Delete column',
+          danger: true,
+          dividerBefore: true,
+          onSelected: () => _removeColumn(col),
         ),
       ],
     );
@@ -517,25 +502,22 @@ class _KanbanEditorState extends State<KanbanEditor> {
 
   Widget _cardMenu(KanbanColumn col, KanbanCard card) {
     final others = _columns.where((c) => c != col).toList();
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 18),
+    return ActionMenuButton(
       tooltip: 'Card actions',
-      onSelected: (value) {
-        if (value == 'delete') {
-          _removeCard(card);
-        } else {
-          final to = _columns.firstWhere((c) => c.id == value);
-          _moveCard(card, to, to.cards.length);
-        }
-      },
-      itemBuilder: (_) => [
+      entries: [
         for (final c in others)
-          PopupMenuItem(
-            height: 40,
-            value: c.id,
-            child: Text('Move to ${c.title.isEmpty ? 'Untitled' : c.title}'),
+          ActionMenuEntry(
+            icon: Icons.arrow_forward,
+            label: 'Move to ${c.title.isEmpty ? 'Untitled' : c.title}',
+            onSelected: () => _moveCard(card, c, c.cards.length),
           ),
-        const PopupMenuItem(height: 40, value: 'delete', child: Text('Delete')),
+        ActionMenuEntry(
+          icon: Icons.delete_outline,
+          label: 'Delete',
+          danger: true,
+          dividerBefore: others.isNotEmpty,
+          onSelected: () => _removeCard(card),
+        ),
       ],
     );
   }

@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 
-/// One row of an [ActionMenuButton]: an icon and a label, red when [danger],
-/// in the accent when [selected] (the current choice, as on the web).
+/// One row of an [ActionMenuButton]: an icon (or a [leading] widget, like a
+/// colour swatch) and a label, red when [danger], in the accent when
+/// [selected] (the current choice, as on the web). [dividerBefore] draws a
+/// thin rule above it, to start a new group.
 class ActionMenuEntry {
   const ActionMenuEntry({
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.label,
     required this.onSelected,
     this.danger = false,
     this.selected = false,
+    this.dividerBefore = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String label;
   final VoidCallback onSelected;
   final bool danger;
   final bool selected;
+  final bool dividerBefore;
 }
 
 /// A 3-dot button opening a compact menu, styled like the web's: a panel the
@@ -76,6 +82,7 @@ Future<void> showActionMenu(
 
 // Compact like the web's menus, with rows still easy to tap.
 const double _rowHeight = 34;
+const double _dividerHeight = 9;
 const double _panelPadding = 4;
 const double _gap = 4;
 const double _screenMargin = 8;
@@ -102,7 +109,11 @@ class _ActionMenuRoute extends PopupRoute<int> {
 
   /// Below the button, or above it when there isn't room below.
   bool _below(MediaQueryData media) {
-    final height = entries.length * _rowHeight + 2 * _panelPadding;
+    final dividers = entries.where((e) => e.dividerBefore).length;
+    final height =
+        entries.length * _rowHeight +
+        dividers * _dividerHeight +
+        2 * _panelPadding;
     return anchor.bottom + _gap + height <= _bottomLimit(media);
   }
 
@@ -174,11 +185,16 @@ class _MenuLayout extends SingleChildLayoutDelegate {
   final bool below;
   final MediaQueryData media;
 
+  /// No taller than the room between the status bar and the keyboard (or the
+  /// system bar); a longer menu scrolls.
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints.loose(
-        constraints.biggest,
-      ).deflate(const EdgeInsets.all(_screenMargin));
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final height = _bottomLimit(media) - (media.padding.top + _screenMargin);
+    return BoxConstraints(
+      maxWidth: constraints.maxWidth - 2 * _screenMargin,
+      maxHeight: height < 0 ? 0 : height,
+    );
+  }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
@@ -222,14 +238,21 @@ class _MenuPanel extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 148, maxWidth: 260),
         child: IntrinsicWidth(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(_panelPadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < entries.length; i++)
+                for (var i = 0; i < entries.length; i++) ...[
+                  if (entries[i].dividerBefore)
+                    Container(
+                      height: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: scheme.outlineVariant.withValues(alpha: 0.7),
+                    ),
                   _MenuRow(entry: entries[i], index: i),
+                ],
               ],
             ),
           ),
@@ -272,7 +295,13 @@ class _MenuRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 9),
           child: Row(
             children: [
-              Icon(entry.icon, size: 16, color: color),
+              SizedBox(
+                width: 16,
+                child: Center(
+                  child:
+                      entry.leading ?? Icon(entry.icon, size: 16, color: color),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

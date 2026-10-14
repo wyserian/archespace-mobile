@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/shared/widgets/action_icon_button.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 
 const String kSortDefault = 'default';
 const String kSortName = 'name';
@@ -58,49 +59,20 @@ class SortMenu extends StatelessWidget {
     );
   }
 
-  /// Open the sort menu anchored to the button, so the trigger can be the same
-  /// circular ActionIconButton used by the other app-bar actions.
-  Future<void> _open(BuildContext context) async {
-    final button = context.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (button == null || overlay == null) return;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
+  /// Open the sort menu anchored to the button (the compact menu the cards
+  /// use), so the trigger can be the same circular ActionIconButton used by
+  /// the other app-bar actions.
+  void _open(BuildContext context) => showActionMenu(context, [
+    for (final (option, label, icon) in [
+      (kSortDefault, 'Default', Icons.swap_vert),
+      (kSortName, 'Name', Icons.sort_by_alpha),
+      (kSortNewest, 'Newest', Icons.schedule),
+    ])
+      ActionMenuEntry(
+        icon: icon,
+        label: label,
+        selected: value == option,
+        onSelected: () => onChanged(option),
       ),
-      Offset.zero & overlay.size,
-    );
-    final selected = await showMenu<String>(
-      context: context,
-      position: position,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      items: [
-        _sortItem(kSortDefault, 'Default'),
-        _sortItem(kSortName, 'Name'),
-        _sortItem(kSortNewest, 'Newest'),
-      ],
-    );
-    if (selected != null) onChanged(selected);
-  }
-
-  /// A compact menu row (matching the 3-dot action menus) with an inline check
-  /// on the active option instead of a bulkier CheckedPopupMenuItem.
-  PopupMenuItem<String> _sortItem(String option, String label) {
-    return PopupMenuItem<String>(
-      value: option,
-      height: 40,
-      child: Row(
-        children: [
-          Expanded(child: Text(label)),
-          if (value == option) const Icon(Icons.check, size: 18),
-        ],
-      ),
-    );
-  }
+  ]);
 }
