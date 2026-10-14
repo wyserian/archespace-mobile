@@ -14,7 +14,6 @@ import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
-import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
@@ -29,6 +28,7 @@ import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
 import 'package:archespace_mobile/src/shared/widgets/locked_view.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
+import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
@@ -79,7 +79,9 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   String? _flashId;
   bool _focusHandled = false;
   bool _selectMode = false;
+  // Selected items and sub-spaces (select mode covers both).
   final Set<String> _selected = {};
+  final Set<String> _selectedSpaces = {};
   String _sort = kSortDefault;
   String _view = 'list';
   final Set<String> _activeTags = {};
@@ -147,6 +149,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           if (readOnly) {
             _selectMode = false;
             _selected.clear();
+            _selectedSpaces.clear();
           }
         });
       }
@@ -165,6 +168,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         if (next) {
           _selectMode = false;
           _selected.clear();
+          _selectedSpaces.clear();
         }
       });
       showSuccessSnack(
@@ -295,6 +299,13 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Widget _subSpaceCard(Space sub) => SpaceCard(
     space: sub,
     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    selectMode: _selectMode,
+    selected: _selectedSpaces.contains(sub.id),
+    onSelectToggle: () => _toggleSelectSpace(sub.id),
+    activeTags: _activeTags,
+    onTagClick: (tag) => setState(() {
+      if (!_activeTags.remove(tag)) _activeTags.add(tag);
+    }),
     onTap: () => _openSubSpace(sub),
     onTogglePin: () => _subSpaceOp(
       (r) => r.setPinned(sub.id, !sub.pinned),
@@ -334,17 +345,33 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   void _exitSelect() => setState(() {
     _selectMode = false;
     _selected.clear();
+    _selectedSpaces.clear();
   });
 
   void _toggleSelect(String id) => setState(() {
     if (!_selected.remove(id)) _selected.add(id);
   });
 
+  void _toggleSelectSpace(String id) => setState(() {
+    if (!_selectedSpaces.remove(id)) _selectedSpaces.add(id);
+  });
+
   void _selectAll() => setState(() {
     _selected
       ..clear()
       ..addAll((_items ?? const <SpaceItem>[]).map((i) => i.id));
+    _selectedSpaces
+      ..clear()
+      ..addAll(_subSpaces.map((s) => s.id));
   });
+
+  int get _selectedCount => _selected.length + _selectedSpaces.length;
+
+  /// "2 spaces", "3 items", or "2 spaces and 3 items".
+  String _selectionLabel(int spaces, int items) => [
+    if (spaces > 0) '$spaces ${spaces == 1 ? 'space' : 'spaces'}',
+    if (items > 0) '$items ${items == 1 ? 'item' : 'items'}',
+  ].join(' and ');
 
   void _setSort(String value) {
     setState(() => _sort = value);
@@ -405,10 +432,26 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     }
   }
 
-  Future<bool> _runBulk(Future<void> Function(ItemRepository) op) async {
-    if (_selected.isEmpty) return false;
+  /// Run a bulk action on the selected sub-spaces and items, then leave select
+  /// mode and refresh.
+  Future<bool> _runBulk(
+    Future<void> Function(
+      SpaceRepository spaces,
+      ItemRepository items,
+      List<String> spaceIds,
+      List<String> itemIds,
+    )
+    op,
+  ) async {
+    if (_selectedCount == 0) return false;
+    final key = VaultSession.instance.masterKey;
     try {
-      await op(ItemRepository(VaultSession.instance.masterKey));
+      await op(
+        SpaceRepository(key),
+        ItemRepository(key),
+        _selectedSpaces.toList(),
+        _selected.toList(),
+      );
       if (mounted) {
         _exitSelect();
         _load();
@@ -420,29 +463,68 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     }
   }
 
-  Future<void> _bulkArchiveItems() async {
-    final ids = _selected.toList();
-    if (ids.isEmpty) return;
-    final ok = await _runBulk((r) => r.bulkArchive(ids));
+  /// Undo an archive or move-to-bin for the given sub-spaces and items.
+  Future<void> _restore(List<String> spaceIds, List<String> itemIds) async {
+    try {
+      await SpaceRepository(
+        VaultSession.instance.masterKey,
+      ).restoreSpaces(spaceIds);
+      await restoreItems(itemIds);
+      if (mounted) _load();
+    } catch (_) {
+      _showError("Couldn't undo that.");
+    }
+  }
+
+  Future<void> _bulkSetPinned(bool pinned) => _runBulk(
+    (spaces, items, spaceIds, itemIds) => Future.wait([
+      spaces.bulkSetPinned(spaceIds, pinned),
+      items.bulkSetPinned(itemIds, pinned),
+    ]),
+  );
+
+  Future<void> _bulkArchive() async {
+    final spaceIds = _selectedSpaces.toList();
+    final itemIds = _selected.toList();
+    final ok = await _runBulk(
+      (spaces, items, s, i) =>
+          Future.wait([spaces.bulkArchive(s), items.bulkArchive(i)]),
+    );
     StorageCounts.instance.refresh();
     if (ok && mounted) {
       showUndoSnack(
         context,
-        '${ids.length} ${ids.length == 1 ? 'item' : 'items'} archived',
-        () => restoreItems(ids),
+        '${_selectionLabel(spaceIds.length, itemIds.length)} archived',
+        () => _restore(spaceIds, itemIds),
       );
     }
   }
 
-  Future<void> _bulkDeleteItems() async {
-    final ids = _selected.toList();
-    final ok = await _runBulk((r) => r.bulkDelete(ids));
+  Future<void> _bulkDelete() async {
+    final spaceIds = _selectedSpaces.toList();
+    final itemIds = _selected.toList();
+    final label = _selectionLabel(spaceIds.length, itemIds.length);
+    // Spaces take everything inside them along, so they ask first.
+    if (spaceIds.isNotEmpty) {
+      final ok = await confirmAction(
+        context,
+        title: 'Move $label to bin?',
+        message: 'They and their items go to the recycle bin.',
+        confirmLabel: 'Move to bin',
+        destructive: true,
+      );
+      if (!ok) return;
+    }
+    final ok = await _runBulk(
+      (spaces, items, s, i) =>
+          Future.wait([spaces.bulkDelete(s), items.bulkDelete(i)]),
+    );
     StorageCounts.instance.refresh();
     if (ok && mounted) {
       showUndoSnack(
         context,
-        '${ids.length} ${ids.length == 1 ? 'item' : 'items'} moved to bin',
-        () => restoreItems(ids),
+        '$label moved to bin',
+        () => _restore(spaceIds, itemIds),
       );
     }
   }
@@ -450,8 +532,16 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Future<void> _bulkMoveItems() async {
     final target = await pickMoveTarget(itemsSpaceId);
     if (target == null) return;
-    final ids = _selected.toList();
-    await _runBulk((r) => r.bulkMove(ids, target.id));
+    await _runBulk(
+      (_, items, _, itemIds) => items.bulkMove(itemIds, target.id),
+    );
+  }
+
+  Future<void> _bulkMoveSpaces() async {
+    if (await moveSpacesTo(context, _selectedSpaces.toList()) && mounted) {
+      _exitSelect();
+      _load();
+    }
   }
 
   void _showError(String message) => showItemError(message);
@@ -534,7 +624,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                       style: const TextStyle(fontSize: 13.5),
                       textInputAction: TextInputAction.search,
                       decoration: InputDecoration.collapsed(
-                        hintText: 'Search items',
+                        hintText: 'Search this space',
                         hintStyle: TextStyle(
                           fontSize: 13.5,
                           color: scheme.onSurfaceVariant,
@@ -573,8 +663,8 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             size: 36,
           ),
           SortMenu(value: _sort, onChanged: _setSort, size: 36),
-          // Every bulk action changes items, so there's no selecting while
-          // read-only.
+          // Every bulk action changes something here, so there's no
+          // selecting while read-only.
           if (!_readOnly)
             _barAction(Icons.checklist, 'Select', _enterSelect, size: 36),
         ],
@@ -667,7 +757,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                 icon: const Icon(Icons.close),
                 tooltip: 'Cancel',
               ),
-              title: Text('${_selected.length} selected'),
+              title: Text('$_selectedCount selected'),
               actions: [
                 ActionIconButton(
                   icon: Icons.select_all,
@@ -691,39 +781,46 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             ),
       bottomNavigationBar: _selectMode
           ? BulkActionBar(
-              count: _selected.length,
+              count: _selectedCount,
               onClear: _exitSelect,
               actions: [
                 BulkAction(
                   icon: Icons.push_pin,
                   label: 'Pin',
-                  onPressed: () {
-                    final ids = _selected.toList();
-                    _runBulk((r) => r.bulkSetPinned(ids, true));
-                  },
+                  onPressed: () => _bulkSetPinned(true),
                 ),
                 BulkAction(
                   icon: Icons.push_pin_outlined,
                   label: 'Unpin',
-                  onPressed: () {
-                    final ids = _selected.toList();
-                    _runBulk((r) => r.bulkSetPinned(ids, false));
-                  },
+                  onPressed: () => _bulkSetPinned(false),
                 ),
-                BulkAction(
-                  icon: Icons.drive_file_move_outlined,
-                  label: 'Move',
-                  onPressed: _bulkMoveItems,
-                ),
+                // Sub-spaces or items move, not both at once (a read-only
+                // sub-space stays where it is).
+                if (_selected.isNotEmpty && _selectedSpaces.isEmpty)
+                  BulkAction(
+                    icon: Icons.drive_file_move_outlined,
+                    label: 'Move',
+                    onPressed: _bulkMoveItems,
+                  ),
+                if (_selectedSpaces.isNotEmpty &&
+                    _selected.isEmpty &&
+                    !_subSpaces.any(
+                      (s) => _selectedSpaces.contains(s.id) && s.readOnly,
+                    ))
+                  BulkAction(
+                    icon: Icons.drive_file_move_outlined,
+                    label: 'Move',
+                    onPressed: _bulkMoveSpaces,
+                  ),
                 BulkAction(
                   icon: Icons.archive_outlined,
                   label: 'Archive',
-                  onPressed: _bulkArchiveItems,
+                  onPressed: _bulkArchive,
                 ),
                 BulkAction(
                   icon: Icons.delete_outline,
                   label: 'Delete',
-                  onPressed: _bulkDeleteItems,
+                  onPressed: _bulkDelete,
                   destructive: true,
                 ),
               ],
@@ -763,24 +860,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       );
     }
     final all = _items ?? const <SpaceItem>[];
-    // Sub-spaces render above the items in the same view (matching the web),
-    // hidden while selecting items. Hold one to drag it into another's place.
-    final subSection = (_subSpaces.isEmpty || _selectMode)
-        ? null
-        : Column(
-            children: [
-              for (final s in _subSpaces)
-                ReorderCard(
-                  key: ValueKey('space-${s.id}'),
-                  list: 'sub-spaces',
-                  id: s.id,
-                  enabled: !_readOnly && !_offline,
-                  onMove: (from) => _moveSubSpace(from, s.id),
-                  child: _subSpaceCard(s),
-                ),
-            ],
-          );
-    if (all.isEmpty && subSection == null) {
+    if (all.isEmpty && _subSpaces.isEmpty) {
       if (_readOnly) {
         return const StateMessage(
           icon: Icons.edit_off_outlined,
@@ -797,39 +877,80 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         onAction: openAddItemSheet,
       );
     }
-    final allTags = <String>{for (final i in all) ...i.tags}.toList()..sort();
-    // Drop selected tags that no item carries any more (e.g. the tag was just
-    // removed, deleted or moved away with its item). Otherwise the filter
-    // would match nothing and the space would look empty, with no pill left
-    // to deselect.
+    // Search, tags and sort cover the sub-spaces and the items.
+    final allTags = <String>{
+      for (final s in _subSpaces) ...s.tags,
+      for (final i in all) ...i.tags,
+    }.toList()..sort();
+    // Drop selected tags that nothing carries any more (e.g. the tag was just
+    // removed, deleted or moved away). Otherwise the filter would match
+    // nothing and the space would look empty, with no pill left to deselect.
     _activeTags.removeWhere((t) => !allTags.contains(t));
     final query = _query.trim().toLowerCase();
-    final filtered = all.where((i) {
-      if (_activeTags.isNotEmpty && !i.tags.any(_activeTags.contains)) {
+    bool matches(String name, List<String> tags) {
+      if (_activeTags.isNotEmpty && !tags.any(_activeTags.contains)) {
         return false;
       }
-      if (query.isNotEmpty) {
-        final inTitle = i.title.toLowerCase().contains(query);
-        final inTags = i.tags.any((t) => t.toLowerCase().contains(query));
-        if (!inTitle && !inTags) return false;
-      }
-      return true;
-    }).toList();
+      if (query.isEmpty) return true;
+      return name.toLowerCase().contains(query) ||
+          tags.any((t) => t.toLowerCase().contains(query));
+    }
+
+    final subSpaces = applySort(
+      [
+        for (final s in _subSpaces)
+          if (matches(s.name, s.tags)) s,
+      ],
+      _sort,
+      name: (s) => s.name,
+      createdAt: (s) => s.createdAt,
+      pinned: (s) => s.pinned,
+    );
     final items = applySort(
-      filtered,
+      [
+        for (final i in all)
+          if (matches(i.title, i.tags)) i,
+      ],
       _sort,
       name: (i) => i.title,
       createdAt: (i) => i.createdAt,
       pinned: (i) => i.pinned,
     );
+    // Manual order only applies unfiltered, in the default sort.
+    final canReorder =
+        !_readOnly &&
+        !_selectMode &&
+        !_offline &&
+        _sort == kSortDefault &&
+        _activeTags.isEmpty &&
+        query.isEmpty;
+    // Sub-spaces render above the items in the same view (matching the web).
+    // Hold one to drag it into another's place.
+    final subSection = subSpaces.isEmpty
+        ? null
+        : Column(
+            children: [
+              for (final s in subSpaces)
+                ReorderCard(
+                  key: ValueKey('space-${s.id}'),
+                  list: 'sub-spaces',
+                  id: s.id,
+                  enabled: canReorder,
+                  onMove: (from) => _moveSubSpace(from, s.id),
+                  child: _subSpaceCard(s),
+                ),
+            ],
+          );
     // Everything except the app bar scrolls: the search/controls bar, the tag
     // filter, any sub-spaces, and a no-match note all ride in the list header.
     final noMatch =
-        items.isEmpty && (query.isNotEmpty || _activeTags.isNotEmpty);
+        subSpaces.isEmpty &&
+        items.isEmpty &&
+        (query.isNotEmpty || _activeTags.isNotEmpty);
     // Sub-spaces and items are separate sections, labelled only when both show.
     final labelSections = subSection != null && items.isNotEmpty;
     final headerChildren = <Widget>[
-      if (!_selectMode && all.isNotEmpty) _buildItemsHeader(context),
+      if (!_selectMode) _buildItemsHeader(context),
       if (!_selectMode && allTags.isNotEmpty) _tagFilterBar(allTags),
       if (labelSections) _sectionLabel('Spaces'),
       ?subSection,
@@ -843,14 +964,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: headerChildren,
           );
-    // Manual order only applies unfiltered, in the default sort.
-    final canReorder =
-        !_readOnly &&
-        !_selectMode &&
-        !_offline &&
-        _sort == kSortDefault &&
-        _activeTags.isEmpty &&
-        query.isEmpty;
     return _view == 'grid'
         ? _grid(items, header: header, canReorder: canReorder)
         : ReorderableListView.builder(
@@ -906,14 +1019,14 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           Icon(Icons.search_off, size: 40, color: scheme.onSurfaceVariant),
           const SizedBox(height: 12),
           Text(
-            'No matching items',
+            'Nothing matches',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
             query.isNotEmpty
-                ? 'No items match "${_query.trim()}".'
-                : 'No items have the selected tags.',
+                ? 'Nothing here matches "${_query.trim()}".'
+                : 'Nothing here has the selected tags.',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
