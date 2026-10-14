@@ -27,6 +27,7 @@ import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
+import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
@@ -302,10 +303,18 @@ class _SpacesScreenState extends State<SpacesScreen>
     if (mounted) showErrorSnack(context, message);
   }
 
+  /// Reorder the top-level spaces as listed. [_spaces] also holds every
+  /// sub-space, so the new order of [shown] goes back into their places in it.
   /// `newIndex` arrives already adjusted for the removed item (onReorderItem).
-  void _onReorder(int oldIndex, int newIndex) {
-    final list = List<Space>.of(_spaces ?? const []);
-    list.insert(newIndex, list.removeAt(oldIndex));
+  void _onReorder(List<Space> shown, int oldIndex, int newIndex) {
+    final order = List<Space>.of(shown);
+    order.insert(newIndex, order.removeAt(oldIndex));
+    final ids = {for (final s in shown) s.id};
+    var next = 0;
+    final list = [
+      for (final s in _spaces ?? const <Space>[])
+        ids.contains(s.id) ? order[next++] : s,
+    ];
     setState(() => _spaces = list);
     _persistOrder(list);
   }
@@ -336,18 +345,28 @@ class _SpacesScreenState extends State<SpacesScreen>
     }
   }
 
-  /// Reorder by space id (used by the grid's drag-and-drop): move [fromId] into
-  /// [toId]'s slot and persist the new order.
+  /// Reorder by id (the grid's drag and drop): move [fromId] into [toId]'s
+  /// place and persist the new order.
   void _moveSpaceById(String fromId, String toId) {
-    if (fromId == toId) return;
-    final list = List<Space>.of(_spaces ?? const []);
-    final from = list.indexWhere((s) => s.id == fromId);
-    final to = list.indexWhere((s) => s.id == toId);
-    if (from < 0 || to < 0) return;
-    final moved = list.removeAt(from);
-    list.insert(from < to ? to - 1 : to, moved);
+    final list = moveById(
+      _spaces ?? const <Space>[],
+      fromId,
+      toId,
+      (s) => s.id,
+    );
     setState(() => _spaces = list);
     _persistOrder(list);
+  }
+
+  void _moveItemById(String fromId, String toId) {
+    final list = moveById(
+      _items ?? const <SpaceItem>[],
+      fromId,
+      toId,
+      (i) => i.id,
+    );
+    setState(() => _items = list);
+    _persistItemOrder(list);
   }
 
   /// Run a bulk action on the selected spaces and items, then leave select
@@ -852,7 +871,7 @@ class _SpacesScreenState extends State<SpacesScreen>
         const SliverToBoxAdapter(child: SizedBox(height: 4)),
         SliverReorderableList(
           itemCount: spaces.length,
-          onReorderItem: _onReorder,
+          onReorderItem: (from, to) => _onReorder(spaces, from, to),
           proxyDecorator: _proxyDecorator,
           itemBuilder: (context, index) => ReorderableDelayedDragStartListener(
             key: ValueKey('space-${spaces[index].id}'),
@@ -949,9 +968,8 @@ class _SpacesScreenState extends State<SpacesScreen>
 
   /// Two-column masonry grid: a spaces section, then an items section (each
   /// starts on its own row). Cards keep their natural height (round-robin
-  /// distribution); when reordering is allowed each space is a long-press
-  /// draggable and a drop target, persisting the new order like the list view.
-  /// Items don't reorder here (as inside a space).
+  /// distribution); when reordering is allowed a card can be held and dragged
+  /// onto another of its section to take its place, as in the list view.
   Widget _grid(
     List<Space> spaces,
     List<SpaceItem> items, {
@@ -967,7 +985,17 @@ class _SpacesScreenState extends State<SpacesScreen>
         children: [
           ?header,
           if (spaces.isNotEmpty)
-            _masonry([for (final s in spaces) _gridCard(s, canReorder)]),
+            _masonry([
+              for (final s in spaces)
+                ReorderCard(
+                  key: ValueKey('space-${s.id}'),
+                  list: 'spaces',
+                  id: s.id,
+                  enabled: canReorder,
+                  onMove: (from) => _moveSpaceById(from, s.id),
+                  child: _spaceCard(s, margin: const EdgeInsets.all(2)),
+                ),
+            ]),
           if (labelItems) _sectionLabel(context, 'Items'),
           if (items.isNotEmpty)
             _masonry([
@@ -976,10 +1004,16 @@ class _SpacesScreenState extends State<SpacesScreen>
                   i,
                   key: ValueKey('item-${i.id}'),
                   margin: EdgeInsets.zero,
-                  child: _itemCard(
-                    i,
-                    margin: const EdgeInsets.all(2),
-                    grid: true,
+                  child: ReorderCard(
+                    list: 'items',
+                    id: i.id,
+                    enabled: canReorder,
+                    onMove: (from) => _moveItemById(from, i.id),
+                    child: _itemCard(
+                      i,
+                      margin: const EdgeInsets.all(2),
+                      grid: true,
+                    ),
                   ),
                 ),
             ]),
@@ -1000,44 +1034,6 @@ class _SpacesScreenState extends State<SpacesScreen>
         Expanded(child: Column(children: columns[0])),
         Expanded(child: Column(children: columns[1])),
       ],
-    );
-  }
-
-  Widget _gridCard(Space space, bool canReorder) {
-    final card = _spaceCard(space, margin: const EdgeInsets.all(2));
-    if (!canReorder) {
-      return KeyedSubtree(key: ValueKey('space-${space.id}'), child: card);
-    }
-    return DragTarget<String>(
-      key: ValueKey('space-${space.id}'),
-      onWillAcceptWithDetails: (d) => d.data != space.id,
-      onAcceptWithDetails: (d) => _moveSpaceById(d.data, space.id),
-      builder: (context, candidate, rejected) {
-        final over = candidate.isNotEmpty;
-        return LongPressDraggable<String>(
-          data: space.id,
-          feedback: Material(
-            color: Colors.transparent,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width / 2 - 16,
-              child: Opacity(opacity: 0.95, child: card),
-            ),
-          ),
-          childWhenDragging: Opacity(opacity: 0.3, child: card),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: over
-                  ? Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    )
-                  : null,
-            ),
-            child: card,
-          ),
-        );
-      },
     );
   }
 

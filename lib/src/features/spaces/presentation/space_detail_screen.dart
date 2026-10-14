@@ -14,6 +14,7 @@ import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
+import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
@@ -365,6 +366,32 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     list.insert(newIndex, list.removeAt(oldIndex));
     setState(() => _items = list);
     _persistOrder(list);
+  }
+
+  /// Move an item into another's place (the grid's drag and drop).
+  void _moveItemById(String fromId, String toId) {
+    final list = moveById(
+      _items ?? const <SpaceItem>[],
+      fromId,
+      toId,
+      (i) => i.id,
+    );
+    setState(() => _items = list);
+    _persistOrder(list);
+  }
+
+  /// Move a sub-space into another's place and save the sub-spaces' order.
+  Future<void> _moveSubSpace(String fromId, String toId) async {
+    final list = moveById(_subSpaces, fromId, toId, (s) => s.id);
+    setState(() => _subSpaces = list);
+    try {
+      await SpaceRepository(
+        VaultSession.instance.masterKey,
+      ).reorder([for (final s in list) s.id]);
+    } catch (_) {
+      _showError("Couldn't save the new order.");
+      if (mounted) _load();
+    }
   }
 
   Future<void> _persistOrder(List<SpaceItem> list) async {
@@ -737,10 +764,22 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     }
     final all = _items ?? const <SpaceItem>[];
     // Sub-spaces render above the items in the same view (matching the web),
-    // hidden while selecting items.
+    // hidden while selecting items. Hold one to drag it into another's place.
     final subSection = (_subSpaces.isEmpty || _selectMode)
         ? null
-        : Column(children: [for (final s in _subSpaces) _subSpaceCard(s)]);
+        : Column(
+            children: [
+              for (final s in _subSpaces)
+                ReorderCard(
+                  key: ValueKey('space-${s.id}'),
+                  list: 'sub-spaces',
+                  id: s.id,
+                  enabled: !_readOnly && !_offline,
+                  onMove: (from) => _moveSubSpace(from, s.id),
+                  child: _subSpaceCard(s),
+                ),
+            ],
+          );
     if (all.isEmpty && subSection == null) {
       if (_readOnly) {
         return const StateMessage(
@@ -804,19 +843,21 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: headerChildren,
           );
+    // Manual order only applies unfiltered, in the default sort.
+    final canReorder =
+        !_readOnly &&
+        !_selectMode &&
+        !_offline &&
+        _sort == kSortDefault &&
+        _activeTags.isEmpty &&
+        query.isEmpty;
     return _view == 'grid'
-        ? _grid(items, header: header)
+        ? _grid(items, header: header, canReorder: canReorder)
         : ReorderableListView.builder(
             header: header,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 4, bottom: 88),
-            buildDefaultDragHandles:
-                !_readOnly &&
-                !_selectMode &&
-                !_offline &&
-                _sort == kSortDefault &&
-                _activeTags.isEmpty &&
-                query.isEmpty,
+            buildDefaultDragHandles: canReorder,
             onReorderItem: _onReorder,
             itemCount: items.length,
             itemBuilder: (context, index) {
@@ -903,8 +944,13 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   }
 
   /// Two-column masonry grid: items are distributed round-robin so each keeps
-  /// its natural height (no reordering in this view).
-  Widget _grid(List<SpaceItem> items, {Widget? header}) {
+  /// its natural height. With [canReorder], hold a card and drag it onto
+  /// another to take its place.
+  Widget _grid(
+    List<SpaceItem> items, {
+    Widget? header,
+    bool canReorder = false,
+  }) {
     final columns = <List<Widget>>[<Widget>[], <Widget>[]];
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
@@ -921,7 +967,17 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           ),
           child: KeyedSubtree(
             key: isFocus ? _focusKey : null,
-            child: _itemCard(item, margin: const EdgeInsets.all(4), grid: true),
+            child: ReorderCard(
+              list: 'items',
+              id: item.id,
+              enabled: canReorder,
+              onMove: (from) => _moveItemById(from, item.id),
+              child: _itemCard(
+                item,
+                margin: const EdgeInsets.all(4),
+                grid: true,
+              ),
+            ),
           ),
         ),
       );
