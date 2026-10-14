@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
-/// One row of an [ActionMenuButton]: an icon and a label, red when [danger].
+/// One row of an [ActionMenuButton]: an icon and a label, red when [danger],
+/// in the accent when [selected] (the current choice, as on the web).
 class ActionMenuEntry {
   const ActionMenuEntry({
     required this.icon,
     required this.label,
     required this.onSelected,
     this.danger = false,
+    this.selected = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onSelected;
   final bool danger;
+  final bool selected;
 }
 
 /// A 3-dot button opening a compact menu, styled like the web's: a panel the
@@ -77,6 +80,15 @@ const double _panelPadding = 4;
 const double _gap = 4;
 const double _screenMargin = 8;
 
+/// The lowest the menu may reach: above the system bar, or above the keyboard
+/// while it's open (a toolbar on the keyboard gets its menu above it).
+double _bottomLimit(MediaQueryData media) {
+  final inset = media.viewInsets.bottom > media.padding.bottom
+      ? media.viewInsets.bottom
+      : media.padding.bottom;
+  return media.size.height - inset - _screenMargin;
+}
+
 class _ActionMenuRoute extends PopupRoute<int> {
   _ActionMenuRoute({
     required this.anchor,
@@ -91,9 +103,7 @@ class _ActionMenuRoute extends PopupRoute<int> {
   /// Below the button, or above it when there isn't room below.
   bool _below(MediaQueryData media) {
     final height = entries.length * _rowHeight + 2 * _panelPadding;
-    final bottomLimit =
-        media.size.height - media.padding.bottom - _screenMargin;
-    return anchor.bottom + _gap + height <= bottomLimit;
+    return anchor.bottom + _gap + height <= _bottomLimit(media);
   }
 
   @override
@@ -156,7 +166,7 @@ class _ActionMenuRoute extends PopupRoute<int> {
 }
 
 /// Lines the menu's right edge up with the button's, just below it (or just
-/// above), kept inside the screen's safe area.
+/// above), kept inside the screen's safe area and clear of the keyboard.
 class _MenuLayout extends SingleChildLayoutDelegate {
   _MenuLayout({required this.anchor, required this.below, required this.media});
 
@@ -179,18 +189,14 @@ class _MenuLayout extends SingleChildLayoutDelegate {
     final top = below
         ? anchor.bottom + _gap
         : anchor.top - _gap - childSize.height;
-    return Offset(
-      left,
-      top.clamp(
-        media.padding.top + _screenMargin,
-        size.height - childSize.height - _screenMargin,
-      ),
-    );
+    final minTop = media.padding.top + _screenMargin;
+    final maxTop = _bottomLimit(media) - childSize.height;
+    return Offset(left, top.clamp(minTop, maxTop < minTop ? minTop : maxTop));
   }
 
   @override
   bool shouldRelayout(_MenuLayout old) =>
-      anchor != old.anchor || below != old.below;
+      anchor != old.anchor || below != old.below || media != old.media;
 }
 
 class _MenuPanel extends StatelessWidget {
@@ -242,9 +248,19 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = entry.danger ? scheme.error : scheme.onSurfaceVariant;
-    return SizedBox(
+    final color = entry.danger
+        ? scheme.error
+        : entry.selected
+        ? scheme.primary
+        : scheme.onSurfaceVariant;
+    return Container(
       height: _rowHeight,
+      decoration: entry.selected
+          ? BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            )
+          : null,
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         highlightColor: entry.danger

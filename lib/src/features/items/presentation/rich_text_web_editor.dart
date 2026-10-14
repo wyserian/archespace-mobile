@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+
+/// One choice in a toolbar menu; [on] marks the current one.
+typedef _MenuOption<T> = ({T value, IconData icon, String label, bool on});
+
 /// The Rich text editor: the web app's Tiptap editor, bundled offline into
 /// `assets/rich_text_editor.html` (built from the web repo with
 /// `npm run build:mobile-editor`), running in a WebView under a native
@@ -344,51 +349,55 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
     );
   }
 
-  /// A toolbar button with a menu (Heading, List, Alignment, Table).
+  /// A toolbar button with a menu (Heading, List, Alignment, Table): the
+  /// compact menu the cards use (as on the web), kept above the keyboard.
   Widget _menu<T>({
     required IconData icon,
     required String tip,
     required bool active,
-    required List<PopupMenuEntry<T>> items,
+    required List<_MenuOption<T>> items,
     required ValueChanged<T> onSelected,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final color = active ? scheme.primary : scheme.onSurfaceVariant;
-    return PopupMenuButton<T>(
-      tooltip: tip,
-      enabled: _ready,
-      onSelected: onSelected,
-      itemBuilder: (_) => items,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? scheme.primaryContainer : null,
+    return Tooltip(
+      message: tip,
+      child: Builder(
+        builder: (buttonContext) => InkWell(
           borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 21, color: color),
-            Icon(Icons.arrow_drop_down, size: 16, color: color),
-          ],
+          onTap: _ready
+              ? () => showActionMenu(buttonContext, [
+                  for (final o in items)
+                    ActionMenuEntry(
+                      icon: o.icon,
+                      label: o.label,
+                      selected: o.on,
+                      onSelected: () => onSelected(o.value),
+                    ),
+                ])
+              : null,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: active ? scheme.primaryContainer : null,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 21, color: color),
+                Icon(Icons.arrow_drop_down, size: 16, color: color),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  PopupMenuEntry<T> _item<T>(T value, IconData icon, String label, bool on) =>
-      CheckedPopupMenuItem<T>(
-        value: value,
-        checked: on,
-        child: Row(
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 12),
-            Text(label),
-          ],
-        ),
-      );
+  _MenuOption<T> _item<T>(T value, IconData icon, String label, bool on) =>
+      (value: value, icon: icon, label: label, on: on);
 
   Widget _sep() => Container(
     width: 1,
