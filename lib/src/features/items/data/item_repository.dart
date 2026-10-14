@@ -86,6 +86,10 @@ class ItemRepository {
           .isFilter('archived_at', null)
           .order('pinned', ascending: false)
           .order('position', ascending: true)
+          // Items can share a position (one added after a delete), so ties
+          // break the same way here and on the web.
+          .order('created_at', ascending: true)
+          .order('id', ascending: true)
           .timeout(const Duration(seconds: 8));
       await CacheStore.write(cacheKey, rows);
       WriteQueue.instance.flush(); // network is up: drain any queued writes

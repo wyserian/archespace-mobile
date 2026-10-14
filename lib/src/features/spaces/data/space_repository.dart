@@ -36,6 +36,10 @@ class SpaceRepository {
           .order('pinned', ascending: false)
           .order('position', ascending: true)
           .order('created_at', ascending: false)
+          .order(
+            'id',
+            ascending: true,
+          ) // a stable last tie-break, as on the web
           .timeout(const Duration(seconds: 8));
 
       // Per-space item counts (lightweight: no titles/content).
