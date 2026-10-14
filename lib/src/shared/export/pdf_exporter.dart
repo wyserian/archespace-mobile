@@ -330,7 +330,8 @@ class PdfExporter {
             final size = switch (level) {
               1 => 16.0,
               2 => 14.0,
-              _ => 12.5,
+              3 => 12.5,
+              _ => 11.5,
             };
             out.add(pw.SizedBox(height: 4));
             out.add(

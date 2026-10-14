@@ -411,6 +411,7 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
       1: Icons.looks_one_outlined,
       2: Icons.looks_two_outlined,
       3: Icons.looks_3_outlined,
+      4: Icons.looks_4_outlined,
     };
     const alignIcons = {
       'left': Icons.format_align_left,
@@ -452,6 +453,7 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
                   _item(1, headingIcons[1]!, 'Heading 1', heading == 1),
                   _item(2, headingIcons[2]!, 'Heading 2', heading == 2),
                   _item(3, headingIcons[3]!, 'Heading 3', heading == 3),
+                  _item(4, headingIcons[4]!, 'Heading 4', heading == 4),
                 ],
               ),
               _menu<String>(

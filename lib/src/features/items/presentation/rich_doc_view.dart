@@ -54,7 +54,8 @@ class RichDocView extends StatelessWidget {
           final style = switch (level) {
             1 => theme.textTheme.titleLarge,
             2 => theme.textTheme.titleMedium?.copyWith(fontSize: 17),
-            _ => theme.textTheme.titleSmall?.copyWith(fontSize: 15),
+            3 => theme.textTheme.titleSmall?.copyWith(fontSize: 15),
+            _ => theme.textTheme.titleSmall?.copyWith(fontSize: 14),
           };
           out.add(
             Padding(
