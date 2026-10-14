@@ -36,27 +36,23 @@ class SpaceRepository {
           .order('pinned', ascending: false)
           .order('position', ascending: true)
           .order('created_at', ascending: false)
-          .order(
-            'id',
-            ascending: true,
-          ) // a stable last tie-break, as on the web
+          // A stable last tie-break, as on the web.
+          .order('id', ascending: true)
           .timeout(const Duration(seconds: 8));
 
       // Per-space item counts (lightweight: no titles/content).
       final itemRows = await _client
           .from('space_items')
-          .select('space_id, pinned')
+          .select('space_id')
           .isFilter('deleted_at', null)
           .isFilter('archived_at', null)
           .timeout(const Duration(seconds: 8));
       final total = <String, int>{};
-      final pinned = <String, int>{};
       for (final r in itemRows) {
         // Dashboard items belong to no space, so they count toward none.
         final sid = r['space_id'] as String?;
         if (sid == null) continue;
         total[sid] = (total[sid] ?? 0) + 1;
-        if (r['pinned'] == true) pinned[sid] = (pinned[sid] ?? 0) + 1;
       }
       // A space counts its own items and those of every sub-space below it.
       final counts = rollUpCounts(total, {
@@ -65,7 +61,6 @@ class SpaceRepository {
       for (final r in rows) {
         final m = r as Map<String, dynamic>;
         m['_item_count'] = counts[m['id']] ?? 0;
-        m['_pinned_count'] = pinned[m['id']] ?? 0;
       }
       await CacheStore.write(cacheKey, rows);
       WriteQueue.instance.flush(); // network is up: drain any queued writes
@@ -110,7 +105,6 @@ class SpaceRepository {
             color: m['color'] as String?,
             parentId: m['parent_id'] as String?,
             itemCount: (m['_item_count'] ?? 0) as int,
-            pinnedCount: (m['_pinned_count'] ?? 0) as int,
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
           ),
         );

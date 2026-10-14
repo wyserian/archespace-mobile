@@ -12,7 +12,6 @@ class Space {
     this.color,
     this.parentId,
     this.itemCount = 0,
-    this.pinnedCount = 0,
     this.createdAt,
   });
 
@@ -40,9 +39,8 @@ class Space {
   /// Preset colour id (violet/blue/green/amber/rose/slate), or null.
   final String? color;
 
-  /// Number of (non-deleted, non-archived) items in this space, and how many
-  /// of those are pinned. Computed at fetch time; 0 when unknown.
+  /// Number of (non-deleted, non-archived) items in this space and every
+  /// sub-space below it. Computed at fetch time; 0 when unknown.
   final int itemCount;
-  final int pinnedCount;
   final DateTime? createdAt;
 }
