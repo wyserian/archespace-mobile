@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// The create button. With both actions it is a speed dial: tapping + opens
 /// two options above it over a dimmed screen, "Add item" then "New space",
 /// and the + turns into a close button. Pass no [onNewSpace] to show a plain
-/// Add item button (e.g. inside a sub-space, which can't hold further spaces).
+/// Add item button (e.g. while a space is still loading).
 class CreateFabs extends StatefulWidget {
   const CreateFabs({super.key, required this.onAddItem, this.onNewSpace});
 
@@ -211,15 +211,18 @@ class _CreateFabsState extends State<CreateFabs>
             child: InkWell(
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
+                padding: const EdgeInsets.fromLTRB(18, 13, 22, 13),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 20, color: fg),
+                    Icon(icon, size: 22, color: fg),
                     const SizedBox(width: 10),
                     Text(
                       label,
-                      style: theme.textTheme.titleSmall?.copyWith(color: fg),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: fg,
+                        fontSize: 15.5,
+                      ),
                     ),
                   ],
                 ),
