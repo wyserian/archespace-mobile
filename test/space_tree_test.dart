@@ -42,6 +42,14 @@ void main() {
     expect(_down(['a'], (s) => s.$1 != 'c'), ['b', 'e']);
   });
 
+  test('adds every level\'s count into the spaces above it', () {
+    // "x" (e.g. archived) isn't listed, so its count is left out.
+    expect(
+      rollUpCounts({'a': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'x': 9}, _parents),
+      {'a': 10, 'b': 5, 'c': 5, 'd': 3, 'e': 4, 'f': 5},
+    );
+  });
+
   test('stops at a parent loop', () {
     const loop = <(String, String?)>[('x', 'y'), ('y', 'x')];
     expect(chainOf('x', (id) => id == 'x' ? 'y' : 'x'), ['x', 'y']);

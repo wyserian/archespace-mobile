@@ -18,6 +18,24 @@ List<String> chainOf(String? id, String? Function(String id) parentOf) {
 List<String> ancestorsOf(String id, String? Function(String id) parentOf) =>
     chainOf(id, parentOf).skip(1).toList();
 
+/// Each space's count with the counts of every space below it added in.
+/// [counts] maps a space id to its own count, [parents] every listed space to
+/// its parent; the result has every listed space, and leaves out counts of
+/// spaces not listed. Matches the web `rollUpCounts`.
+Map<String, int> rollUpCounts(
+  Map<String, int> counts,
+  Map<String, String?> parents,
+) {
+  final totals = {for (final id in parents.keys) id: 0};
+  counts.forEach((id, count) {
+    if (!parents.containsKey(id)) return;
+    for (final at in chainOf(id, (x) => parents[x])) {
+      if (totals.containsKey(at)) totals[at] = totals[at]! + count;
+    }
+  });
+  return totals;
+}
+
 /// Every space below [ids] (not [ids] themselves), from (id, parentId)
 /// pairs. [include] can stop the walk at a space (it and everything under it
 /// are left out).

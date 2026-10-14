@@ -58,9 +58,13 @@ class SpaceRepository {
         total[sid] = (total[sid] ?? 0) + 1;
         if (r['pinned'] == true) pinned[sid] = (pinned[sid] ?? 0) + 1;
       }
+      // A space counts its own items and those of every sub-space below it.
+      final counts = rollUpCounts(total, {
+        for (final r in rows) r['id'] as String: r['parent_id'] as String?,
+      });
       for (final r in rows) {
         final m = r as Map<String, dynamic>;
-        m['_item_count'] = total[m['id']] ?? 0;
+        m['_item_count'] = counts[m['id']] ?? 0;
         m['_pinned_count'] = pinned[m['id']] ?? 0;
       }
       await CacheStore.write(cacheKey, rows);
