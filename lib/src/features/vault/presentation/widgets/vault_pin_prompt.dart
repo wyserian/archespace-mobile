@@ -7,7 +7,8 @@ import 'package:archespace_mobile/src/features/vault/data/secure_key_store.dart'
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
-/// Ask for the vault PIN before showing protected content. Resolves
+/// Ask for the vault PIN before showing protected content or erasing the
+/// local vault. Resolves
 /// true once the right PIN is entered (or, when biometric unlock is on, a
 /// fingerprint / face is confirmed), false if cancelled. After
 /// [ContentLock.maxAttempts] wrong PINs in a row the vault locks.
@@ -15,12 +16,17 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// [verify] replaces the check against this vault's PIN (a backup from
 /// another vault); it returns false for a wrong PIN. Biometrics and the
 /// vault lockout don't apply then.
+///
+/// [pinOnly] leaves biometrics out (erasing the vault takes the PIN itself),
+/// and [destructive] shows the confirm button in red.
 Future<bool> askVaultPin(
   BuildContext context, {
   required String title,
   required String message,
   String confirmLabel = 'Unlock',
   Future<bool> Function(String pin)? verify,
+  bool pinOnly = false,
+  bool destructive = false,
 }) async {
   final ok = await showDialog<bool>(
     context: context,
@@ -29,6 +35,8 @@ Future<bool> askVaultPin(
       message: message,
       confirmLabel: confirmLabel,
       verify: verify,
+      pinOnly: pinOnly,
+      destructive: destructive,
     ),
   );
   return ok ?? false;
@@ -40,12 +48,16 @@ class _VaultPinDialog extends StatefulWidget {
     required this.message,
     required this.confirmLabel,
     this.verify,
+    this.pinOnly = false,
+    this.destructive = false,
   });
 
   final String title;
   final String message;
   final String confirmLabel;
   final Future<bool> Function(String pin)? verify;
+  final bool pinOnly;
+  final bool destructive;
 
   @override
   State<_VaultPinDialog> createState() => _VaultPinDialogState();
@@ -75,7 +87,7 @@ class _VaultPinDialogState extends State<_VaultPinDialog> {
   /// saved for it; then offer (and start) a fingerprint / face check.
   Future<void> _initBiometric() async {
     // Biometrics open this vault only, not another vault's backup.
-    if (widget.verify != null) return;
+    if (widget.verify != null || widget.pinOnly) return;
     final enabled =
         await _biometric.isAvailable() && await SecureKeyStore().hasKey();
     if (!mounted || !enabled) return;
@@ -200,6 +212,12 @@ class _VaultPinDialogState extends State<_VaultPinDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _submit,
+          style: widget.destructive
+              ? FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                )
+              : null,
           child: _busy
               ? const SizedBox(
                   width: 18,

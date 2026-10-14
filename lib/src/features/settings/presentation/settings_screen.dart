@@ -168,14 +168,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Local mode: delete everything kept on this device, then leave the mode.
+  /// It asks for the vault PIN first (the prompt is also the confirmation).
   Future<void> _eraseLocalData() async {
-    final ok = await confirmAction(
+    final ok = await askVaultPin(
       context,
       title: 'Erase local data?',
       message:
           'Every space, item and your vault on this device will be deleted '
-          'permanently. Export a backup first if you might want them later.',
+          'permanently. Export a backup first if you might want them later. '
+          'Enter your vault PIN to erase.',
       confirmLabel: 'Erase everything',
+      pinOnly: true,
       destructive: true,
     );
     if (!ok) return;
