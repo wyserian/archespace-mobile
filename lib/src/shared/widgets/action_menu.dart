@@ -71,7 +71,8 @@ Future<void> showActionMenu(
   if (picked != null) entries[picked].onSelected();
 }
 
-const double _rowHeight = 40;
+// Compact like the web's menus, with rows still easy to tap.
+const double _rowHeight = 34;
 const double _panelPadding = 4;
 const double _gap = 4;
 const double _screenMargin = 8;
@@ -213,7 +214,7 @@ class _MenuPanel extends StatelessWidget {
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 176, maxWidth: 280),
+        constraints: const BoxConstraints(minWidth: 148, maxWidth: 260),
         child: IntrinsicWidth(
           child: Padding(
             padding: const EdgeInsets.all(_panelPadding),
@@ -245,25 +246,25 @@ class _MenuRow extends StatelessWidget {
     return SizedBox(
       height: _rowHeight,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         highlightColor: entry.danger
             ? scheme.error.withValues(alpha: 0.12)
             : null,
         splashColor: entry.danger ? scheme.error.withValues(alpha: 0.12) : null,
         onTap: () => Navigator.of(context).pop(index),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 9),
           child: Row(
             children: [
-              Icon(entry.icon, size: 18, color: color),
-              const SizedBox(width: 12),
+              Icon(entry.icon, size: 16, color: color),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   entry.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: color,
                   ),
