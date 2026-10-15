@@ -303,22 +303,6 @@ class _SpacesScreenState extends State<SpacesScreen>
     if (mounted) showErrorSnack(context, message);
   }
 
-  /// Reorder the top-level spaces as listed. [_spaces] also holds every
-  /// sub-space, so the new order of [shown] goes back into their places in it.
-  /// `newIndex` arrives already adjusted for the removed item (onReorderItem).
-  void _onReorder(List<Space> shown, int oldIndex, int newIndex) {
-    final order = List<Space>.of(shown);
-    order.insert(newIndex, order.removeAt(oldIndex));
-    final ids = {for (final s in shown) s.id};
-    var next = 0;
-    final list = [
-      for (final s in _spaces ?? const <Space>[])
-        ids.contains(s.id) ? order[next++] : s,
-    ];
-    setState(() => _spaces = list);
-    _persistOrder(list);
-  }
-
   Future<void> _persistOrder(List<Space> list) async {
     try {
       await _spaceRepo.reorder(list.map((s) => s.id).toList());
@@ -326,14 +310,6 @@ class _SpacesScreenState extends State<SpacesScreen>
       _snack("Couldn't save the new order.");
       if (mounted) _load();
     }
-  }
-
-  /// Reorder the dashboard items (list view), persisting the new order.
-  void _onReorderItems(int oldIndex, int newIndex) {
-    final list = List<SpaceItem>.of(_items ?? const []);
-    list.insert(newIndex, list.removeAt(oldIndex));
-    setState(() => _items = list);
-    _persistItemOrder(list);
   }
 
   Future<void> _persistItemOrder(List<SpaceItem> list) async {
@@ -345,8 +321,9 @@ class _SpacesScreenState extends State<SpacesScreen>
     }
   }
 
-  /// Reorder by id (the grid's drag and drop): move [fromId] into [toId]'s
-  /// place and persist the new order.
+  /// Reorder by id (drag and drop, in the list or the grid): move [fromId]
+  /// into [toId]'s place and persist the new order. [_spaces] also holds the
+  /// sub-spaces, which keep their places.
   void _moveSpaceById(String fromId, String toId) {
     final list = moveById(
       _spaces ?? const <Space>[],
@@ -861,40 +838,48 @@ class _SpacesScreenState extends State<SpacesScreen>
     if (_view == 'grid') {
       return _grid(spaces, items, header: header, labelItems: bothSections);
     }
-    // List view: two reorderable lists (spaces, then items), each reordering
-    // within itself on long press, with the "Items" label between them.
+    // List view: spaces, then items, with the "Items" label between them.
+    // Hold a card and drag it onto another of its section to take its place,
+    // as in the grid.
     final canReorder = _canReorder;
+    final spaceIds = [for (final s in spaces) s.id];
+    final itemIds = [for (final i in items) i.id];
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         if (header != null) SliverToBoxAdapter(child: header),
         const SliverToBoxAdapter(child: SizedBox(height: 4)),
-        SliverReorderableList(
+        SliverList.builder(
           itemCount: spaces.length,
-          onReorderItem: (from, to) => _onReorder(spaces, from, to),
-          proxyDecorator: _proxyDecorator,
-          itemBuilder: (context, index) => ReorderableDelayedDragStartListener(
-            key: ValueKey('space-${spaces[index].id}'),
-            index: index,
-            enabled: canReorder,
-            child: _spaceCard(spaces[index]),
-          ),
+          itemBuilder: (context, index) {
+            final space = spaces[index];
+            return ReorderCard(
+              key: ValueKey('space-${space.id}'),
+              list: 'spaces',
+              id: space.id,
+              enabled: canReorder,
+              order: spaceIds,
+              onReorder: _moveSpaceById,
+              child: _spaceCard(space),
+            );
+          },
         ),
         if (bothSections)
           SliverToBoxAdapter(child: _sectionLabel(context, 'Items')),
-        SliverReorderableList(
+        SliverList.builder(
           itemCount: items.length,
-          onReorderItem: _onReorderItems,
-          proxyDecorator: _proxyDecorator,
           itemBuilder: (context, index) {
             final item = items[index];
-            return ReorderableDelayedDragStartListener(
+            return _highlightable(
+              item,
               key: ValueKey('item-${item.id}'),
-              index: index,
-              enabled: canReorder,
-              child: _highlightable(
-                item,
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ReorderCard(
+                list: 'items',
+                id: item.id,
+                enabled: canReorder,
+                order: itemIds,
+                onReorder: _moveItemById,
                 child: _itemCard(item, margin: EdgeInsets.zero),
               ),
             );
@@ -914,22 +899,6 @@ class _SpacesScreenState extends State<SpacesScreen>
         context,
       ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
     ),
-  );
-
-  /// Lifts the card being dragged, as ReorderableListView does.
-  Widget _proxyDecorator(
-    Widget child,
-    int index,
-    Animation<double> animation,
-  ) => AnimatedBuilder(
-    animation: animation,
-    builder: (context, child) => Material(
-      elevation: 6 * Curves.easeInOut.transform(animation.value),
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      child: child,
-    ),
-    child: child,
   );
 
   /// Wraps an item card so it can be scrolled to and briefly highlighted
@@ -977,6 +946,8 @@ class _SpacesScreenState extends State<SpacesScreen>
     bool labelItems = false,
   }) {
     final canReorder = _canReorder;
+    final spaceIds = [for (final s in spaces) s.id];
+    final itemIds = [for (final i in items) i.id];
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 88),
@@ -992,7 +963,8 @@ class _SpacesScreenState extends State<SpacesScreen>
                   list: 'spaces',
                   id: s.id,
                   enabled: canReorder,
-                  onMove: (from) => _moveSpaceById(from, s.id),
+                  order: spaceIds,
+                  onReorder: _moveSpaceById,
                   child: _spaceCard(s, margin: const EdgeInsets.all(2)),
                 ),
             ]),
@@ -1008,7 +980,8 @@ class _SpacesScreenState extends State<SpacesScreen>
                     list: 'items',
                     id: i.id,
                     enabled: canReorder,
-                    onMove: (from) => _moveItemById(from, i.id),
+                    order: itemIds,
+                    onReorder: _moveItemById,
                     child: _itemCard(
                       i,
                       margin: const EdgeInsets.all(2),

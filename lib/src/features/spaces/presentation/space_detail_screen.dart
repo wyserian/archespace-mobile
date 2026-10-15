@@ -387,15 +387,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     );
   }
 
-  /// `newIndex` arrives already adjusted for the removed item (onReorderItem).
-  void _onReorder(int oldIndex, int newIndex) {
-    final list = List<SpaceItem>.of(_items ?? const []);
-    list.insert(newIndex, list.removeAt(oldIndex));
-    setState(() => _items = list);
-    _persistOrder(list);
-  }
-
-  /// Move an item into another's place (the grid's drag and drop).
+  /// Move an item into another's place (drag and drop, in the list or grid).
   void _moveItemById(String fromId, String toId) {
     final list = moveById(
       _items ?? const <SpaceItem>[],
@@ -926,6 +918,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         query.isEmpty;
     // Sub-spaces render above the items in the same view (matching the web).
     // Hold one to drag it into another's place.
+    final subSpaceIds = [for (final s in subSpaces) s.id];
     final subSection = subSpaces.isEmpty
         ? null
         : Column(
@@ -936,7 +929,8 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                   list: 'sub-spaces',
                   id: s.id,
                   enabled: canReorder,
-                  onMove: (from) => _moveSubSpace(from, s.id),
+                  order: subSpaceIds,
+                  onReorder: _moveSubSpace,
                   child: _subSpaceCard(s),
                 ),
             ],
@@ -964,17 +958,18 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: headerChildren,
           );
+    final itemIds = [for (final i in items) i.id];
     return _view == 'grid'
         ? _grid(items, header: header, canReorder: canReorder)
-        : ReorderableListView.builder(
-            header: header,
+        // Hold a card and drag it onto another to take its place, as in the
+        // grid; the header (controls, tags, sub-spaces) scrolls with it.
+        : ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 4, bottom: 88),
-            buildDefaultDragHandles: canReorder,
-            onReorderItem: _onReorder,
-            itemCount: items.length,
+            itemCount: items.length + (header == null ? 0 : 1),
             itemBuilder: (context, index) {
-              final item = items[index];
+              if (header != null && index == 0) return header;
+              final item = items[index - (header == null ? 0 : 1)];
               final isFocus = item.id == widget.focusItemId;
               return AnimatedContainer(
                 key: ValueKey(item.id),
@@ -990,7 +985,14 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                 ),
                 child: KeyedSubtree(
                   key: isFocus ? _focusKey : null,
-                  child: _itemCard(item, margin: EdgeInsets.zero),
+                  child: ReorderCard(
+                    list: 'items',
+                    id: item.id,
+                    enabled: canReorder,
+                    order: itemIds,
+                    onReorder: _moveItemById,
+                    child: _itemCard(item, margin: EdgeInsets.zero),
+                  ),
                 ),
               );
             },
@@ -1065,6 +1067,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     bool canReorder = false,
   }) {
     final columns = <List<Widget>>[<Widget>[], <Widget>[]];
+    final itemIds = [for (final i in items) i.id];
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
       final isFocus = item.id == widget.focusItemId;
@@ -1084,7 +1087,8 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               list: 'items',
               id: item.id,
               enabled: canReorder,
-              onMove: (from) => _moveItemById(from, item.id),
+              order: itemIds,
+              onReorder: _moveItemById,
               child: _itemCard(
                 item,
                 margin: const EdgeInsets.all(4),
