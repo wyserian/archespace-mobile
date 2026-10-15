@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// The + (and, turned, the x) on the create button: larger than the default
-/// so it reads clearly, in the same size button.
+/// The + (and, turned, the x) on the create button: above Material's 24 so it
+/// reads clearly in the standard 56px button.
 const double _plusSize = 30;
 
 /// The create button. With both actions it is a speed dial: tapping + opens
@@ -215,8 +215,8 @@ class _CreateFabsState extends State<CreateFabs>
             child: InkWell(
               onTap: onTap,
               child: Padding(
-                // Bigger icon and text with less padding: the pill keeps its
-                // size.
+                // Tight padding around the large icon and label keeps the pill
+                // 48 tall, like a standard button.
                 padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
