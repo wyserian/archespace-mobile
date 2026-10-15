@@ -56,7 +56,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 | Whiteboard | An Excalidraw board: shapes, arrows, text and freehand drawing on a canvas you can pan and zoom. |
 | Code | A code snippet in a monospace block with automatic syntax highlighting (language auto-detected). Copies as plain text. |
 
-Older item types are converted automatically: Markdown notes open as Rich text (and are saved that way on the next edit), and Secrets become Notes after unlock (protect them to keep them behind your PIN).
+Spaces and items reorder by long-press and drag, or with Move up / Move down actions from a screen reader. Older item types are converted automatically: Markdown notes open as Rich text (and are saved that way on the next edit), and Secrets become Notes after unlock (protect them to keep them behind your PIN).
 
 ## Security model
 
@@ -67,7 +67,7 @@ Two separate secrets: a **login password** for the account and a **vault PIN** (
 - **Same format as the web app** (`arc1`), checked against shared test vectors in [`spec/`](spec/).
 - **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle. Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
 - **Server-side guards.** Row Level Security limits each user to their own data, repeated wrong PINs lock the vault, and optional two-factor sign-in is enforced by the database, not just the app.
-- **Protected items and spaces** need the PIN again inside an unlocked vault: a guard against someone using your unlocked phone.
+- **Protected items and spaces** need the PIN again inside an unlocked vault, as does erasing a local-mode vault: a guard against someone using your unlocked phone.
 - **Encrypted backups** open in the same vault, or anywhere with the PIN used when exporting.
 - **No backdoor.** A one-time recovery code resets a forgotten PIN. Lose both and the data can't be recovered.
 
