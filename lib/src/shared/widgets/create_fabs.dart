@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// The + (and, turned, the x) on the create button: larger than the default
+/// so it reads clearly, in the same size button.
+const double _plusSize = 30;
+
 /// The create button. With both actions it is a speed dial: tapping + opens
 /// two options above it over a dimmed screen, "Add item" then "New space",
 /// and the + turns into a close button. Pass no [onNewSpace] to show a plain
@@ -77,7 +81,7 @@ class _CreateFabsState extends State<CreateFabs>
         heroTag: 'fab-add-item',
         onPressed: widget.onAddItem,
         tooltip: 'Add item',
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, size: _plusSize),
       );
     }
     return PopScope(
@@ -95,7 +99,7 @@ class _CreateFabsState extends State<CreateFabs>
             heroTag: 'fab-create',
             onPressed: _show,
             tooltip: 'Create',
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add, size: _plusSize),
           ),
         ),
       ),
@@ -135,14 +139,14 @@ class _CreateFabsState extends State<CreateFabs>
             children: [
               _option(
                 index: 1,
-                icon: Icons.note_add_outlined,
+                icon: Icons.note_add,
                 label: 'Add item',
                 onTap: () => _pick(widget.onAddItem),
               ),
               const SizedBox(height: 12),
               _option(
                 index: 0,
-                icon: Icons.create_new_folder_outlined,
+                icon: Icons.create_new_folder,
                 label: 'New space',
                 onTap: () => _pick(widget.onNewSpace!),
               ),
@@ -168,7 +172,7 @@ class _CreateFabsState extends State<CreateFabs>
                 // + turns an eighth into an x.
                 child: RotationTransition(
                   turns: Tween(begin: 0.0, end: 0.125).animate(_curve),
-                  child: const Icon(Icons.add),
+                  child: const Icon(Icons.add, size: _plusSize),
                 ),
               ),
             ],
@@ -211,17 +215,20 @@ class _CreateFabsState extends State<CreateFabs>
             child: InkWell(
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 13, 22, 13),
+                // Bigger icon and text with less padding: the pill keeps its
+                // size.
+                padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 22, color: fg),
+                    Icon(icon, size: 24, color: fg),
                     const SizedBox(width: 10),
                     Text(
                       label,
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: fg,
-                        fontSize: 15.5,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
