@@ -562,12 +562,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.download_outlined,
                   title: 'Import backup',
                   subtitle:
-                      'Adds the spaces and items from a backup file. '
-                      'Nothing you already have is replaced.',
+                      'Adds the spaces and items from a backup, replacing '
+                      'nothing. One from another vault needs the PIN it was '
+                      'exported with.',
                   onTap: _importBackup,
                   chevron: false,
                 ),
-                const _BackupNote(),
               ],
             ),
 
@@ -838,51 +838,6 @@ class _OnPill extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: scheme.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A note at the foot of the Backup card: what opens an exported file.
-class _BackupNote extends StatelessWidget {
-  const _BackupNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      color: scheme.primary.withValues(alpha: 0.08),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lock_outline, size: 20, color: scheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Backups are encrypted. ',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.primary,
-                    ),
-                  ),
-                  const TextSpan(
-                    text:
-                        'They open in this vault as they are, and anywhere '
-                        'else with the vault PIN you had when exporting. After '
-                        'a PIN change, older backups still need the earlier '
-                        'PIN.',
-                  ),
-                ],
-              ),
-              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         ],
