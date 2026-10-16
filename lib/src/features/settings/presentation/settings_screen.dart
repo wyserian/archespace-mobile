@@ -595,6 +595,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _openUrl(Legal.privacyUrl),
                 ),
+                _SettingTile(
+                  icon: Icons.code,
+                  title: 'Open Source',
+                  trailing: Icon(
+                    Icons.open_in_new,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  onTap: () => _openUrl(BuildInfo.repoUrl),
+                ),
               ],
             ),
             const _BuildFooter(),
