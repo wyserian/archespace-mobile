@@ -24,8 +24,8 @@ class SplashScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const BrandName(),
-                  const SizedBox(height: 10),
+                  const BrandName(fontSize: 30),
+                  const SizedBox(height: 12),
                   Text(
                     'Everything in One Encrypted Space',
                     textAlign: TextAlign.center,
