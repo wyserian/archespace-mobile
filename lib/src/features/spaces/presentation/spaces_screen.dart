@@ -853,14 +853,17 @@ class _SpacesScreenState extends State<SpacesScreen>
           itemCount: spaces.length,
           itemBuilder: (context, index) {
             final space = spaces[index];
-            return ReorderCard(
+            return Padding(
               key: ValueKey('space-${space.id}'),
-              list: 'spaces',
-              id: space.id,
-              enabled: canReorder,
-              order: spaceIds,
-              onReorder: _moveSpaceById,
-              child: _spaceCard(space),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              child: ReorderCard(
+                list: 'spaces',
+                id: space.id,
+                enabled: canReorder,
+                order: spaceIds,
+                onReorder: _moveSpaceById,
+                child: _spaceCard(space, margin: EdgeInsets.zero),
+              ),
             );
           },
         ),
@@ -958,14 +961,17 @@ class _SpacesScreenState extends State<SpacesScreen>
           if (spaces.isNotEmpty)
             _masonry([
               for (final s in spaces)
-                ReorderCard(
+                Padding(
                   key: ValueKey('space-${s.id}'),
-                  list: 'spaces',
-                  id: s.id,
-                  enabled: canReorder,
-                  order: spaceIds,
-                  onReorder: _moveSpaceById,
-                  child: _spaceCard(s, margin: const EdgeInsets.all(2)),
+                  padding: const EdgeInsets.all(2),
+                  child: ReorderCard(
+                    list: 'spaces',
+                    id: s.id,
+                    enabled: canReorder,
+                    order: spaceIds,
+                    onReorder: _moveSpaceById,
+                    child: _spaceCard(s, margin: EdgeInsets.zero),
+                  ),
                 ),
             ]),
           if (labelItems) _sectionLabel(context, 'Items'),
@@ -976,16 +982,15 @@ class _SpacesScreenState extends State<SpacesScreen>
                   i,
                   key: ValueKey('item-${i.id}'),
                   margin: EdgeInsets.zero,
-                  child: ReorderCard(
-                    list: 'items',
-                    id: i.id,
-                    enabled: canReorder,
-                    order: itemIds,
-                    onReorder: _moveItemById,
-                    child: _itemCard(
-                      i,
-                      margin: const EdgeInsets.all(2),
-                      grid: true,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: ReorderCard(
+                      list: 'items',
+                      id: i.id,
+                      enabled: canReorder,
+                      order: itemIds,
+                      onReorder: _moveItemById,
+                      child: _itemCard(i, margin: EdgeInsets.zero, grid: true),
                     ),
                   ),
                 ),

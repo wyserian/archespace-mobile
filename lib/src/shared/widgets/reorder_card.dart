@@ -85,9 +85,12 @@ class _ReorderCardState extends State<ReorderCard>
           onDragEnd: (_) => _setDragging(false),
           onDragCompleted: () => _setDragging(false),
           onDraggableCanceled: (_, _) => _setDragging(false),
+          // Drawn over the card, on its edge: callers keep the card's margin
+          // outside this widget.
           child: DecoratedBox(
+            position: DecorationPosition.foreground,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               border: candidates.isNotEmpty
                   ? Border.all(color: accent.withValues(alpha: 0.4), width: 1.5)
                   : null,

@@ -298,7 +298,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
 
   Widget _subSpaceCard(Space sub) => SpaceCard(
     space: sub,
-    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    margin: EdgeInsets.zero,
     selectMode: _selectMode,
     selected: _selectedSpaces.contains(sub.id),
     onSelectToggle: () => _toggleSelectSpace(sub.id),
@@ -924,14 +924,20 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         : Column(
             children: [
               for (final s in subSpaces)
-                ReorderCard(
+                Padding(
                   key: ValueKey('space-${s.id}'),
-                  list: 'sub-spaces',
-                  id: s.id,
-                  enabled: canReorder,
-                  order: subSpaceIds,
-                  onReorder: _moveSubSpace,
-                  child: _subSpaceCard(s),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: ReorderCard(
+                    list: 'sub-spaces',
+                    id: s.id,
+                    enabled: canReorder,
+                    order: subSpaceIds,
+                    onReorder: _moveSubSpace,
+                    child: _subSpaceCard(s),
+                  ),
                 ),
             ],
           );
@@ -1075,6 +1081,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         AnimatedContainer(
           key: ValueKey(item.id),
           duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             color: _flashId == item.id
@@ -1089,11 +1096,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               enabled: canReorder,
               order: itemIds,
               onReorder: _moveItemById,
-              child: _itemCard(
-                item,
-                margin: const EdgeInsets.all(4),
-                grid: true,
-              ),
+              child: _itemCard(item, margin: EdgeInsets.zero, grid: true),
             ),
           ),
         ),
