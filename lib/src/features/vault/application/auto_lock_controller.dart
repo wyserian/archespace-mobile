@@ -27,7 +27,7 @@ const List<AutoLockOption> kAutoLockOptions = [
   AutoLockOption(id: 'never', label: 'Never', duration: null),
 ];
 
-const String kDefaultAutoLockId = '24h';
+const String kDefaultAutoLockId = '5m';
 
 /// Holds the vault auto-lock duration, persisted per-device with
 /// shared_preferences (a security preference, not synced to the account).
