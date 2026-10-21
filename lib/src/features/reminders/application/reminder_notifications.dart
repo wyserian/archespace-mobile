@@ -26,12 +26,22 @@ class ReminderNotifications {
       GlobalKey<NavigatorState>();
 
   static const _text = 'You have a reminder in ArcheSpace';
-  static const _channel = AndroidNotificationDetails(
-    'reminders',
+  // Android fixes a channel's sound when it's made, so sound on and off are
+  // two channels.
+  static const _withSound = AndroidNotificationDetails(
+    'reminder_alerts',
     'Reminders',
-    channelDescription: 'Item reminders',
+    channelDescription: 'Item reminders, with sound',
     importance: Importance.high,
     priority: Priority.high,
+  );
+  static const _withoutSound = AndroidNotificationDetails(
+    'reminder_alerts_silent',
+    'Reminders (silent)',
+    channelDescription: 'Item reminders, without sound',
+    importance: Importance.high,
+    priority: Priority.high,
+    playSound: false,
   );
 
   final _plugin = FlutterLocalNotificationsPlugin();
@@ -63,6 +73,12 @@ class ReminderNotifications {
       ),
       onDidReceiveNotificationResponse: (_) => _requestOpen(),
     );
+    // The single channel reminders used before sound became a choice.
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.deleteNotificationChannel(channelId: 'reminders');
     // Opened by tapping a reminder while the app was closed.
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp ?? false) _requestOpen();
@@ -113,7 +129,9 @@ class ReminderNotifications {
         await _plugin.zonedSchedule(
           id: plan.id,
           scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
-          notificationDetails: const NotificationDetails(android: _channel),
+          notificationDetails: NotificationDetails(
+            android: plan.reminder.sound ? _withSound : _withoutSound,
+          ),
           androidScheduleMode: exact
               ? AndroidScheduleMode.exactAllowWhileIdle
               : AndroidScheduleMode.inexactAllowWhileIdle,

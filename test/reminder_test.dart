@@ -32,6 +32,13 @@ void main() {
       );
     });
 
+    test('keeps the sound on unless turned off', () {
+      expect(Reminder.fromJson({'date': '2026-10-07'})!.sound, isTrue);
+      final silent = Reminder.fromJson({'date': '2026-10-07', 'sound': false})!;
+      expect(silent.sound, isFalse);
+      expect(Reminder.fromJson(silent.toJson())!.sound, isFalse);
+    });
+
     test('drops anything malformed', () {
       expect(Reminder.fromJson(null), isNull);
       expect(Reminder.fromJson({'date': '7 Oct'}), isNull);

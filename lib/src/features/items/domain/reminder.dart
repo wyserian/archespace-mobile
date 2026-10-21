@@ -28,7 +28,7 @@ enum ReminderEvery {
 ///
 /// Stored encrypted with the item (like its tags), so the server never learns
 /// what or when it is:
-///   { name, date: 'YYYY-MM-DD', time: 'HH:MM', mode, every, until }
+///   { name, date: 'YYYY-MM-DD', time: 'HH:MM', mode, every, until, sound }
 /// The date and time are the first time it goes off, in local (wall-clock)
 /// time. A repeat goes off [every] day / week / month / year until [until]; a
 /// permanent one until it's removed. A monthly or yearly reminder on a day a
@@ -41,6 +41,7 @@ class Reminder {
     this.mode = ReminderMode.once,
     this.every = ReminderEvery.day,
     this.until,
+    this.sound = true,
   });
 
   /// Shown in the notification; may be empty.
@@ -58,6 +59,9 @@ class Reminder {
 
   /// 'YYYY-MM-DD': the last day a repeat goes off.
   final String? until;
+
+  /// Plays the notification sound when it goes off.
+  final bool sound;
 
   /// A new reminder's time, unless that's already past today.
   static const _defaultTime = '09:00';
@@ -99,6 +103,7 @@ class Reminder {
           : _isDay(until) && (until as String).compareTo(date) >= 0
           ? until
           : date,
+      sound: value['sound'] != false,
     );
   }
 
@@ -109,6 +114,7 @@ class Reminder {
     'mode': mode.name,
     'every': mode == ReminderMode.once ? null : every.name,
     'until': mode == ReminderMode.repeat ? until : null,
+    'sound': sound,
   };
 
   /// A new reminder: once, today at 9:00, or at the next full hour once
@@ -248,11 +254,12 @@ class Reminder {
       other.time == time &&
       other.mode == mode &&
       (!repeats || other.every == every) &&
-      other.until == until;
+      other.until == until &&
+      other.sound == sound;
 
   @override
   int get hashCode =>
-      Object.hash(name, date, time, mode, repeats ? every : null, until);
+      Object.hash(name, date, time, mode, repeats ? every : null, until, sound);
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [

@@ -38,6 +38,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
   late ReminderMode _mode = _start.mode;
   late ReminderEvery _every = _start.every;
   late String _until = _start.until ?? Reminder.addDays(_start.date, 30);
+  late bool _sound = _start.sound;
 
   @override
   void dispose() {
@@ -53,6 +54,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
     'mode': _mode.name,
     'every': _every.name,
     'until': _until,
+    'sound': _sound,
   })!;
 
   DateTime _dayValue(String day) {
@@ -248,7 +250,12 @@ class _ReminderSheetState extends State<_ReminderSheet> {
                 ],
               ),
             ],
-            const SizedBox(height: 10),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Play a sound when it goes off'),
+              value: _sound,
+              onChanged: (on) => setState(() => _sound = on),
+            ),
             Text(
               _summary(reminder),
               style: textTheme.bodySmall?.copyWith(
