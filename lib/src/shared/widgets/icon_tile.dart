@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// A screen's header icon in a soft rounded tile: a faint tint of [color]
-/// (the accent by default) with a hairline of it, the icon in the full colour.
-/// Matches the web's vault screens.
+/// A screen's header icon in a soft rounded tile: a borderless tint of [color]
+/// (the accent by default), the icon in the full colour. Matches the web's
+/// vault screens.
 class IconTile extends StatelessWidget {
   const IconTile({super.key, required this.icon, this.color});
 
@@ -17,9 +17,8 @@ class IconTile extends StatelessWidget {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: tint.withValues(alpha: 0.10),
+          color: tint.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: tint.withValues(alpha: 0.20)),
         ),
         child: Icon(icon, size: 26, color: tint),
       ),
