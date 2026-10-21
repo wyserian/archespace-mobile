@@ -66,10 +66,15 @@ void main() {
     });
   });
 
-  test('a new one is 9:00 today, or the next full hour once that passed', () {
-    expect(Reminder.initial(DateTime(2026, 10, 6, 7)), once('2026-10-06'));
-    expect(Reminder.initial(now), once('2026-10-06', '11:00'));
-    expect(Reminder.initial(DateTime(2026, 10, 6, 23, 10)), once('2026-10-07'));
+  test('a new one is now, rounded up to the next minute', () {
+    expect(
+      Reminder.initial(DateTime(2026, 10, 6, 10, 30, 20)),
+      once('2026-10-06', '10:31'),
+    );
+    expect(
+      Reminder.initial(DateTime(2026, 10, 6, 23, 59, 5)),
+      once('2026-10-07', '00:00'),
+    );
   });
 
   group('occurrences', () {

@@ -63,7 +63,7 @@ class Reminder {
   /// Plays the notification sound when it goes off.
   final bool sound;
 
-  /// A new reminder's time, unless that's already past today.
+  /// The time a reminder saved without a valid one gets.
   static const _defaultTime = '09:00';
   static const maxName = 100;
 
@@ -117,19 +117,16 @@ class Reminder {
     'sound': sound,
   };
 
-  /// A new reminder: once, today at 9:00, or at the next full hour once
-  /// that's past (tomorrow at 9:00 late in the evening).
+  /// A new reminder: once, now, rounded up to the next minute so it isn't
+  /// already past.
   static Reminder initial([DateTime? now]) {
     now ??= DateTime.now();
-    final today = dayString(now);
-    if (_local(today, _defaultTime).isAfter(now)) return Reminder(date: today);
-    if (now.hour < 23) {
-      return Reminder(
-        date: today,
-        time: '${(now.hour + 1).toString().padLeft(2, '0')}:00',
-      );
-    }
-    return Reminder(date: addDays(today, 1));
+    final at = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    String two(int n) => n.toString().padLeft(2, '0');
+    return Reminder(
+      date: dayString(at),
+      time: '${two(at.hour)}:${two(at.minute)}',
+    );
   }
 
   bool get repeats => mode != ReminderMode.once;
