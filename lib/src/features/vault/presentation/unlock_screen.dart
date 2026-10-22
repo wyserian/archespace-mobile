@@ -88,6 +88,19 @@ class _UnlockScreenState extends State<UnlockScreen> {
         setState(() => _biometricEnabled = false);
         return;
       }
+      // A key kept from before the vault was reset elsewhere would open
+      // nothing and make new items unreadable on other devices.
+      final userId = currentUserId();
+      if (userId == null || !await _vault.isCurrentKey(userId, masterKey)) {
+        await _store.clear();
+        setState(() {
+          _biometricEnabled = false;
+          _error =
+              'Fingerprint unlock was set up for an earlier vault and has '
+              'been turned off. Unlock with your PIN.';
+        });
+        return;
+      }
       VaultSession.instance.unlock(masterKey);
     } finally {
       if (mounted) setState(() => _loading = false);

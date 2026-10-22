@@ -122,6 +122,20 @@ class VaultService {
     };
   }
 
+  /// Whether [key] is this vault's current master key: its key_check opens,
+  /// as on a PIN unlock. A key kept for fingerprint unlock is from an earlier
+  /// vault after a reset elsewhere. Uses the offline copy when offline.
+  Future<bool> isCurrentKey(String userId, List<int> key) async {
+    final meta = await _loadUnlockMeta(userId);
+    final check = meta?['key_check'];
+    if (check is! String) return false;
+    try {
+      return await ArcheCrypto.decryptArc1(check, key) == _checkPlaintext;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Unwrap a vault key from its PIN-wrapped form (a backup's `vault` block).
   /// Throws [VaultException] 'Incorrect PIN.' when the PIN doesn't open it.
   Future<Uint8List> unwrapWithPin(Map<String, dynamic> meta, String pin) =>
