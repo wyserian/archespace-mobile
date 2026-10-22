@@ -541,7 +541,7 @@ class _SetupRecoveryScreenState extends State<SetupRecoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pinReady = _pin.text.length >= vaultPinMinLength;
+    final pinReady = _pin.text.isNotEmpty;
     return Scaffold(
       appBar: AppBar(title: const Text('Recovery code')),
       body: SafeArea(

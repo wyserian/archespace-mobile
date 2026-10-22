@@ -4,7 +4,8 @@
 /// enforced; weak choices get a warning, not a block.
 library;
 
-const int vaultPinMinLength = 4;
+/// For a new PIN; one set when the minimum was 4 still unlocks.
+const int vaultPinMinLength = 6;
 const int vaultPinMaxLength = 64;
 
 final RegExp _digitsOnly = RegExp(r'^\d+$');
@@ -25,10 +26,6 @@ String? getWeakPinWarning(String pin) {
   if (_digitsOnly.hasMatch(pin) && pin.length < 8) {
     return 'A ${pin.length}-digit PIN is easy to guess. Use 8+ digits, or add '
         'letters and symbols for much stronger protection.';
-  }
-  if (pin.length < 6) {
-    return 'This is short. A longer PIN or passphrase (letters, numbers, '
-        'symbols) is much harder to guess.';
   }
   return null;
 }

@@ -66,12 +66,12 @@ Two separate secrets: a **login password** for the account and a **vault PIN** (
 - **PIN never stored.** A random vault key is wrapped with a key derived from the PIN by Argon2id.
 - **Same format as the web app** (`arc1`), checked against shared test vectors in [`spec/`](spec/).
 - **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle. Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
-- **Server-side guards.** Row Level Security limits each user to their own data, repeated wrong PINs lock the vault, and optional two-factor sign-in is enforced by the database, not just the app.
+- **Server-side guards.** Row Level Security limits each user to their own data, and optional two-factor sign-in is enforced by the database, not just the app.
 - **Protected items and spaces** need the PIN again inside an unlocked vault, as does erasing a local-mode vault: a guard against someone using your unlocked phone.
 - **Encrypted backups** open in the same vault, or anywhere with the PIN used when exporting.
 - **No backdoor.** A one-time recovery code resets a forgotten PIN. Lose both and the data can't be recovered.
 
-**Limits.** A short PIN can be guessed offline if a backup file leaks, so prefer a longer one. Client-side encryption is only as safe as the code running it; Settings links the build to its source commit ([Release verification](#release-verification)).
+**Limits.** The PIN is what keeps the data private: anyone holding the wrapped key (a leaked backup file or database) can guess it offline. A new PIN needs at least 6 characters, and a passphrase is far stronger. Client-side encryption is only as safe as the code running it; Settings links the build to its source commit ([Release verification](#release-verification)).
 ## Setup
 
 ### 1. Prerequisites
