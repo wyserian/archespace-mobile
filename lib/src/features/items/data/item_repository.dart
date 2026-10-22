@@ -198,8 +198,21 @@ class ItemRepository {
       'title': await _encTitle(title),
       'content': await _encContent(content),
     };
-    await WriteQueue.instance.upsert('space_items', row);
-    await CacheStore.upsertRow(cacheKeyFor(spaceId), row);
+    // The version this edit is made on, as last fetched, so a queued edit
+    // never overwrites a newer one (see WriteQueue).
+    final cacheKey = cacheKeyFor(spaceId);
+    final cached = (await CacheStore.readRows(
+      cacheKey,
+    )).where((r) => r['id'] == id).firstOrNull;
+    await WriteQueue.instance.upsert(
+      'space_items',
+      row,
+      base: cached?['updated_at'] as String?,
+      copyTitle: await _encTitle(
+        '${title.isEmpty ? 'Untitled' : title} (offline copy)',
+      ),
+    );
+    await CacheStore.upsertRow(cacheKey, row);
   }
 
   Future<void> setPinned(String id, bool pinned) async {
