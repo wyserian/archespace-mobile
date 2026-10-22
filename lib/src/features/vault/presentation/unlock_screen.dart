@@ -98,7 +98,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
     final userId = currentUserId();
     if (userId == null) return;
 
-    if (_pin.text.trim().isEmpty) {
+    if (_pin.text.isEmpty) {
       setState(() => _error = 'Enter your vault PIN.');
       return;
     }
@@ -108,7 +108,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       _error = null;
     });
     try {
-      final masterKey = await _vault.unlock(userId, _pin.text.trim());
+      final masterKey = await _vault.unlock(userId, _pin.text);
 
       // Offer to enable biometric unlock for next time, before we navigate away.
       if (_biometricAvailable && !_biometricEnabled && mounted) {
@@ -204,11 +204,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
       setState(() => _error = 'Enter your account password.');
       return;
     }
-    if (_newPin.text.trim().isEmpty) {
+    if (_newPin.text.isEmpty) {
       setState(() => _error = 'Enter a new vault PIN.');
       return;
     }
-    if (_newPin.text.trim() != _confirmPin.text.trim()) {
+    if (_newPin.text != _confirmPin.text) {
       setState(() => _error = 'PINs do not match.');
       return;
     }
@@ -231,7 +231,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
           return;
         }
       }
-      final result = await _vault.resetVault(userId, _newPin.text.trim());
+      final result = await _vault.resetVault(userId, _newPin.text);
       // The old biometric key wrapped the destroyed master key - clear it.
       await _store.clear();
       setState(() {
@@ -259,7 +259,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       setState(() => _error = 'Enter your recovery code.');
       return;
     }
-    if (_newPin.text.trim().isEmpty) {
+    if (_newPin.text.isEmpty) {
       setState(() => _error = 'Enter a new vault PIN.');
       return;
     }
@@ -272,7 +272,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       final result = await _vault.recoverWithCode(
         userId,
         _recoveryCode.text.trim(),
-        _newPin.text.trim(),
+        _newPin.text,
       );
       setState(() {
         _resetMasterKey = result.masterKey;

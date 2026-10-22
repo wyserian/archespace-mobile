@@ -105,7 +105,7 @@ class _VaultPinDialogState extends State<_VaultPinDialog> {
   }
 
   Future<void> _submit() async {
-    final pin = _pin.text.trim();
+    final pin = _pin.text;
     final userId = currentUserId();
     if (pin.isEmpty || userId == null || _busy) return;
     setState(() {
