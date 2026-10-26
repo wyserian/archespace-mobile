@@ -7,7 +7,10 @@ import 'package:archespace_mobile/src/shared/export/pdf_exporter.dart';
 Map<String, dynamic> _text(String t, [List<String> marks = const []]) => {
   'type': 'text',
   'text': t,
-  if (marks.isNotEmpty) 'marks': [for (final m in marks) {'type': m}],
+  if (marks.isNotEmpty)
+    'marks': [
+      for (final m in marks) {'type': m},
+    ],
 };
 
 Map<String, dynamic> _p(List<Map<String, dynamic>> inline) => {
@@ -120,11 +123,30 @@ void main() {
 
   test('reads plain text: a line per block, tabs between cells', () {
     final text = richContentPlainText('richtext', {'doc': doc});
-    expect(
-      text,
-      startsWith('Title\nSome bold and under\nmark2x\na\nnested\n'),
-    );
+    expect(text, startsWith('Title\nSome bold and under\nmark2x\na\nnested\n'));
     expect(text, endsWith('done\nquote\ncode()\nA\tB\n1\t2'));
+  });
+
+  test('reads a very long document quickly', () {
+    final long = {
+      'type': 'doc',
+      'content': [
+        for (var i = 0; i < 20000; i++)
+          {
+            'type': 'paragraph',
+            'content': [
+              {'type': 'text', 'text': 'Line $i of a long note'},
+            ],
+          },
+      ],
+    };
+    final watch = Stopwatch()..start();
+    final text = richContentPlainText('richtext', {'doc': long});
+    watch.stop();
+    expect(text.split('\n'), hasLength(20000));
+    // Linear time: copying the text so far at every line break made this
+    // take minutes.
+    expect(watch.elapsedMilliseconds, lessThan(1000));
   });
 
   test('tells the new format from the older ones', () {

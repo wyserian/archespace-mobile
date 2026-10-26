@@ -7,13 +7,21 @@ import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 /// dividers and tables. Editing happens in the WebView editor; this keeps the
 /// list fast and fully native.
 class RichDocView extends StatelessWidget {
-  const RichDocView({super.key, required this.doc});
+  const RichDocView({super.key, required this.doc, this.maxBlocks});
 
   final Map<String, dynamic> doc;
 
+  /// Draw only the first blocks (a card's clamped preview), so a long note
+  /// doesn't lay out content the card would clip anyway.
+  final int? maxBlocks;
+
   @override
   Widget build(BuildContext context) {
-    final blocks = _blocks(context, richChildren(doc));
+    final nodes = richChildren(doc);
+    final blocks = _blocks(
+      context,
+      maxBlocks == null ? nodes : nodes.take(maxBlocks!).toList(),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,

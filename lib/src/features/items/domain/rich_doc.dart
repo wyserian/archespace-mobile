@@ -41,50 +41,58 @@ const Set<String> _blocks = {
   'horizontalRule',
 };
 
-void _lineBreak(StringBuffer out) {
-  final s = out.toString();
-  if (s.isNotEmpty && !s.endsWith('\n')) out.write('\n');
+/// Text being built that remembers its last character, so a line break never
+/// has to copy all the text so far to look (which made long documents slow).
+class _PlainText {
+  final StringBuffer _buf = StringBuffer();
+  bool _endsWithNewline = false;
+
+  void write(String s) {
+    if (s.isEmpty) return;
+    _buf.write(s);
+    _endsWithNewline = s.endsWith('\n');
+  }
+
+  void lineBreak() {
+    if (_buf.isNotEmpty && !_endsWithNewline) write('\n');
+  }
+
+  @override
+  String toString() => _buf.toString();
 }
 
-void _nodeText(Map<String, dynamic> node, StringBuffer out) {
+final RegExp _cellBreaks = RegExp(r'\s*\n\s*');
+
+/// A table cell on one line.
+String _cellText(Map<String, dynamic> cell) {
+  final out = _PlainText();
+  for (final child in richChildren(cell)) {
+    _nodeText(child, out);
+  }
+  return out.toString().trim().replaceAll(_cellBreaks, ' ');
+}
+
+void _nodeText(Map<String, dynamic> node, _PlainText out) {
   final type = node['type'];
-  if (type == 'text') {
-    out.write((node['text'] ?? '').toString());
-    return;
-  }
-  if (type == 'hardBreak') {
-    out.write('\n');
-    return;
-  }
-  if (type == 'tableCell' || type == 'tableHeader') {
-    final cell = StringBuffer();
-    for (final child in richChildren(node)) {
-      _nodeText(child, cell);
-    }
-    out
-      ..write(cell.toString().trim().replaceAll(RegExp(r'\s*\n\s*'), ' '))
-      ..write('\t');
-    return;
+  if (type == 'text') return out.write((node['text'] ?? '').toString());
+  if (type == 'hardBreak') return out.write('\n');
+  if (type == 'tableRow') {
+    out.write(
+      [for (final cell in richChildren(node)) _cellText(cell)].join('\t'),
+    );
+    return out.lineBreak();
   }
   for (final child in richChildren(node)) {
     _nodeText(child, out);
   }
-  if (type == 'tableRow') {
-    final s = out.toString();
-    if (s.endsWith('\t')) {
-      out
-        ..clear()
-        ..write(s.substring(0, s.length - 1));
-    }
-  }
-  if (_blocks.contains(type)) _lineBreak(out);
+  if (_blocks.contains(type)) out.lineBreak();
 }
 
 /// Plain text of Rich text content in any of its formats: a line per block,
 /// tabs between table cells (for copy, search and empty checks).
 String richContentPlainText(String type, Map<String, dynamic> content) {
   if (isRichDoc(content)) {
-    final out = StringBuffer();
+    final out = _PlainText();
     _nodeText((content['doc'] as Map).cast<String, dynamic>(), out);
     return out.toString().replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }

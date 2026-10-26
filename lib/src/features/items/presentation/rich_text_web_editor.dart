@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -108,17 +109,44 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
     }
   }
 
+  /// Theme, then content, then show the page: until then a cover in the
+  /// editor's colour hides the page's own light background and the moment
+  /// before the content arrives.
+  Future<void> _onReady() async {
+    await _call('editorApi.setTheme(${jsonEncode(_themeColors())})');
+    await _call(
+      'editorApi.load(${jsonEncode({'type': widget.type, 'content': widget.content, 'editable': !widget.readOnly})})',
+    );
+    if (!mounted) return;
+    setState(() => _ready = true);
+    if (widget.autofocus && !widget.readOnly) {
+      await _routeSettled();
+      if (mounted) _call('editorApi.focus()');
+    }
+  }
+
+  /// Done once this screen has finished sliding in, so the keyboard doesn't
+  /// open (and resize everything) mid-transition.
+  Future<void> _routeSettled() {
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null || animation.isCompleted) return Future.value();
+    final done = Completer<void>();
+    void onStatus(AnimationStatus status) {
+      if (status == AnimationStatus.forward) return;
+      animation.removeStatusListener(onStatus);
+      done.complete();
+    }
+
+    animation.addStatusListener(onStatus);
+    return done.future;
+  }
+
   void _onMessage(JavaScriptMessage message) {
     final msg = jsonDecode(message.message);
     if (msg is! Map) return;
     switch (msg['type']) {
       case 'ready':
-        _call('editorApi.setTheme(${jsonEncode(_themeColors())})');
-        _call(
-          'editorApi.load(${jsonEncode({'type': widget.type, 'content': widget.content, 'editable': !widget.readOnly})})',
-        );
-        if (widget.autofocus && !widget.readOnly) _call('editorApi.focus()');
-        if (mounted) setState(() => _ready = true);
+        _onReady();
       case 'state':
         if (!mounted) return;
         setState(() {
@@ -690,7 +718,27 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Expanded(child: WebViewWidget(controller: _web)),
+        Expanded(
+          child: Stack(
+            children: [
+              WebViewWidget(controller: _web),
+              // Until loaded (see [_onReady]): the editor's own colour over
+              // the page, fading out once the content is in.
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: _ready,
+                  child: AnimatedOpacity(
+                    opacity: _ready ? 0 : 1,
+                    duration: const Duration(milliseconds: 150),
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surface,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         // ExcludeFocus: tapping the toolbar must not pull focus from the
         // WebView (that would close the keyboard and drop pending formatting).
         // The search panel takes focus for its fields, so it sits outside

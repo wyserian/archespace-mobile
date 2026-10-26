@@ -26,8 +26,8 @@ import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
 /// Renders one space item as a card: a type badge, title, and a type-specific
-/// body preview. Tapping the card opens the full editor; the action menu and
-/// copy button handle per-item actions.
+/// body preview. Tapping the card opens the full editor; the action menu
+/// handles per-item actions.
 class ItemCard extends StatefulWidget {
   const ItemCard({
     super.key,
@@ -92,8 +92,8 @@ class ItemCard extends StatefulWidget {
 }
 
 // A body taller than this is clamped to this fixed height (clipped, not
-// hidden); "Show more" under it reveals it in full. The header chevron is a
-// separate control that hides the body entirely (header and tags only).
+// hidden); "Show more" under it reveals it in full. The header chevron (list
+// view only) is a separate control that hides the body entirely.
 const double _kCollapsedMaxHeight = 480;
 
 // The clamped preview shows ~25 lines, so a very long note or markdown body is
@@ -658,15 +658,19 @@ class _ItemBody extends StatelessWidget {
       case 'textbox':
         final plain = _text(c['text']);
         // Non-selectable so a tap on the body opens the item (via the card's
-        // InkWell) instead of starting a text selection. Use the copy button
-        // in the header to copy.
+        // InkWell) instead of starting a text selection. Copy is in the menu.
         return plain.isEmpty ? const _Empty() : Text(plain);
       case 'richtext':
         // Tiptap JSON, drawn natively (the editor itself is a WebView).
         if (isRichDoc(c)) {
           return richContentPlainText('richtext', c).isEmpty
               ? const _Empty()
-              : RichDocView(doc: (c['doc'] as Map).cast<String, dynamic>());
+              : RichDocView(
+                  doc: (c['doc'] as Map).cast<String, dynamic>(),
+                  // Even 40 of the shortest blocks overflow the clamp, so
+                  // "Show more" still appears whenever there's more.
+                  maxBlocks: preview ? 40 : null,
+                );
         }
         // Saved before the Tiptap editor: shown as before until next edit.
         final spans = parseRichHtml((c['html'] ?? '').toString());

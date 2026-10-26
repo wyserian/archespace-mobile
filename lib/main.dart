@@ -24,24 +24,28 @@ Future<void> main() async {
       return;
     }
 
-    await Supabase.initialize(
-      url: AppConfig.supabaseUrl,
-      // Supabase renamed the anon key to "publishable key"; the value is the
-      // same one the web app uses (SUPABASE_ANON_KEY).
-      publishableKey: AppConfig.supabaseAnonKey,
-      // Email links requested here can finish in the web app (password reset,
-      // email change; a sign-up link opened without this app). The default
-      // PKCE flow ties them to a verifier stored on this device, so the web
-      // page can't complete them. The implicit flow (the web app's own) puts
-      // the session in the link, so this app (via the sign-up App Link) or
-      // any browser can finish them.
-      authOptions: const FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.implicit,
+    // Independent start-up work runs side by side; the write queue needs
+    // Supabase and the app mode, so it follows.
+    await Future.wait([
+      Supabase.initialize(
+        url: AppConfig.supabaseUrl,
+        // Supabase renamed the anon key to "publishable key"; the value is
+        // the same one the web app uses (SUPABASE_ANON_KEY).
+        publishableKey: AppConfig.supabaseAnonKey,
+        // Email links requested here can finish in the web app (password
+        // reset, email change; a sign-up link opened without this app). The
+        // default PKCE flow ties them to a verifier stored on this device, so
+        // the web page can't complete them. The implicit flow (the web app's
+        // own) puts the session in the link, so this app (via the sign-up App
+        // Link) or any browser can finish them.
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+        ),
       ),
-    );
-    await AppMode.load();
-    await AppearanceController.instance.load();
-    await AutoLockController.instance.load();
+      AppMode.load(),
+      AppearanceController.instance.load(),
+      AutoLockController.instance.load(),
+    ]);
     await WriteQueue.instance.init();
     WriteQueue.instance.flush(); // replay any writes queued while offline
 

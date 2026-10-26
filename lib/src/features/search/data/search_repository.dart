@@ -65,11 +65,19 @@ class SearchRepository {
   Db get _client => Db.instance;
 
   Future<List<SearchHit>> loadIndex() async {
-    final spaceRows = await _client
-        .from('spaces')
-        .select('id, name, description, tags, parent_id, locked')
-        .isFilter('deleted_at', null)
-        .isFilter('archived_at', null);
+    // Both lists are fetched at once: one network wait instead of two.
+    final [spaceRows as List, itemRows as List] = await Future.wait<dynamic>([
+      _client
+          .from('spaces')
+          .select('id, name, description, tags, parent_id, locked')
+          .isFilter('deleted_at', null)
+          .isFilter('archived_at', null),
+      _client
+          .from('space_items')
+          .select('id, space_id, type, title, content, tags, locked')
+          .isFilter('deleted_at', null)
+          .isFilter('archived_at', null),
+    ]);
 
     final hits = <SearchHit>[];
     final spaceNameById = <String, String>{};
@@ -113,12 +121,6 @@ class SearchRepository {
         ),
       );
     }
-
-    final itemRows = await _client
-        .from('space_items')
-        .select('id, space_id, type, title, content, tags, locked')
-        .isFilter('deleted_at', null)
-        .isFilter('archived_at', null);
 
     // "A › B › C", folded to "A › … › D" when deeper (as spacePathLabels).
     String pathOf(String spaceId) {

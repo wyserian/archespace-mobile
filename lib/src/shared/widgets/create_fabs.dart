@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// The + (and, turned, the x) on the create button: above Material's 24 so it
-/// reads clearly in the standard 56px button.
+/// reads clearly in the app's 50px button.
 const double _plusSize = 30;
 
 /// The create button. With both actions it is a speed dial: tapping + opens
