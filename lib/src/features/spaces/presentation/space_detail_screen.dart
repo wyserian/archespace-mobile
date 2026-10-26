@@ -777,6 +777,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               onAddItem: openAddItemSheet,
               // A sub-space of this one, at any depth.
               onNewSpace: _items != null ? _createSubSpace : null,
+              onQuickNote: addQuickNote,
             ),
       bottomNavigationBar: _selectMode
           ? BulkActionBar(

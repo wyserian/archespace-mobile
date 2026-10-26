@@ -36,6 +36,8 @@ class ItemEditorScreen extends StatefulWidget {
     required this.type,
     this.existing,
     this.readOnly = false,
+    this.initialTitle,
+    this.autofocusBody = false,
     this.onTogglePin,
     this.onToggleStar,
     this.onSetReminder,
@@ -52,6 +54,13 @@ class ItemEditorScreen extends StatefulWidget {
   final String type;
   final SpaceItem? existing;
   final bool readOnly;
+
+  /// A new item's starting title (Quick note). Counts as unchanged, so
+  /// leaving without typing anything saves nothing.
+  final String? initialTitle;
+
+  /// Open with the cursor in the body, ready to type (Rich text only).
+  final bool autofocusBody;
 
   // Each true (or the change) when it worked.
   final Future<bool> Function(SpaceItem item)? onTogglePin;
@@ -70,7 +79,7 @@ class ItemEditorScreen extends StatefulWidget {
 
 class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late final TextEditingController _title = TextEditingController(
-    text: widget.existing?.title ?? '',
+    text: widget.existing?.title ?? widget.initialTitle ?? '',
   );
   late final Map<String, dynamic> _content = _initialContent();
   // The Whiteboard reports its last edit only when asked (before a save).
@@ -83,7 +92,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   bool _saving = false;
 
   // Snapshot of the last persisted state, for change detection.
-  late String _savedTitle = (widget.existing?.title ?? '').trim();
+  late String _savedTitle =
+      (widget.existing?.title ?? widget.initialTitle ?? '').trim();
   late String _savedContentJson = jsonEncode(_content);
   // The item's type as edited: a List switches between bullets (menu_list)
   // and numbers (numbered_list) with its Numbered checkbox.
@@ -590,6 +600,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           content: Map<String, dynamic>.of(_content),
           readOnly: readOnly,
           onChanged: _onRichDoc,
+          autofocus: widget.autofocusBody,
         );
       case 'code':
         return _CodeEditor(content: _content, readOnly: readOnly);

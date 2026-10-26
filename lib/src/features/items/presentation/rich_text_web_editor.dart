@@ -23,6 +23,7 @@ class RichTextWebEditor extends StatefulWidget {
     required this.content,
     required this.onChanged,
     this.readOnly = false,
+    this.autofocus = false,
   });
 
   /// 'richtext', or 'markdown' for an old Markdown note (converted on load).
@@ -30,6 +31,9 @@ class RichTextWebEditor extends StatefulWidget {
   final Map<String, dynamic> content;
   final ValueChanged<Map<String, dynamic>> onChanged;
   final bool readOnly;
+
+  /// Put the cursor in the text once it loads, ready to type (Quick note).
+  final bool autofocus;
 
   @override
   State<RichTextWebEditor> createState() => _RichTextWebEditorState();
@@ -113,6 +117,7 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
         _call(
           'editorApi.load(${jsonEncode({'type': widget.type, 'content': widget.content, 'editable': !widget.readOnly})})',
         );
+        if (widget.autofocus && !widget.readOnly) _call('editorApi.focus()');
         if (mounted) setState(() => _ready = true);
       case 'state':
         if (!mounted) return;

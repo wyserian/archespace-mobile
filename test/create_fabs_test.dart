@@ -46,6 +46,28 @@ void main() {
     expect(find.text('New item'), findsNothing);
   });
 
+  testWidgets('Quick note sits nearest the button and runs', (tester) async {
+    var notes = 0;
+    await tester.pumpWidget(
+      _host(
+        CreateFabs(
+          onAddItem: () {},
+          onNewSpace: () {},
+          onQuickNote: () => notes++,
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Create'));
+    await tester.pumpAndSettle();
+    // Lowest of the three, so closest to the + button.
+    final quick = tester.getRect(find.text('Quick note'));
+    expect(quick.top, greaterThan(tester.getRect(find.text('New space')).top));
+
+    await tester.tap(find.text('Quick note'));
+    await tester.pumpAndSettle();
+    expect(notes, 1);
+  });
+
   testWidgets('with only New item, the button adds directly', (tester) async {
     var added = 0;
     await tester.pumpWidget(_host(CreateFabs(onAddItem: () => added++)));

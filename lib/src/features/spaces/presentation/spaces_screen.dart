@@ -558,7 +558,11 @@ class _SpacesScreenState extends State<SpacesScreen>
           : null,
       floatingActionButton: _selectMode
           ? null
-          : CreateFabs(onNewSpace: _createSpace, onAddItem: openAddItemSheet),
+          : CreateFabs(
+              onNewSpace: _createSpace,
+              onAddItem: openAddItemSheet,
+              onQuickNote: addQuickNote,
+            ),
       bottomNavigationBar: _selectMode
           ? BulkActionBar(
               count: _selectedCount,

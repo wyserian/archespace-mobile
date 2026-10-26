@@ -5,14 +5,23 @@ import 'package:flutter/material.dart';
 const double _plusSize = 30;
 
 /// The create button. With both actions it is a speed dial: tapping + opens
-/// two options above it over a dimmed screen, "New item" then "New space",
-/// and the + turns into a close button. Pass no [onNewSpace] to show a plain
-/// New item button (e.g. while a space is still loading).
+/// the options above it over a dimmed screen, "New item", "New space" and,
+/// nearest the + as the quickest, "Quick note"; the + turns into a close
+/// button. Pass no [onNewSpace] to show a plain New item button (e.g. while
+/// a space is still loading).
 class CreateFabs extends StatefulWidget {
-  const CreateFabs({super.key, required this.onAddItem, this.onNewSpace});
+  const CreateFabs({
+    super.key,
+    required this.onAddItem,
+    this.onNewSpace,
+    this.onQuickNote,
+  });
 
   final VoidCallback onAddItem;
   final VoidCallback? onNewSpace;
+
+  /// A Rich text note, open and ready to type. Null leaves it out.
+  final VoidCallback? onQuickNote;
 
   @override
   State<CreateFabs> createState() => _CreateFabsState();
@@ -39,12 +48,13 @@ class _CreateFabsState extends State<CreateFabs>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
-    // Each option's entrance, staggered from the + button outwards.
+    // Each option's entrance, staggered from the + button outwards; the last
+    // of the three still ends at 1.0.
     _stagger = [
-      for (var i = 0; i < 2; i++)
+      for (var i = 0; i < 3; i++)
         CurvedAnimation(
           parent: _curve,
-          curve: Interval(i * 0.15, i * 0.15 + 0.85),
+          curve: Interval(i * 0.1, i * 0.1 + 0.8),
         ),
     ];
   }
@@ -116,6 +126,7 @@ class _CreateFabsState extends State<CreateFabs>
     final fabFg =
         Theme.of(context).floatingActionButtonTheme.foregroundColor ??
         scheme.onPrimary;
+    final quick = widget.onQuickNote != null;
     return Stack(
       children: [
         Positioned.fill(
@@ -138,16 +149,24 @@ class _CreateFabsState extends State<CreateFabs>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _option(
-                index: 1,
+                index: quick ? 2 : 1,
                 label: 'New item',
                 onTap: () => _pick(widget.onAddItem),
               ),
               const SizedBox(height: 12),
               _option(
-                index: 0,
+                index: quick ? 1 : 0,
                 label: 'New space',
                 onTap: () => _pick(widget.onNewSpace!),
               ),
+              if (quick) ...[
+                const SizedBox(height: 12),
+                _option(
+                  index: 0,
+                  label: 'Quick note',
+                  onTap: () => _pick(widget.onQuickNote!),
+                ),
+              ],
               const SizedBox(height: 18),
               AnimatedBuilder(
                 animation: _curve,

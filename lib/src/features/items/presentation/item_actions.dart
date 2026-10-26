@@ -86,6 +86,22 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     if (saved == true && mounted) reloadItems();
   }
 
+  /// Quick note: a Rich text item titled "Quick Note", opened with the
+  /// cursor in the body. Leaving without typing saves nothing.
+  Future<void> addQuickNote() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ItemEditorScreen(
+          spaceId: itemsSpaceId,
+          type: 'richtext',
+          initialTitle: 'Quick Note',
+          autofocusBody: true,
+        ),
+      ),
+    );
+    if (saved == true && mounted) reloadItems();
+  }
+
   /// The add sheet: every item type offered there.
   void openAddItemSheet() {
     // Scroll-controlled with a fixed ~70% height so it opens taller than the

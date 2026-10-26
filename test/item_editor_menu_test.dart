@@ -96,6 +96,24 @@ void main() {
     expect(find.byType(ItemEditorScreen), findsOneWidget);
   });
 
+  testWidgets('a Quick note left untouched saves nothing', (tester) async {
+    await _open(
+      tester,
+      const ItemEditorScreen(
+        spaceId: null,
+        type: 'textbox',
+        initialTitle: 'Quick Note',
+      ),
+    );
+    expect(find.text('Quick Note'), findsOneWidget);
+
+    // Back with nothing typed: closes at once, no save attempted (a save
+    // would need a backend and keep the editor open on its error).
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemEditorScreen), findsNothing);
+  });
+
   testWidgets('read-only offers no edits, only what the host allows', (
     tester,
   ) async {
