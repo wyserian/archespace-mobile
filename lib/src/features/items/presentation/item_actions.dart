@@ -53,13 +53,24 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
   Future<void> editItem(SpaceItem item) async {
     // A protected item (or one in a protected space) opens after the PIN.
     if (!await unlockItem(item) || !mounted) return;
+    final readOnly = isItemReadOnly(item);
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ItemEditorScreen(
           spaceId: spaceIdFor(item),
           type: item.type,
           existing: item,
-          readOnly: isItemReadOnly(item),
+          readOnly: readOnly,
+          // The card's actions, with the same read-only limits.
+          onTogglePin: readOnly ? null : togglePinItem,
+          onToggleStar: toggleStarItem,
+          onSetReminder: editItemReminder,
+          onToggleLock: toggleLockItem,
+          onDuplicate: readOnly ? null : duplicateItem,
+          onMove: readOnly ? null : moveItem,
+          onExport: exportItem,
+          onArchive: readOnly ? null : archiveItem,
+          onDelete: readOnly ? null : deleteItem,
         ),
       ),
     );
@@ -130,7 +141,8 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
   }
 
   /// Star / unstar. Starring never moves the item; it adds it to Starred.
-  Future<void> toggleStarItem(SpaceItem item) async {
+  /// True when it changed.
+  Future<bool> toggleStarItem(SpaceItem item) async {
     try {
       await _repo.setStarred(item.id, !item.starred);
       StorageCounts.instance.refresh();
@@ -141,16 +153,19 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           item.starred ? 'Removed from Starred' : 'Added to Starred',
         );
       }
+      return true;
     } catch (_) {
       showItemError("Couldn't update the star.");
+      return false;
     }
   }
 
   /// Set, change or remove [item]'s reminder. Asks to show notifications the
-  /// first time one is saved, then reschedules them.
-  Future<void> editItemReminder(SpaceItem item) async {
+  /// first time one is saved, then reschedules them. The saved change, or null
+  /// when cancelled or it failed.
+  Future<ReminderEdit?> editItemReminder(SpaceItem item) async {
     final edit = await showReminderSheet(context, initial: item.reminder);
-    if (edit == null) return;
+    if (edit == null) return null;
     final notifications = ReminderNotifications.instance;
     if (edit.reminder != null) await notifications.requestPermission();
     try {
@@ -163,8 +178,10 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           edit.reminder == null ? 'Reminder removed' : 'Reminder saved',
         );
       }
+      return edit;
     } catch (_) {
       showItemError("Couldn't save the reminder.");
+      return null;
     }
   }
 
@@ -186,8 +203,8 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
   }
 
   /// Protecting is instant and hides the content at once. Removing it needs
-  /// the PIN, unless the item was already opened with it.
-  Future<void> toggleLockItem(SpaceItem item) async {
+  /// the PIN, unless the item was already opened with it. True when it changed.
+  Future<bool> toggleLockItem(SpaceItem item) async {
     final lock = ContentLock.instance;
     if (item.locked && !lock.isRevealed(item.id)) {
       final ok = await askVaultPin(
@@ -198,7 +215,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
             'without the PIN.',
         confirmLabel: 'Remove protection',
       );
-      if (!ok) return;
+      if (!ok) return false;
     }
     try {
       await _repo.setLocked(item.id, !item.locked);
@@ -210,21 +227,26 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           item.locked ? 'Protection removed' : 'Item protected',
         );
       }
+      return true;
     } catch (_) {
       showItemError(
         item.locked
             ? "Couldn't remove protection."
             : "Couldn't protect the item.",
       );
+      return false;
     }
   }
 
-  Future<void> togglePinItem(SpaceItem item) async {
+  /// True when it changed.
+  Future<bool> togglePinItem(SpaceItem item) async {
     try {
       await _repo.setPinned(item.id, !item.pinned);
       if (mounted) reloadItems();
+      return true;
     } catch (_) {
       showItemError("Couldn't update the item.");
+      return false;
     }
   }
 
@@ -268,17 +290,20 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     );
   }
 
-  Future<void> moveItem(SpaceItem item) async {
+  /// True when it moved.
+  Future<bool> moveItem(SpaceItem item) async {
     final target = await pickMoveTarget(spaceIdFor(item));
-    if (target == null) return;
+    if (target == null) return false;
     try {
       await _repo.moveItem(item.id, target.id);
       if (mounted) {
         reloadItems();
         showSuccessSnack(context, 'Moved to ${target.name}');
       }
+      return true;
     } catch (_) {
       showItemError("Couldn't move the item.");
+      return false;
     }
   }
 
@@ -293,7 +318,8 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     }
   }
 
-  Future<void> archiveItem(SpaceItem item) async {
+  /// True when it was archived.
+  Future<bool> archiveItem(SpaceItem item) async {
     try {
       await _repo.archiveItem(item.id);
       StorageCounts.instance.refresh();
@@ -301,12 +327,15 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
         reloadItems();
         showUndoSnack(context, 'Item archived', () => restoreItems([item.id]));
       }
+      return true;
     } catch (_) {
       showItemError("Couldn't archive the item.");
+      return false;
     }
   }
 
-  Future<void> deleteItem(SpaceItem item) async {
+  /// True when it went to the bin.
+  Future<bool> deleteItem(SpaceItem item) async {
     final name = item.title.isEmpty ? 'this item' : '"${item.title}"';
     final ok = await confirmAction(
       context,
@@ -315,7 +344,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       confirmLabel: 'Move to bin',
       destructive: true,
     );
-    if (!ok) return;
+    if (!ok) return false;
     try {
       await _repo.deleteItem(item.id);
       StorageCounts.instance.refresh();
@@ -327,8 +356,10 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           () => restoreItems([item.id]),
         );
       }
+      return true;
     } catch (_) {
       showItemError("Couldn't delete the item.");
+      return false;
     }
   }
 

@@ -336,7 +336,8 @@ class _ItemCardState extends State<ItemCard>
                         ],
                       ),
                     ),
-                    if (!selectMode)
+                    // List view only: the compact grid cards keep their body.
+                    if (!selectMode && !widget.grid)
                       SizedBox(
                         height: 48,
                         width: 40,
@@ -468,7 +469,7 @@ class _ItemCardState extends State<ItemCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _tagsRow(context, scheme),
-                    if (!_collapsed) ...[
+                    if (!_collapsed || widget.grid) ...[
                       const SizedBox(height: 6),
                       if (hidden) _lockedBody(scheme) else _buildBody(),
                       if (!hidden && _overflowing) _expandToggle(scheme),

@@ -6,14 +6,18 @@ import 'package:flutter/services.dart';
 
 import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
 import 'package:archespace_mobile/src/features/items/domain/code_highlight.dart';
+import 'package:archespace_mobile/src/features/items/domain/item_clipboard.dart';
+import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/presentation/kanban_editor.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/items/presentation/rich_text_web_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web_editor.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
 
 /// Full-screen editor for one item. Pass [existing] to edit, or [type] (with no
@@ -21,6 +25,10 @@ import 'package:archespace_mobile/src/shared/util/errors.dart';
 /// Save re-encrypts and writes to Supabase, then pops `true` so the caller can
 /// refresh. With [readOnly] (an item in a read-only space) it's a viewer: the
 /// content stays selectable and copyable, but nothing can change or save.
+///
+/// Once the item exists, a 3-dot menu offers its actions, as on its card; a
+/// null action is left out. Each saves pending edits first; Move, Archive and
+/// Delete close the editor once done.
 class ItemEditorScreen extends StatefulWidget {
   const ItemEditorScreen({
     super.key,
@@ -28,6 +36,15 @@ class ItemEditorScreen extends StatefulWidget {
     required this.type,
     this.existing,
     this.readOnly = false,
+    this.onTogglePin,
+    this.onToggleStar,
+    this.onSetReminder,
+    this.onToggleLock,
+    this.onDuplicate,
+    this.onMove,
+    this.onExport,
+    this.onArchive,
+    this.onDelete,
   });
 
   /// The item's space, or null for a dashboard item (belongs to no space).
@@ -35,6 +52,17 @@ class ItemEditorScreen extends StatefulWidget {
   final String type;
   final SpaceItem? existing;
   final bool readOnly;
+
+  // Each true (or the change) when it worked.
+  final Future<bool> Function(SpaceItem item)? onTogglePin;
+  final Future<bool> Function(SpaceItem item)? onToggleStar;
+  final Future<ReminderEdit?> Function(SpaceItem item)? onSetReminder;
+  final Future<bool> Function(SpaceItem item)? onToggleLock;
+  final Future<void> Function(SpaceItem item)? onDuplicate;
+  final Future<bool> Function(SpaceItem item)? onMove;
+  final Future<void> Function(SpaceItem item)? onExport;
+  final Future<bool> Function(SpaceItem item)? onArchive;
+  final Future<bool> Function(SpaceItem item)? onDelete;
 
   @override
   State<ItemEditorScreen> createState() => _ItemEditorScreenState();
@@ -65,6 +93,15 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   bool _savedAny = false;
   // The last save failed (auto-saves fail quietly): shown as "Not saved".
   bool _saveFailed = false;
+
+  // The item's marks as changed from the menu here, for its labels and for
+  // the actions themselves.
+  late bool _pinned = widget.existing?.pinned ?? false;
+  late bool _starred = widget.existing?.starred ?? false;
+  late bool _locked = widget.existing?.locked ?? false;
+  late Reminder? _reminder = widget.existing?.reminder;
+  late List<String> _tags = widget.existing?.tags ?? const [];
+  bool _addingTag = false;
 
   // Previous auto-save tick's snapshot and when it last changed, so we save
   // once edits have rested for [_kAutoSaveDelay] (as on the web) rather than
@@ -201,6 +238,197 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     if (await _save() && mounted) await _close(true);
   }
 
+  /// The item as it stands in the editor, for the menu's actions.
+  SpaceItem get _current => SpaceItem(
+    id: _itemId!,
+    type: _type,
+    title: _title.text.trim(),
+    content: Map<String, dynamic>.of(_content),
+    pinned: _pinned,
+    starred: _starred,
+    locked: _locked,
+    spaceId: widget.spaceId,
+    tags: _tags,
+    reminder: _reminder,
+    createdAt: widget.existing?.createdAt,
+  );
+
+  /// Save pending edits, then run a menu action on the item. A failed save
+  /// stops here (its error is shown) so the action never runs on stale data.
+  Future<void> _run(Future<void> Function(SpaceItem item) action) async {
+    await _whiteboard.flush();
+    while (_saving) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    if (_isDirty() && !await _save()) return;
+    if (mounted) await action(_current);
+  }
+
+  /// Move, Archive or Delete: the item leaves this view, so close once done.
+  Future<void> _runAndLeave(Future<bool> Function(SpaceItem item) action) =>
+      _run((item) async {
+        if (await action(item) && mounted) await _close(true);
+      });
+
+  Future<void> _setTags(List<String> next) async {
+    final before = _tags;
+    setState(() => _tags = next);
+    try {
+      await ItemRepository(
+        VaultSession.instance.masterKey,
+      ).setTags(_itemId!, next);
+      _savedAny = true;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _tags = before);
+      showErrorSnack(context, "Couldn't update the tags.");
+    }
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: itemClipboardText(_current)));
+    if (mounted) showSuccessSnack(context, 'Copied to clipboard');
+  }
+
+  /// The item's menu, grouped like the card's: view, mark, edit, keep, delete.
+  Widget? _menu() {
+    if (_itemId == null) return null;
+    final w = widget;
+    final entries = [
+      if (isCopyableType(_type))
+        ActionMenuEntry(
+          group: 'view',
+          icon: Icons.content_paste_outlined,
+          label: 'Copy',
+          onSelected: _copy,
+        ),
+      if (w.onTogglePin != null)
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.push_pin_outlined,
+          label: _pinned ? 'Unpin' : 'Pin',
+          onSelected: () => _run((item) async {
+            if (await w.onTogglePin!(item) && mounted) {
+              setState(() => _pinned = !_pinned);
+            }
+          }),
+        ),
+      if (w.onToggleStar != null)
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.star_outline_rounded,
+          label: _starred ? 'Unstar' : 'Star',
+          onSelected: () => _run((item) async {
+            if (await w.onToggleStar!(item) && mounted) {
+              setState(() => _starred = !_starred);
+            }
+          }),
+        ),
+      if (!w.readOnly)
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.sell_outlined,
+          label: 'Add tag',
+          onSelected: () => setState(() => _addingTag = true),
+        ),
+      if (w.onSetReminder != null)
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.notifications_none_rounded,
+          label: _reminder == null ? 'Add reminder' : 'Change reminder',
+          onSelected: () => _run((item) async {
+            final edit = await w.onSetReminder!(item);
+            if (edit != null && mounted) {
+              setState(() => _reminder = edit.reminder);
+            }
+          }),
+        ),
+      if (w.onDuplicate != null)
+        ActionMenuEntry(
+          group: 'edit',
+          icon: Icons.content_copy_outlined,
+          label: 'Duplicate',
+          onSelected: () => _run(w.onDuplicate!),
+        ),
+      if (w.onMove != null)
+        ActionMenuEntry(
+          group: 'edit',
+          icon: Icons.arrow_forward,
+          label: 'Move',
+          onSelected: () => _runAndLeave(w.onMove!),
+        ),
+      if (w.onExport != null)
+        ActionMenuEntry(
+          group: 'edit',
+          icon: Icons.file_download_outlined,
+          label: 'Export PDF',
+          onSelected: () => _run(w.onExport!),
+        ),
+      if (w.onToggleLock != null)
+        ActionMenuEntry(
+          group: 'keep',
+          icon: _locked
+              ? Icons.remove_moderator_outlined
+              : Icons.shield_outlined,
+          label: _locked ? 'Remove protection' : 'Protect',
+          onSelected: () => _run((item) async {
+            if (await w.onToggleLock!(item) && mounted) {
+              setState(() => _locked = !_locked);
+            }
+          }),
+        ),
+      if (w.onArchive != null)
+        ActionMenuEntry(
+          group: 'keep',
+          icon: Icons.archive_outlined,
+          label: 'Archive',
+          onSelected: () => _runAndLeave(w.onArchive!),
+        ),
+      if (w.onDelete != null)
+        ActionMenuEntry(
+          group: 'delete',
+          icon: Icons.delete_outline,
+          label: 'Delete',
+          onSelected: () => _runAndLeave(w.onDelete!),
+          danger: true,
+        ),
+    ];
+    if (entries.isEmpty) return null;
+    return ActionMenuButton(tooltip: 'Item actions', entries: entries);
+  }
+
+  /// The item's tags under the title: x removes one, "Add tag" (menu) adds.
+  Widget _tagsRow(ColorScheme scheme) {
+    final editable = !widget.readOnly && _itemId != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Wrap(
+        spacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final tag in _tags)
+            TagChip(
+              label: tag,
+              color: scheme.onSurfaceVariant,
+              fill: scheme.surfaceContainerHighest,
+              edge: BorderSide(color: scheme.outlineVariant),
+              onRemove: editable
+                  ? () => _setTags(_tags.where((t) => t != tag).toList())
+                  : null,
+            ),
+          if (_addingTag && editable)
+            TagInput(
+              onCommit: (added) {
+                setState(() => _addingTag = false);
+                final merged = {..._tags, ...added}.toList();
+                if (merged.length != _tags.length) _setTags(merged);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   /// Close the editor with the keyboard put away first. Leaving while the
   /// Rich text editor's keyboard is up (it belongs to a WebView) can leave the
   /// screens below sized as if it were still open, cut off above where the
@@ -220,6 +448,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final label = itemTypeDef(widget.type)?.label ?? 'Item';
+    final menu = _menu();
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -276,6 +505,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                   tooltip: 'Save',
                 ),
               ],
+              ?menu,
+              const SizedBox(width: 4),
             ],
           ),
           body: SafeArea(
@@ -303,6 +534,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                     ),
                   ),
                 ),
+                if (_tags.isNotEmpty || _addingTag)
+                  _tagsRow(Theme.of(context).colorScheme),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Divider(height: 8),
