@@ -32,8 +32,13 @@ import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
+import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+
+// The space between cards, shared by the list and grid views.
+const double _kSpaceGap = 6;
+const double _kItemGap = 8;
 
 /// The dashboard: the user's top-level spaces, then their dashboard items
 /// (items that belong to no space), laid out like the inside of a space and
@@ -557,7 +562,6 @@ class _SpacesScreenState extends State<SpacesScreen>
       bottomNavigationBar: _selectMode
           ? BulkActionBar(
               count: _selectedCount,
-              onClear: _exitSelect,
               actions: [
                 BulkAction(
                   icon: Icons.push_pin,
@@ -567,6 +571,7 @@ class _SpacesScreenState extends State<SpacesScreen>
                 BulkAction(
                   icon: Icons.push_pin_outlined,
                   label: 'Unpin',
+                  struck: true,
                   onPressed: () => _bulkSetPinned(false),
                 ),
                 // Spaces or items move, not both at once (a read-only space
@@ -664,40 +669,17 @@ class _SpacesScreenState extends State<SpacesScreen>
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Material(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(28),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            // The drawer toggle lives inside the search bar; Builder gives it
-            // a context under this Scaffold so openDrawer() can find it.
-            Builder(
-              builder: (context) => IconButton(
-                icon: Icon(Icons.menu, color: scheme.onSurfaceVariant),
-                tooltip: 'Menu',
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-            Expanded(
-              child: InkWell(
-                onTap: _openSearch,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: Text(
-                    'Search spaces and items',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Balances the leading menu button so the placeholder reads centred.
-            const SizedBox(width: 48),
-          ],
+      child: SearchField(
+        hint: 'Search spaces and items',
+        onTap: _openSearch,
+        // The drawer toggle lives inside the search bar; Builder gives it a
+        // context under this Scaffold so openDrawer() can find it.
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu, color: scheme.onSurfaceVariant),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
       ),
     );
@@ -759,7 +741,7 @@ class _SpacesScreenState extends State<SpacesScreen>
         message:
             'Create a space to group related items, or add an item '
             'right here.',
-        actionLabel: 'Add item',
+        actionLabel: 'New item',
         actionIcon: Icons.add,
         onAction: openAddItemSheet,
       );
@@ -836,7 +818,10 @@ class _SpacesScreenState extends State<SpacesScreen>
             final space = spaces[index];
             return Padding(
               key: ValueKey('space-${space.id}'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: _kSpaceGap / 2,
+              ),
               child: ReorderCard(
                 list: 'spaces',
                 id: space.id,
@@ -857,7 +842,10 @@ class _SpacesScreenState extends State<SpacesScreen>
             return _highlightable(
               item,
               key: ValueKey('item-${item.id}'),
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              margin: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: _kItemGap / 2,
+              ),
               child: ReorderCard(
                 list: 'items',
                 id: item.id,
@@ -932,19 +920,22 @@ class _SpacesScreenState extends State<SpacesScreen>
     final canReorder = _canReorder;
     final spaceIds = [for (final s in spaces) s.id];
     final itemIds = [for (final i in items) i.id];
+    // Same top and header as the list view, so switching views only changes
+    // the cards (see [_masonry] for their edge).
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(6, 6, 6, 88),
+      padding: const EdgeInsets.only(bottom: 88),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ?header,
+          const SizedBox(height: 4),
           if (spaces.isNotEmpty)
-            _masonry([
+            _masonry(gap: _kSpaceGap, [
               for (final s in spaces)
                 Padding(
                   key: ValueKey('space-${s.id}'),
-                  padding: const EdgeInsets.all(2),
+                  padding: const EdgeInsets.all(_kSpaceGap / 2),
                   child: ReorderCard(
                     list: 'spaces',
                     id: s.id,
@@ -957,14 +948,14 @@ class _SpacesScreenState extends State<SpacesScreen>
             ]),
           if (labelItems) _sectionLabel(context, 'Items'),
           if (items.isNotEmpty)
-            _masonry([
+            _masonry(gap: _kItemGap, [
               for (final i in items)
                 _highlightable(
                   i,
                   key: ValueKey('item-${i.id}'),
                   margin: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(_kItemGap / 2),
                     child: ReorderCard(
                       list: 'items',
                       id: i.id,
@@ -981,18 +972,23 @@ class _SpacesScreenState extends State<SpacesScreen>
     );
   }
 
-  /// Two columns, cards distributed round-robin.
-  Widget _masonry(List<Widget> cards) {
+  /// Two columns, cards distributed round-robin. Each card pads itself by
+  /// half the [gap] (the list view's gap for its section), and the columns
+  /// make up the rest of the list view's 12 edge.
+  Widget _masonry(List<Widget> cards, {required double gap}) {
     final columns = <List<Widget>>[<Widget>[], <Widget>[]];
     for (var i = 0; i < cards.length; i++) {
       columns[i % 2].add(cards[i]);
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: Column(children: columns[0])),
-        Expanded(child: Column(children: columns[1])),
-      ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12 - gap / 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Column(children: columns[0])),
+          Expanded(child: Column(children: columns[1])),
+        ],
+      ),
     );
   }
 

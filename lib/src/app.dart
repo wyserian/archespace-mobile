@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
@@ -35,6 +36,21 @@ class ArcheApp extends StatelessWidget {
         themeMode: appearance.themeMode,
         theme: _theme(appearance.accent, Brightness.light),
         darkTheme: _theme(appearance.accent, Brightness.dark),
+        // The system navigation bar takes the page colour instead of black.
+        builder: (context, child) {
+          final theme = Theme.of(context);
+          final dark = theme.brightness == Brightness.dark;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              systemNavigationBarColor: theme.colorScheme.surface,
+              systemNavigationBarDividerColor: theme.colorScheme.surface,
+              systemNavigationBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
+            child: child!,
+          );
+        },
         home: const _RootGate(),
       ),
     );
@@ -57,6 +73,9 @@ class ArcheApp extends StatelessWidget {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(shape: const CircleBorder()),
       ),
+      // Top bars keep the page colour when content scrolls under them, like
+      // the web's borderless headers.
+      appBarTheme: const AppBarTheme(scrolledUnderElevation: 0),
       // The add (+) FAB uses the bright accent with a dark icon (primary /
       // onPrimary) rather than the muted default primaryContainer, so it reads
       // as the clear primary action.

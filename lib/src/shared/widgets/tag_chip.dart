@@ -6,6 +6,12 @@ import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 /// row of tags doesn't make every card much taller.
 const double kTagTapHeight = 36;
 
+/// Every chip beside a card's tags (tags, the reminder) is this tall, with
+/// this corner and text size, so text-only and icon chips share one shape.
+const double kChipHeight = 22;
+const double kChipRadius = 7;
+const double kChipFontSize = 12;
+
 /// A small tag chip: [label] on a [fill], with an optional [edge]. With
 /// [onTap] the label is tappable (e.g. to filter); with [onRemove] an x at
 /// its end removes the tag. Label and x are two halves of one chip, each with
@@ -30,7 +36,7 @@ class TagChip extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onRemove;
 
-  static const Radius _r = Radius.circular(7);
+  static const Radius _r = Radius.circular(kChipRadius);
 
   Widget _half({
     required Widget child,
@@ -40,7 +46,10 @@ class TagChip extends StatelessWidget {
     required EdgeInsets padding,
     String? tooltip,
   }) {
+    // A fixed height, content centred: both halves line up whatever the text.
     Widget face = Container(
+      height: kChipHeight,
+      alignment: Alignment.center,
       padding: padding,
       decoration: BoxDecoration(
         color: fill,
@@ -64,7 +73,12 @@ class TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Text(
       label,
-      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+      style: TextStyle(
+        fontSize: kChipFontSize,
+        fontWeight: FontWeight.w600,
+        color: color,
+        height: 1,
+      ),
     );
     if (onRemove == null) {
       return _half(
@@ -72,7 +86,7 @@ class TagChip extends StatelessWidget {
         onTap: onTap,
         radius: const BorderRadius.all(_r),
         border: Border.fromBorderSide(edge),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
       );
     }
     return Row(
@@ -83,24 +97,20 @@ class TagChip extends StatelessWidget {
           onTap: onTap,
           radius: const BorderRadius.horizontal(left: _r),
           border: Border(top: edge, left: edge, bottom: edge),
-          padding: const EdgeInsets.only(left: 8, right: 3, top: 2, bottom: 2),
+          padding: const EdgeInsets.only(left: 8, right: 3),
         ),
         _half(
-          // The label's line height, so both halves match.
-          child: SizedBox(
-            height: 16,
-            child: Icon(
-              Icons.close,
-              size: 13,
-              color: color,
-              semanticLabel: 'Remove tag $label',
-            ),
+          child: Icon(
+            Icons.close,
+            size: 13,
+            color: color,
+            semanticLabel: 'Remove tag $label',
           ),
           onTap: onRemove,
           tooltip: 'Remove tag',
           radius: const BorderRadius.horizontal(right: _r),
           border: Border(top: edge, right: edge, bottom: edge),
-          padding: const EdgeInsets.only(left: 2, right: 6, top: 2, bottom: 2),
+          padding: const EdgeInsets.only(left: 2, right: 6),
         ),
       ],
     );

@@ -57,7 +57,7 @@ class SortMenu extends StatelessWidget {
   /// the other app-bar actions.
   void _open(BuildContext context) => showActionMenu(context, [
     for (final (option, label, icon) in [
-      (kSortDefault, 'Default', Icons.swap_vert),
+      (kSortDefault, 'Custom', Icons.swap_vert),
       (kSortName, 'Name', Icons.sort_by_alpha),
       (kSortNewest, 'Newest', Icons.schedule),
     ])

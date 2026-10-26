@@ -377,7 +377,8 @@ class _AppDrawerState extends State<AppDrawer> {
                   ),
                 ),
               )
-            : count == null
+            // Zero is left out, as in the web sidebar.
+            : count == null || count == 0
             ? null
             : Text(
                 '$count',

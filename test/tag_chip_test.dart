@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
+import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
 Widget _host(Widget child) => MaterialApp(
@@ -33,6 +35,39 @@ void main() {
 
     expect(filtered, 1);
     expect(removed, 1);
+  });
+
+  testWidgets('tag halves and the reminder chip share one height', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        Wrap(
+          children: [
+            ReminderChip(reminder: Reminder.initial(), onTap: () {}),
+            TagChip(
+              label: 'work',
+              color: Colors.teal,
+              fill: Colors.teal.shade50,
+              onTap: () {},
+              onRemove: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+    double faceHeight(Finder inner) => tester
+        .getSize(
+          find.ancestor(of: inner, matching: find.byType(Container)).first,
+        )
+        .height;
+
+    expect(faceHeight(find.text('work')), kChipHeight);
+    expect(faceHeight(find.byIcon(Icons.close)), kChipHeight);
+    expect(
+      faceHeight(find.byIcon(Icons.notifications_none_rounded)),
+      kChipHeight,
+    );
   });
 
   testWidgets('tag input commits comma-separated tags once', (tester) async {

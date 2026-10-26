@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
@@ -57,7 +58,8 @@ Future<MoveTarget?> showSpaceDestinations(
                 left: 16 + (depth < 4 ? depth : 4) * 16.0,
                 right: 16,
               ),
-              leading: const Icon(Icons.folder_outlined),
+              // In the space's own colour, so spaces tell apart at a glance.
+              leading: Icon(Icons.folder_outlined, color: spaceColor(s.color)),
               title: Text(s.name.isEmpty ? 'Untitled' : s.name),
               subtitle: depth > 0 && s.parentId != null
                   ? Text(

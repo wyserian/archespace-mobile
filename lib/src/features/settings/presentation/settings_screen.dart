@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -313,7 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Encrypted with your vault PIN and kept only here; '
                         'nothing is sent to a server. Uninstalling the app '
                         'deletes it, so export a backup now and then.',
-                    onTap: _exportBackup,
+                    // Information only; Export backup is under Backup.
                     chevron: false,
                   ),
                 ],
@@ -612,67 +611,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// Shows the app version, which links to the exact source commit this build
-/// was compiled from on GitHub, so anyone can check the running app against
-/// the open-source code.
-class _BuildFooter extends StatefulWidget {
+/// The app version, as on the web: quiet grey text that opens the exact
+/// source commit this build was compiled from on GitHub, so anyone can check
+/// the running app against the open-source code.
+class _BuildFooter extends StatelessWidget {
   const _BuildFooter();
 
   @override
-  State<_BuildFooter> createState() => _BuildFooterState();
-}
-
-class _BuildFooterState extends State<_BuildFooter> {
-  TapGestureRecognizer? _tap;
-
-  @override
-  void initState() {
-    super.initState();
-    if (BuildInfo.isStamped) {
-      _tap = TapGestureRecognizer()..onTap = _openCommit;
-    }
-  }
-
-  @override
-  void dispose() {
-    _tap?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _openCommit() async {
-    await launchUrl(
-      Uri.parse(BuildInfo.commitUrl),
-      mode: LaunchMode.externalApplication,
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(
-      context,
-    ).textTheme.bodySmall?.color?.withValues(alpha: 0.7);
-    final baseStyle = Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: muted);
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       child: Center(
-        child: Text.rich(
-          TextSpan(
-            style: baseStyle,
-            children: [
-              TextSpan(
-                text: 'v${BuildInfo.appVersion}',
-                style: baseStyle?.copyWith(
-                  color: BuildInfo.isStamped
-                      ? Theme.of(context).colorScheme.primary
-                      : muted,
-                ),
-                recognizer: _tap,
-              ),
-            ],
+        child: TextButton(
+          // An unstamped (dev) build has no commit to open.
+          onPressed: BuildInfo.isStamped
+              ? () => launchUrl(
+                  Uri.parse(BuildInfo.commitUrl),
+                  mode: LaunchMode.externalApplication,
+                )
+              : null,
+          style: TextButton.styleFrom(
+            foregroundColor: style?.color,
+            disabledForegroundColor: style?.color,
+            textStyle: style,
           ),
-          textAlign: TextAlign.center,
+          child: Tooltip(
+            message: "View this build's source commit",
+            child: Text('v${BuildInfo.appVersion}'),
+          ),
         ),
       ),
     );

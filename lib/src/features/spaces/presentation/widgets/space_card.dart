@@ -293,10 +293,15 @@ class _SpaceCardState extends State<SpaceCard> {
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
+                        // Lined up with the tag chips' tap height when there
+                        // are tags; on its own it takes only its text height.
                         SizedBox(
-                          height: kTagTapHeight,
+                          height: tags.isNotEmpty || adding
+                              ? kTagTapHeight
+                              : null,
                           child: Center(
                             widthFactor: 1,
+                            heightFactor: 1,
                             child: Text(
                               _countLabel,
                               style: TextStyle(

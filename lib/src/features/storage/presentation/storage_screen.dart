@@ -7,6 +7,7 @@ import 'package:archespace_mobile/src/features/storage/data/storage_repository.d
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 
@@ -97,72 +98,56 @@ class _StorageScreenState extends State<StorageScreen> {
       } else {
         await _repo.restoreArchived(e);
       }
-      if (mounted) _load();
+      if (mounted) {
+        _load();
+        showSuccessSnack(context, 'Restored');
+      }
     } catch (_) {
       _snack("Couldn't restore it.");
     }
   }
 
   Future<void> _delete(StoredEntry e) async {
-    if (_isBin) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Delete permanently?'),
-          content: Text(
-            '"${e.label.isEmpty ? 'Untitled' : e.label}" '
-            'will be permanently deleted. This cannot be undone.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Delete forever'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
+    final name = '"${e.label.isEmpty ? 'Untitled' : e.label}"';
+    // Asks first in both: the bin's is for good, the archive's like any
+    // other move to the bin.
+    final ok = _isBin
+        ? await _confirm(
+            'Delete permanently?',
+            '$name will be permanently deleted. This cannot be undone.',
+            'Delete forever',
+          )
+        : await _confirm(
+            'Move to bin?',
+            '$name will be moved to the bin.',
+            'Move to bin',
+          );
+    if (!ok) return;
     try {
       if (_isBin) {
         await _repo.purge(e);
       } else {
         await _repo.moveToBin(e);
       }
-      if (mounted) _load();
+      if (mounted) {
+        _load();
+        // Say where it went; the bin can restore it.
+        if (!_isBin) showSuccessSnack(context, 'Moved to the bin');
+      }
     } catch (_) {
       _snack("Couldn't delete it.");
     }
   }
 
-  Future<bool> _confirm(
-    String title,
-    String message,
-    String confirmLabel,
-  ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    );
-    return result == true;
-  }
+  /// Confirm a delete (to the bin, or for good), with the red button.
+  Future<bool> _confirm(String title, String message, String confirmLabel) =>
+      confirmAction(
+        context,
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        destructive: true,
+      );
 
   Future<void> _restoreSelected() async {
     final selected = _selectedEntries;
@@ -174,7 +159,14 @@ class _StorageScreenState extends State<StorageScreen> {
         await _repo.restoreArchivedMany(selected);
       }
       _exitSelect();
-      if (mounted) _load();
+      if (mounted) {
+        _load();
+        final n = selected.length;
+        showSuccessSnack(
+          context,
+          'Restored $n ${n == 1 ? 'entry' : 'entries'}',
+        );
+      }
     } catch (_) {
       _snack("Couldn't restore them.");
     }
@@ -184,15 +176,19 @@ class _StorageScreenState extends State<StorageScreen> {
     final selected = _selectedEntries;
     if (selected.isEmpty) return;
     final n = selected.length;
-    if (_isBin) {
-      final ok = await _confirm(
-        'Delete permanently?',
-        '$n ${n == 1 ? 'entry' : 'entries'} will be permanently deleted. '
-            'This cannot be undone.',
-        'Delete forever',
-      );
-      if (!ok) return;
-    }
+    final label = '$n ${n == 1 ? 'entry' : 'entries'}';
+    final ok = _isBin
+        ? await _confirm(
+            'Delete permanently?',
+            '$label will be permanently deleted. This cannot be undone.',
+            'Delete forever',
+          )
+        : await _confirm(
+            'Move $label to bin?',
+            'They go to the bin.',
+            'Move to bin',
+          );
+    if (!ok) return;
     try {
       if (_isBin) {
         await _repo.purgeMany(selected);
@@ -200,7 +196,10 @@ class _StorageScreenState extends State<StorageScreen> {
         await _repo.moveManyToBin(selected);
       }
       _exitSelect();
-      if (mounted) _load();
+      if (mounted) {
+        _load();
+        if (!_isBin) showSuccessSnack(context, 'Moved to the bin');
+      }
     } catch (_) {
       _snack("Couldn't delete them.");
     }
@@ -274,7 +273,6 @@ class _StorageScreenState extends State<StorageScreen> {
       bottomNavigationBar: _selectMode
           ? BulkActionBar(
               count: _selected.length,
-              onClear: _exitSelect,
               actions: [
                 BulkAction(
                   icon: Icons.restore,
@@ -369,6 +367,8 @@ class _StorageScreenState extends State<StorageScreen> {
             onPressed: () => _delete(e),
             icon: Icon(_isBin ? Icons.delete_forever : Icons.delete_outline),
             tooltip: _isBin ? 'Delete permanently' : 'Move to bin',
+            // Permanent in the bin: red, set apart from Restore beside it.
+            color: _isBin ? Theme.of(context).colorScheme.error : null,
           ),
         ],
       ),
@@ -384,15 +384,13 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      // The same section label as Starred.
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }

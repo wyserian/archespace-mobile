@@ -31,9 +31,13 @@ import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
+import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
-import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
+
+// The space between sub-space cards, shared by the list and grid views; the
+// same as between space cards on the dashboard.
+const double _kSubSpaceGap = 6;
 
 class SpaceDetailScreen extends StatefulWidget {
   const SpaceDetailScreen({super.key, required this.space, this.focusItemId});
@@ -510,17 +514,17 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     final spaceIds = _selectedSpaces.toList();
     final itemIds = _selected.toList();
     final label = _selectionLabel(spaceIds.length, itemIds.length);
-    // Spaces take everything inside them along, so they ask first.
-    if (spaceIds.isNotEmpty) {
-      final ok = await confirmAction(
-        context,
-        title: 'Move $label to bin?',
-        message: 'They and their items go to the bin.',
-        confirmLabel: 'Move to bin',
-        destructive: true,
-      );
-      if (!ok) return;
-    }
+    // Asks first, as on the dashboard and for a single item.
+    final confirmed = await confirmAction(
+      context,
+      title: 'Move $label to bin?',
+      message: spaceIds.isNotEmpty
+          ? 'They and their items go to the bin.'
+          : 'They go to the bin.',
+      confirmLabel: 'Move to bin',
+      destructive: true,
+    );
+    if (!confirmed) return;
     final ok = await _runBulk(
       (spaces, items, s, i) =>
           Future.wait([spaces.bulkDelete(s), items.bulkDelete(i)]),
@@ -617,72 +621,20 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     const SizedBox(width: 4),
   ];
 
-  /// A fixed row (not scrolling) with a compact in-space search field and the
-  /// list controls (view, sort, select) inline, in place of an "Items" label.
+  /// A fixed row (not scrolling) with the in-space search field and the list
+  /// controls (view, sort, select) inline, in place of an "Items" label.
   Widget _buildItemsHeader(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
+      // A little room below, before the tags or items.
+      padding: const EdgeInsets.fromLTRB(12, 0, 4, 8),
       child: Row(
         children: [
           Expanded(
-            // The whole 48-tall row focuses the slimmer field.
-            child: TapArea(
-              onTap: _searchFocus.requestFocus,
-              child: Container(
-                height: 34,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.search,
-                      size: 17,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocus,
-                        onChanged: (v) => setState(() => _query = v),
-                        style: const TextStyle(fontSize: 13.5),
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration.collapsed(
-                          hintText: 'Search this space',
-                          hintStyle: TextStyle(
-                            fontSize: 13.5,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (_query.isNotEmpty)
-                      InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () {
-                          _searchController.clear();
-                          setState(() => _query = '');
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 9,
-                          ),
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 2),
-                  ],
-                ),
-              ),
+            child: SearchField(
+              hint: 'Search this space',
+              controller: _searchController,
+              focusNode: _searchFocus,
+              onChanged: (v) => setState(() => _query = v),
             ),
           ),
           const SizedBox(width: 4),
@@ -829,7 +781,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       bottomNavigationBar: _selectMode
           ? BulkActionBar(
               count: _selectedCount,
-              onClear: _exitSelect,
               actions: [
                 BulkAction(
                   icon: Icons.push_pin,
@@ -839,6 +790,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                 BulkAction(
                   icon: Icons.push_pin_outlined,
                   label: 'Unpin',
+                  struck: true,
                   onPressed: () => _bulkSetPinned(false),
                 ),
                 // Sub-spaces or items move, not both at once (a read-only
@@ -919,7 +871,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         icon: Icons.note_add_outlined,
         title: 'No items yet',
         message: 'Add notes, lists, tables, and more to this space.',
-        actionLabel: 'Add item',
+        actionLabel: 'New item',
         actionIcon: Icons.add,
         onAction: openAddItemSheet,
       );
@@ -974,25 +926,50 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     // Sub-spaces render above the items in the same view (matching the web).
     // Hold one to drag it into another's place.
     final subSpaceIds = [for (final s in subSpaces) s.id];
+    Widget subSpaceCard(Space s, EdgeInsets padding) => Padding(
+      key: ValueKey('space-${s.id}'),
+      padding: padding,
+      child: ReorderCard(
+        list: 'sub-spaces',
+        id: s.id,
+        enabled: canReorder,
+        order: subSpaceIds,
+        onReorder: _moveSubSpace,
+        child: _subSpaceCard(s),
+      ),
+    );
+    // In the grid, two columns like the items, with the list's gap between
+    // cards and its 12 edge.
+    const gap = _kSubSpaceGap;
     final subSection = subSpaces.isEmpty
         ? null
+        : _view == 'grid'
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12 - gap / 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final column in [0, 1])
+                  Expanded(
+                    child: Column(
+                      children: [
+                        for (var i = column; i < subSpaces.length; i += 2)
+                          subSpaceCard(
+                            subSpaces[i],
+                            const EdgeInsets.all(gap / 2),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          )
         : Column(
             children: [
               for (final s in subSpaces)
-                Padding(
-                  key: ValueKey('space-${s.id}'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: ReorderCard(
-                    list: 'sub-spaces',
-                    id: s.id,
-                    enabled: canReorder,
-                    order: subSpaceIds,
-                    onReorder: _moveSubSpace,
-                    child: _subSpaceCard(s),
-                  ),
+                subSpaceCard(
+                  s,
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: gap / 2),
                 ),
             ],
           );
@@ -1157,19 +1134,24 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         ),
       );
     }
+    // Same top and header as the list view, so switching views only changes
+    // the cards; their 8 + 4 card padding keeps the list's 12 edge.
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(6, 8, 6, 88),
+      padding: const EdgeInsets.only(top: 4, bottom: 88),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ?header,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: Column(children: columns[0])),
-              Expanded(child: Column(children: columns[1])),
-            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Column(children: columns[0])),
+                Expanded(child: Column(children: columns[1])),
+              ],
+            ),
           ),
         ],
       ),

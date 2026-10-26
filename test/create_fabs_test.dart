@@ -20,7 +20,7 @@ void main() {
     await tester.tap(find.byTooltip('Create'));
     await tester.pumpAndSettle();
     expect(find.text('New space'), findsOneWidget);
-    expect(find.text('Add item'), findsOneWidget);
+    expect(find.text('New item'), findsOneWidget);
 
     await tester.tap(find.text('New space'));
     await tester.pumpAndSettle();
@@ -37,19 +37,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
-    expect(find.text('Add item'), findsNothing);
+    expect(find.text('New item'), findsNothing);
 
     await tester.tap(find.byTooltip('Create'));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
-    expect(find.text('Add item'), findsNothing);
+    expect(find.text('New item'), findsNothing);
   });
 
-  testWidgets('with only Add item, the button adds directly', (tester) async {
+  testWidgets('with only New item, the button adds directly', (tester) async {
     var added = 0;
     await tester.pumpWidget(_host(CreateFabs(onAddItem: () => added++)));
-    await tester.tap(find.byTooltip('Add item'));
+    await tester.tap(find.byTooltip('New item'));
     await tester.pump();
     expect(added, 1);
   });

@@ -7,6 +7,7 @@ import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
+import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -76,16 +77,15 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         // Keep Back; the drawer opens with a slide from the left.
         leading: const BackButton(),
-        title: TextField(
+        titleSpacing: 0,
+        // The same field as the dashboard's, now typed into.
+        title: SearchField(
+          hint: 'Search spaces and items',
           controller: _controller,
           autofocus: true,
-          textInputAction: TextInputAction.search,
           onChanged: (v) => setState(() => _query = v),
-          decoration: const InputDecoration(
-            hintText: 'Search spaces and items',
-            border: InputBorder.none,
-          ),
         ),
+        actions: const [SizedBox(width: 12)],
       ),
       body: _all == null && _error == null
           ? const Center(child: CircularProgressIndicator())
@@ -159,15 +159,13 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      // The same section label as Starred.
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }

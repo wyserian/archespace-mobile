@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 const double _plusSize = 30;
 
 /// The create button. With both actions it is a speed dial: tapping + opens
-/// two options above it over a dimmed screen, "Add item" then "New space",
+/// two options above it over a dimmed screen, "New item" then "New space",
 /// and the + turns into a close button. Pass no [onNewSpace] to show a plain
-/// Add item button (e.g. while a space is still loading).
+/// New item button (e.g. while a space is still loading).
 class CreateFabs extends StatefulWidget {
   const CreateFabs({super.key, required this.onAddItem, this.onNewSpace});
 
@@ -80,7 +80,7 @@ class _CreateFabsState extends State<CreateFabs>
       return FloatingActionButton(
         heroTag: 'fab-add-item',
         onPressed: widget.onAddItem,
-        tooltip: 'Add item',
+        tooltip: 'New item',
         child: const Icon(Icons.add, size: _plusSize),
       );
     }
@@ -139,14 +139,12 @@ class _CreateFabsState extends State<CreateFabs>
             children: [
               _option(
                 index: 1,
-                icon: Icons.note_add,
-                label: 'Add item',
+                label: 'New item',
                 onTap: () => _pick(widget.onAddItem),
               ),
               const SizedBox(height: 12),
               _option(
                 index: 0,
-                icon: Icons.create_new_folder,
                 label: 'New space',
                 onTap: () => _pick(widget.onNewSpace!),
               ),
@@ -182,11 +180,10 @@ class _CreateFabsState extends State<CreateFabs>
     );
   }
 
-  /// One option: a pill with its icon and label in the + button's accent.
-  /// Options nearer the + button ([index] 0) appear first.
+  /// One option: a text pill in the + button's accent. Options nearer the +
+  /// button ([index] 0) appear first.
   Widget _option({
     required int index,
-    required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
@@ -215,23 +212,18 @@ class _CreateFabsState extends State<CreateFabs>
             child: InkWell(
               onTap: onTap,
               child: Padding(
-                // Tight padding around the large icon and label keeps the pill
-                // 48 tall, like a standard button.
-                padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 24, color: fg),
-                    const SizedBox(width: 10),
-                    Text(
-                      label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: fg,
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                // Keeps the pill 48 tall, like a standard button.
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 13,
+                ),
+                child: Text(
+                  label,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: fg,
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
