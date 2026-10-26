@@ -14,11 +14,11 @@ dependencies:
   # Same backend as the web app (Auth, Postgres, RLS, Realtime).
   supabase_flutter: ^2.8.0
   # Biometric gate + OS keystore for the vault key.
-  local_auth: ^2.3.0
-  flutter_secure_storage: ^9.2.2
+  local_auth: ^3.0.2
+  flutter_secure_storage: ^10.0.0
   # Markdown rendering for old Markdown notes (until they're edited, which
   # turns them into Rich text).
-  flutter_markdown: ^0.7.4
+  flutter_markdown_plus: ^1.0.0
   # The Rich text editor: the web's Tiptap editor, bundled offline into
   # assets/rich_text_editor.html, runs in a WebView.
   webview_flutter: ^4.14.1
@@ -33,7 +33,7 @@ dependencies:
   pdf: ^3.11.0
   printing: ^5.13.0
   # Save / open the JSON backup file.
-  file_picker: ^8.1.0
+  file_picker: ^13.3.0
   # Open the build-commit link on GitHub from Settings.
   url_launcher: ^6.3.2
   # QR code for two-factor auth (TOTP) enrolment.

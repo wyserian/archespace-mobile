@@ -36,7 +36,8 @@ android {
 
     defaultConfig {
         applicationId = "app.archespace.mobile"
-        minSdk = flutter.minSdkVersion
+        // Android 8.0+.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

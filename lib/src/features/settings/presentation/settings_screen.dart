@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -226,14 +225,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ).exportJson(await VaultService().backupMeta(userId));
       final bytes = Uint8List.fromList(utf8.encode(json));
       final date = DateTime.now().toIso8601String().substring(0, 10);
-      final path = await FilePicker.platform.saveFile(
+      final saved = await FilePicker.saveFile(
         dialogTitle: 'Save backup',
         fileName: 'archespace-backup-$date.json',
-        type: FileType.custom,
-        allowedExtensions: const ['json'],
+        mimeType: 'application/json',
         bytes: bytes,
       );
-      if (path != null && mounted) showSuccessSnack(context, 'Backup saved.');
+      if (saved != null && mounted) showSuccessSnack(context, 'Backup saved.');
     } catch (_) {
       if (mounted) showErrorSnack(context, "Couldn't export the backup.");
     }
@@ -241,13 +239,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _importBackup() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['json'],
       );
-      final path = result?.files.single.path;
-      if (path == null) return;
-      final text = await File(path).readAsString();
+      if (file == null) return;
+      final text = utf8.decode(await file.readAsBytes());
       if (!mounted) return;
       final summary = await BackupRepository(VaultSession.instance.masterKey)
           .importJson(

@@ -186,7 +186,7 @@ You can also run the workflow manually from the Actions tab.
 | Biometrics | `local_auth` |
 | Rich text | The web app's Tiptap editor, bundled offline into `assets/rich_text_editor.html` and run in `webview_flutter`, with a native toolbar and preview |
 | Whiteboard | The web app's Excalidraw board, bundled offline (fonts included) into `assets/whiteboard_editor.html` and run in `webview_flutter`; cards and PDFs show the preview image saved with each board |
-| Markdown | `flutter_markdown` (older Markdown notes) |
+| Markdown | `flutter_markdown_plus` (older Markdown notes) |
 | Syntax highlighting | `flutter_highlight` + `highlight` (automatic language detection for the Code item type) |
 | PDF export | `pdf` + `printing` (native share/print sheet) |
 | Files | `file_picker` (JSON backup), `path_provider` (offline cache) |
@@ -270,7 +270,7 @@ For development questions, contact **[support@archespace.app](mailto:support@arc
 - Built with Flutter and Dart (Material 3).
 - Backend, authentication, and realtime sync powered by Supabase.
 - Encryption via the `cryptography` package (AES-256-GCM, Argon2id); the `arc1` format is shared with the web app.
-- Rich text editing with Tiptap and the Whiteboard with Excalidraw (both shared with the web app) in `webview_flutter`; item rendering with `flutter_markdown` and `flutter_highlight` + `highlight`; PDF export via `pdf` + `printing`.
+- Rich text editing with Tiptap and the Whiteboard with Excalidraw (both shared with the web app) in `webview_flutter`; item rendering with `flutter_markdown_plus` and `flutter_highlight` + `highlight`; PDF export via `pdf` + `printing`.
 - Source hosted on GitHub.
 - Crafted and maintained by Wyserian.
 

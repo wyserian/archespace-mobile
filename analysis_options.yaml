@@ -1,4 +1,9 @@
 # Flutter's recommended lints. See https://dart.dev/tools/analysis for options.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
 include: package:flutter_lints/flutter.yaml
 
 # linter:
