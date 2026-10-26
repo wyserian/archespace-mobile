@@ -16,13 +16,14 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
-    // Some plugins (flutter_plugin_android_lifecycle, via file_picker) require
-    // consumers to compile against Android API 36. Flutter's default is lower,
-    // so force every Android subproject's compileSdk to 36. Register this before
-    // evaluationDependsOn below, which eagerly evaluates :app.
-    afterEvaluate {
-        (extensions.findByName("android") as? com.android.build.gradle.BaseExtension)
-            ?.compileSdkVersion(36)
+    // Some plugins (flutter_plugin_android_lifecycle, via file_picker) need
+    // consumers on compileSdk 36, so force it on every Android subproject.
+    // Skip one already evaluated: only :app, which sets 36 itself.
+    if (!state.executed) {
+        afterEvaluate {
+            (extensions.findByName("android") as? com.android.build.gradle.BaseExtension)
+                ?.compileSdkVersion(36)
+        }
     }
     project.evaluationDependsOn(":app")
 }
