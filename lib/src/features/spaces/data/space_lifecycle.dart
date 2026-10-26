@@ -116,7 +116,7 @@ class SpaceLifecycle {
     }
   }
 
-  /// Move spaces (and their active sub-spaces) to the recycle bin.
+  /// Move spaces (and their active sub-spaces) to the bin.
   Future<void> delete(List<String> ids) async {
     if (ids.isEmpty) return;
     final (:tree, byId: _) = await _loadTree();

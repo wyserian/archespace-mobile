@@ -311,8 +311,9 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     final ok = await confirmAction(
       context,
       title: 'Move item to bin?',
-      message: '$name will be moved to the recycle bin.',
+      message: '$name will be moved to the bin.',
       confirmLabel: 'Move to bin',
+      destructive: true,
     );
     if (!ok) return;
     try {

@@ -62,3 +62,21 @@ Future<bool> toggleSpaceLock(
     return false;
   }
 }
+
+/// Save a space's tags (added or removed on its card). True when saved; on a
+/// failure it says so, and the card goes back to the old tags.
+Future<bool> saveSpaceTags(
+  BuildContext context,
+  Space space,
+  List<String> tags,
+) async {
+  try {
+    await SpaceRepository(
+      VaultSession.instance.masterKey,
+    ).setTags(space.id, tags);
+    return true;
+  } catch (_) {
+    if (context.mounted) showErrorSnack(context, "Couldn't update the tags.");
+    return false;
+  }
+}

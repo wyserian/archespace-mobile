@@ -25,6 +25,7 @@ import 'package:archespace_mobile/src/shared/sort/sort.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_icon_button.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
@@ -409,28 +410,16 @@ class _SpacesScreenState extends State<SpacesScreen>
     final spaceIds = _selected.toList();
     final itemIds = _selectedItems.toList();
     final label = _selectionLabel(spaceIds.length, itemIds.length);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Move $label to bin?'),
-        content: Text(
-          spaceIds.isNotEmpty
-              ? 'They and their items go to the recycle bin.'
-              : 'They go to the recycle bin.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Move to bin'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Move $label to bin?',
+      message: spaceIds.isNotEmpty
+          ? 'They and their items go to the bin.'
+          : 'They go to the bin.',
+      confirmLabel: 'Move to bin',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final ok = await _runBulk(
       (s, i) =>
           Future.wait([_spaceRepo.bulkDelete(s), _itemRepo.bulkDelete(i)]),
@@ -498,26 +487,14 @@ class _SpacesScreenState extends State<SpacesScreen>
 
   Future<void> _deleteSpace(Space space) async {
     final name = space.name.isEmpty ? 'Untitled' : space.name;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Move space to bin?'),
-        content: Text(
-          '"$name" and its items will be moved to the recycle bin.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Move to bin'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Move space to bin?',
+      message: '"$name" and its items will be moved to the bin.',
+      confirmLabel: 'Move to bin',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await _spaceRepo.deleteSpace(space.id);
       StorageCounts.instance.refresh();
@@ -532,6 +509,12 @@ class _SpacesScreenState extends State<SpacesScreen>
     } catch (_) {
       if (mounted) showErrorSnack(context, "Couldn't delete the space.");
     }
+  }
+
+  Future<bool> _setSpaceTags(Space space, List<String> tags) async {
+    final ok = await saveSpaceTags(context, space, tags);
+    if (ok && mounted) _load();
+    return ok;
   }
 
   Future<void> _setItemTags(SpaceItem item, List<String> tags) async {
@@ -724,7 +707,7 @@ class _SpacesScreenState extends State<SpacesScreen>
   Widget _buildSpacesHeader(BuildContext context, String title) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 4, top: 2, bottom: 4),
+      padding: const EdgeInsets.only(left: 16, right: 4),
       child: Row(
         children: [
           Text(
@@ -740,14 +723,12 @@ class _SpacesScreenState extends State<SpacesScreen>
                 : Icons.grid_view_outlined,
             tooltip: _view == 'grid' ? 'List view' : 'Grid view',
             onPressed: () => _setView(_view == 'grid' ? 'list' : 'grid'),
-            size: 36,
           ),
-          SortMenu(value: _sort, onChanged: _setSort, size: 36),
+          SortMenu(value: _sort, onChanged: _setSort),
           ActionIconButton(
             icon: Icons.checklist,
             tooltip: 'Select',
             onPressed: _enterSelect,
-            size: 36,
           ),
         ],
       ),
@@ -1047,6 +1028,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     onMove: () => _moveSpaces([space.id]),
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
+    onSetTags: _offline ? null : (tags) => _setSpaceTags(space, tags),
     activeTags: _activeTags,
     onTagClick: (tag) => setState(() {
       if (!_activeTags.remove(tag)) _activeTags.add(tag);

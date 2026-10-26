@@ -35,7 +35,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types))
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
-- **Starred**, **archive** and **recycle bin**
+- **Starred**, **archive** and **bin**
 - **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **offline mode**
 - **Encrypted backups** and **PDF export**
 - **Local mode**: no account, nothing leaves the phone
@@ -214,7 +214,7 @@ archespace-mobile/
         starred/          # starred spaces and items
         reminders/        # the Reminders screen and local notifications
         search/           # unified search + jump-to-item
-        storage/          # archive + recycle bin
+        storage/          # archive + bin
         settings/         # account, security, appearance, backup, build footer
         backup/           # JSON import/export
       shared/

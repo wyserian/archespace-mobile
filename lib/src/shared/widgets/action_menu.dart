@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 /// One row of an [ActionMenuButton]: an icon (or a [leading] widget, like a
 /// colour swatch) and a label, red when [danger], in the accent when
 /// [selected] (the current choice, as on the web). [dividerBefore] draws a
-/// thin rule above it, to start a new group.
+/// thin rule above it, to start a new group; so does a [group] different from
+/// the previous entry's (as on the web), which keeps the rules right when
+/// some entries are left out.
 class ActionMenuEntry {
   const ActionMenuEntry({
     this.icon,
@@ -13,6 +15,7 @@ class ActionMenuEntry {
     this.danger = false,
     this.selected = false,
     this.dividerBefore = false,
+    this.group,
   });
 
   final IconData? icon;
@@ -22,7 +25,16 @@ class ActionMenuEntry {
   final bool danger;
   final bool selected;
   final bool dividerBefore;
+  final String? group;
 }
+
+/// Whether a rule goes above entry [i].
+bool _startsGroup(List<ActionMenuEntry> entries, int i) =>
+    entries[i].dividerBefore ||
+    (i > 0 &&
+        entries[i].group != null &&
+        entries[i - 1].group != null &&
+        entries[i].group != entries[i - 1].group);
 
 /// A 3-dot button opening a compact menu, styled like the web's: a panel the
 /// colour of the cards with a hairline border and soft shadow, icon + label
@@ -41,9 +53,10 @@ class ActionMenuButton extends StatelessWidget {
   final Color? iconColor;
 
   @override
+  // A small dot icon in a full 48 touch target.
   Widget build(BuildContext context) => SizedBox(
-    height: 32,
-    width: 32,
+    height: 48,
+    width: 48,
     child: IconButton(
       padding: EdgeInsets.zero,
       tooltip: tooltip,
@@ -81,7 +94,7 @@ Future<void> showActionMenu(
 }
 
 // Compact like the web's menus, with rows still easy to tap.
-const double _rowHeight = 34;
+const double _rowHeight = 44;
 const double _dividerHeight = 9;
 const double _panelPadding = 4;
 const double _gap = 4;
@@ -109,7 +122,10 @@ class _ActionMenuRoute extends PopupRoute<int> {
 
   /// Below the button, or above it when there isn't room below.
   bool _below(MediaQueryData media) {
-    final dividers = entries.where((e) => e.dividerBefore).length;
+    final dividers = [
+      for (var i = 0; i < entries.length; i++)
+        if (_startsGroup(entries, i)) i,
+    ].length;
     final height =
         entries.length * _rowHeight +
         dividers * _dividerHeight +
@@ -245,7 +261,7 @@ class _MenuPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < entries.length; i++) ...[
-                  if (entries[i].dividerBefore)
+                  if (_startsGroup(entries, i))
                     Container(
                       height: 1,
                       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -292,24 +308,24 @@ class _MenuRow extends StatelessWidget {
         splashColor: entry.danger ? scheme.error.withValues(alpha: 0.12) : null,
         onTap: () => Navigator.of(context).pop(index),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
               SizedBox(
-                width: 16,
+                width: 18,
                 child: Center(
                   child:
-                      entry.leading ?? Icon(entry.icon, size: 16, color: color),
+                      entry.leading ?? Icon(entry.icon, size: 18, color: color),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   entry.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: color,
                   ),

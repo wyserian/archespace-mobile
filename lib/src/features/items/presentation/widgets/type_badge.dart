@@ -4,7 +4,7 @@ import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
 
 /// An item's type as its coloured icon in a tinted pill (the mark on item
 /// cards), used wherever an item is listed so types read the same everywhere:
-/// item cards, Archive and the Recycle bin. The type's name is its label.
+/// item cards, Archive and the Bin. The type's name is its label.
 class TypeBadge extends StatelessWidget {
   const TypeBadge({super.key, required this.type, this.compact = false});
 

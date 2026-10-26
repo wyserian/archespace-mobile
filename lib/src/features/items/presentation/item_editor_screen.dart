@@ -63,13 +63,20 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late String _savedType = widget.type;
   // True once any save has succeeded, so the caller refreshes on close.
   bool _savedAny = false;
+  // The last save failed (auto-saves fail quietly): shown as "Not saved".
+  bool _saveFailed = false;
 
-  // Previous auto-save tick's snapshot, so we only save once edits settle
-  // (no change since the last tick) rather than on every keystroke.
+  // Previous auto-save tick's snapshot and when it last changed, so we save
+  // once edits have rested for [_kAutoSaveDelay] (as on the web) rather than
+  // on every keystroke.
   late String _tickTitle = _title.text;
   late String _tickContentJson = _savedContentJson;
   late String _tickType = widget.type;
+  DateTime _lastEditAt = DateTime.now();
   Timer? _autoSaveTimer;
+
+  // The web's AUTO_SAVE_DELAY_MS.
+  static const Duration _kAutoSaveDelay = Duration(seconds: 5);
 
   Map<String, dynamic> _initialContent() {
     final source = widget.existing?.content ?? defaultContentFor(widget.type);
@@ -82,7 +89,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     super.initState();
     if (widget.readOnly) return; // nothing to save
     _autoSaveTimer = Timer.periodic(
-      const Duration(seconds: 2),
+      const Duration(seconds: 1),
       (_) => _autoTick(),
     );
   }
@@ -99,8 +106,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       jsonEncode(_content) != _savedContentJson ||
       _type != _savedType;
 
-  // Auto-save unsaved edits once they settle (unchanged since the last tick),
-  // so we don't write on every keystroke.
+  // Auto-save unsaved edits once they've rested for [_kAutoSaveDelay] (any
+  // change since the last tick restarts the wait), so we don't write on every
+  // keystroke.
   void _autoTick() {
     if (_saving) return;
     final curTitle = _title.text;
@@ -109,14 +117,20 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
         curTitle.trim() != _savedTitle ||
         curJson != _savedContentJson ||
         _type != _savedType;
-    final settled =
-        curTitle == _tickTitle &&
-        curJson == _tickContentJson &&
-        _type == _tickType;
+    final changed =
+        curTitle != _tickTitle ||
+        curJson != _tickContentJson ||
+        _type != _tickType;
+    if (changed) _lastEditAt = DateTime.now();
     _tickTitle = curTitle;
     _tickContentJson = curJson;
     _tickType = _type;
-    if (dirty && settled) _save(silent: true);
+    if (dirty && DateTime.now().difference(_lastEditAt) >= _kAutoSaveDelay) {
+      // A failed save waits another full delay before trying again.
+      _save(silent: true).then((ok) {
+        if (!ok) _lastEditAt = DateTime.now();
+      });
+    }
   }
 
   /// Persists the item. Returns true on success. [silent] suppresses the error
@@ -148,11 +162,19 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       _savedContentJson = jsonEncode(_content);
       _savedType = type;
       _savedAny = true;
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveFailed = false;
+        });
+      }
       return true;
     } catch (e) {
       if (mounted) {
-        setState(() => _saving = false);
+        setState(() {
+          _saving = false;
+          _saveFailed = true;
+        });
         if (!silent) showErrorSnack(context, saveErrorMessage(e));
       }
       return false;
@@ -161,6 +183,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
 
   Future<void> _saveAndClose() async {
     await _whiteboard.flush();
+    // Tapped during an auto-save: let it finish, then save what's left.
+    while (_saving) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
     if (await _save() && mounted) await _close(true);
   }
 
@@ -229,21 +255,27 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                     child: Icon(Icons.edit_off_outlined, size: 20),
                   ),
                 )
-              else if (_saving)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+              else ...[
+                // The check stays put through auto-saves; a quiet label says
+                // when a save is running or has failed.
+                if (_saving || _saveFailed)
+                  Center(
+                    child: Text(
+                      _saving ? 'Saving' : 'Not saved',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _saving
+                            ? Theme.of(context).colorScheme.onSurfaceVariant
+                            : Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ),
-                )
-              else
                 IconButton(
                   onPressed: _saveAndClose,
                   icon: const Icon(Icons.check),
                   tooltip: 'Save',
                 ),
+              ],
             ],
           ),
           body: SafeArea(

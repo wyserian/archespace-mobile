@@ -23,6 +23,7 @@ import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
+import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
 /// Renders one space item as a card: a type badge, title, and a type-specific
 /// body preview. Tapping the card opens the full editor; the action menu and
@@ -91,8 +92,8 @@ class ItemCard extends StatefulWidget {
 }
 
 // A body taller than this is clamped to this fixed height (clipped, not
-// hidden); tapping the card then reveals it in full. The header chevron is a
-// separate control that hides the body entirely (header only).
+// hidden); "Show more" under it reveals it in full. The header chevron is a
+// separate control that hides the body entirely (header and tags only).
 const double _kCollapsedMaxHeight = 480;
 
 // The clamped preview shows ~25 lines, so a very long note or markdown body is
@@ -102,15 +103,15 @@ const int _kPreviewChars = 4000;
 
 class _ItemCardState extends State<ItemCard>
     with AutomaticKeepAliveClientMixin {
-  // Header-only collapse (chevron): hides the body entirely.
-  bool _collapsed = false;
-  bool _addingTag = false;
   // Measured: is the body taller than the clamp threshold?
   bool _overflowing = false;
-  // Set when a long, clamped body is tapped to reveal it in full.
+  // A long, clamped body shown in full ("Show more").
   bool _expanded = false;
+  // Header-only collapse (chevron): hides the body entirely.
+  bool _collapsed = false;
+  // The inline tag field is open ("Add tag" in the menu).
+  bool _addingTag = false;
   final GlobalKey _bodyKey = GlobalKey();
-  final TextEditingController _tagController = TextEditingController();
 
   @override
   void initState() {
@@ -155,7 +156,6 @@ class _ItemCardState extends State<ItemCard>
   @override
   void dispose() {
     ContentLock.instance.removeListener(_onLockChanged);
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -164,14 +164,21 @@ class _ItemCardState extends State<ItemCard>
   @override
   bool get wantKeepAlive => _expanded || _collapsed;
 
-  void _setExpanded() {
-    setState(() => _expanded = true);
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
     updateKeepAlive();
   }
 
   void _toggleCollapsed() {
     setState(() => _collapsed = !_collapsed);
     updateKeepAlive();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(
+      ClipboardData(text: itemClipboardText(widget.item)),
+    );
+    if (mounted) showSuccessSnack(context, 'Copied to clipboard');
   }
 
   @override
@@ -191,6 +198,7 @@ class _ItemCardState extends State<ItemCard>
     final onExport = widget.onExport;
     final onToggleLock = widget.onToggleLock;
     final onSetReminder = widget.onSetReminder;
+    final onSetTags = widget.onSetTags;
     final scheme = Theme.of(context).colorScheme;
     // Protected (itself or its space) and not opened with the PIN: the content,
     // Copy and Export PDF stay out of reach.
@@ -216,259 +224,258 @@ class _ItemCardState extends State<ItemCard>
         side: borderSide,
       ),
       child: InkWell(
-        // A clamped (long, not yet expanded) body reveals itself in full on
-        // tap; otherwise a tap opens the full editor.
-        // A hidden item opens with the PIN: via onTap (which asks first), or
-        // here for an item with no editor.
+        // A tap always opens the editor. A hidden item opens with the PIN: via
+        // onTap (which asks first), or here for an item with no editor.
         onTap: selectMode
             ? onSelectToggle
             : (hidden && onTap == null)
             ? _unlock
-            : (!hidden && !_collapsed && _overflowing && !_expanded)
-            ? _setExpanded
             : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          // A slightly tighter top keeps the header row compact.
-          padding: const EdgeInsets.fromLTRB(14, 11, 14, 14),
+          // No top padding and little on the right: the header's 48 buttons
+          // bring their own room.
+          padding: const EdgeInsets.fromLTRB(14, 0, 4, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  if (item.pinned)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Icon(
-                        Icons.push_pin,
-                        size: 16,
-                        color: scheme.primary,
-                        semanticLabel: 'Pinned',
-                      ),
-                    ),
-                  if (itemTypeDef(item.type) != null)
-                    Padding(
-                      padding: EdgeInsets.only(right: widget.grid ? 6 : 8),
-                      // A smaller badge in the compact grid cards.
-                      child: TypeBadge(type: item.type, compact: widget.grid),
-                    ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          flex: 3,
-                          child: Text(
-                            item.title.isEmpty ? 'Untitled' : item.title,
-                            style: Theme.of(context).textTheme.titleMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
+                  children: [
+                    if (item.pinned)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Icon(
+                          Icons.push_pin,
+                          size: 16,
+                          color: scheme.primary,
+                          semanticLabel: 'Pinned',
                         ),
-                        // Starred, right after the name, in the accent.
-                        if (item.starred)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              Icons.star_rounded,
-                              size: 17,
-                              color: scheme.primary,
-                              semanticLabel: 'Starred',
-                            ),
-                          ),
-                        // Protected: a shield, or once the PIN has opened it,
-                        // a button to hide it again.
-                        if (hidden)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              Icons.shield_outlined,
-                              size: 16,
-                              color: scheme.onSurfaceVariant,
-                              semanticLabel: 'Protected',
-                            ),
-                          )
-                        else if (item.locked)
-                          SizedBox(
-                            height: 28,
-                            width: 28,
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.visibility_off_outlined,
-                                size: 16,
-                                color: scheme.primary,
-                              ),
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Hide again',
-                              onPressed: () =>
-                                  ContentLock.instance.hide(item.id),
-                            ),
-                          ),
-                        if (widget.readOnly && widget.contextLabel != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              Icons.edit_off_outlined,
-                              size: 15,
-                              color: scheme.onSurfaceVariant,
-                              semanticLabel: 'Read-only',
-                            ),
-                          ),
-                        if (widget.contextLabel != null) ...[
-                          const SizedBox(width: 6),
+                      ),
+                    if (itemTypeDef(item.type) != null)
+                      Padding(
+                        padding: EdgeInsets.only(right: widget.grid ? 6 : 8),
+                        // A smaller badge in the compact grid cards.
+                        child: TypeBadge(type: item.type, compact: widget.grid),
+                      ),
+                    Expanded(
+                      child: Row(
+                        children: [
                           Flexible(
-                            flex: 2,
+                            flex: 3,
                             child: Text(
-                              widget.contextLabel!,
-                              maxLines: 1,
+                              item.title.isEmpty ? 'Untitled' : item.title,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: scheme.onSurfaceVariant),
                             ),
                           ),
+                          // Starred, right after the name, in the accent.
+                          if (item.starred)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.star_rounded,
+                                size: 17,
+                                color: scheme.primary,
+                                semanticLabel: 'Starred',
+                              ),
+                            ),
+                          // Protected: a shield, or once the PIN has opened it,
+                          // a button to hide it again.
+                          if (hidden)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.shield_outlined,
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                                semanticLabel: 'Protected',
+                              ),
+                            )
+                          else if (item.locked)
+                            SizedBox(
+                              height: 48,
+                              width: 40,
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.visibility_off_outlined,
+                                  size: 16,
+                                  color: scheme.primary,
+                                ),
+                                padding: EdgeInsets.zero,
+                                tooltip: 'Hide again',
+                                onPressed: () =>
+                                    ContentLock.instance.hide(item.id),
+                              ),
+                            ),
+                          if (widget.readOnly && widget.contextLabel != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.edit_off_outlined,
+                                size: 15,
+                                color: scheme.onSurfaceVariant,
+                                semanticLabel: 'Read-only',
+                              ),
+                            ),
+                          if (widget.contextLabel != null) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              flex: 2,
+                              child: Text(
+                                widget.contextLabel!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (!selectMode)
-                    SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: IconButton(
-                        icon: Icon(
-                          _collapsed ? Icons.expand_more : Icons.expand_less,
-                          size: 20,
+                    if (!selectMode)
+                      SizedBox(
+                        height: 48,
+                        width: 40,
+                        child: IconButton(
+                          icon: Icon(
+                            _collapsed ? Icons.expand_more : Icons.expand_less,
+                            size: 20,
+                          ),
+                          padding: EdgeInsets.zero,
+                          tooltip: _collapsed ? 'Expand' : 'Collapse',
+                          onPressed: _toggleCollapsed,
                         ),
-                        padding: EdgeInsets.zero,
-                        tooltip: _collapsed ? 'Expand' : 'Collapse',
-                        onPressed: () => _toggleCollapsed(),
                       ),
-                    ),
-                  // In the compact grid the copy action moves into the 3-dot
-                  // menu; the list keeps the quick copy button.
-                  if (!selectMode && !widget.grid && canCopy)
-                    SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: IconButton(
-                        icon: const Icon(Icons.content_copy, size: 16),
-                        padding: EdgeInsets.zero,
-                        tooltip: 'Copy',
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: itemClipboardText(item)),
-                          );
-                          if (context.mounted) {
-                            showSuccessSnack(context, 'Copied to clipboard');
-                          }
-                        },
+                    if (!selectMode &&
+                        (canCopy ||
+                            onTogglePin != null ||
+                            onToggleStar != null ||
+                            onSetTags != null ||
+                            onSetReminder != null ||
+                            onToggleLock != null ||
+                            onDuplicate != null ||
+                            onMove != null ||
+                            onArchive != null ||
+                            (onExport != null && !hidden) ||
+                            onDelete != null))
+                      // Grouped like the web: view, mark, edit, keep, delete.
+                      ActionMenuButton(
+                        tooltip: 'Item actions',
+                        entries: [
+                          if (canCopy)
+                            ActionMenuEntry(
+                              group: 'view',
+                              icon: Icons.content_paste_outlined,
+                              label: 'Copy',
+                              onSelected: _copy,
+                            ),
+                          if (onTogglePin != null)
+                            ActionMenuEntry(
+                              group: 'mark',
+                              icon: Icons.push_pin_outlined,
+                              label: item.pinned ? 'Unpin' : 'Pin',
+                              onSelected: onTogglePin,
+                            ),
+                          if (onToggleStar != null)
+                            ActionMenuEntry(
+                              group: 'mark',
+                              icon: Icons.star_outline_rounded,
+                              label: item.starred ? 'Unstar' : 'Star',
+                              onSelected: onToggleStar,
+                            ),
+                          if (onSetTags != null)
+                            ActionMenuEntry(
+                              group: 'mark',
+                              icon: Icons.sell_outlined,
+                              label: 'Add tag',
+                              onSelected: () =>
+                                  setState(() => _addingTag = true),
+                            ),
+                          if (onSetReminder != null)
+                            ActionMenuEntry(
+                              group: 'mark',
+                              icon: Icons.notifications_none_rounded,
+                              label: item.reminder == null
+                                  ? 'Add reminder'
+                                  : 'Change reminder',
+                              onSelected: onSetReminder,
+                            ),
+                          if (onDuplicate != null)
+                            ActionMenuEntry(
+                              group: 'edit',
+                              icon: Icons.content_copy_outlined,
+                              label: 'Duplicate',
+                              onSelected: onDuplicate,
+                            ),
+                          if (onMove != null)
+                            ActionMenuEntry(
+                              group: 'edit',
+                              icon: Icons.arrow_forward,
+                              label: 'Move',
+                              onSelected: onMove,
+                            ),
+                          if (onExport != null && !hidden)
+                            ActionMenuEntry(
+                              group: 'edit',
+                              icon: Icons.file_download_outlined,
+                              label: 'Export PDF',
+                              onSelected: onExport,
+                            ),
+                          if (onToggleLock != null)
+                            ActionMenuEntry(
+                              group: 'keep',
+                              icon: item.locked
+                                  ? Icons.remove_moderator_outlined
+                                  : Icons.shield_outlined,
+                              label: item.locked
+                                  ? 'Remove protection'
+                                  : 'Protect',
+                              onSelected: onToggleLock,
+                            ),
+                          if (onArchive != null)
+                            ActionMenuEntry(
+                              group: 'keep',
+                              icon: Icons.archive_outlined,
+                              label: 'Archive',
+                              onSelected: onArchive,
+                            ),
+                          if (onDelete != null)
+                            ActionMenuEntry(
+                              group: 'delete',
+                              icon: Icons.delete_outline,
+                              label: 'Delete',
+                              onSelected: onDelete,
+                              danger: true,
+                            ),
+                        ],
                       ),
-                    ),
-                  if (!selectMode &&
-                      (onTogglePin != null ||
-                          onToggleStar != null ||
-                          onSetReminder != null ||
-                          onToggleLock != null ||
-                          onDuplicate != null ||
-                          onMove != null ||
-                          onArchive != null ||
-                          (onExport != null && !hidden) ||
-                          onDelete != null ||
-                          (widget.grid && canCopy)))
-                    ActionMenuButton(
-                      tooltip: 'Item actions',
-                      entries: [
-                        if (widget.grid && canCopy)
-                          ActionMenuEntry(
-                            icon: Icons.content_paste_outlined,
-                            label: 'Copy',
-                            onSelected: () async {
-                              await Clipboard.setData(
-                                ClipboardData(text: itemClipboardText(item)),
-                              );
-                              if (context.mounted) {
-                                showSuccessSnack(
-                                  context,
-                                  'Copied to clipboard',
-                                );
-                              }
-                            },
-                          ),
-                        if (onTogglePin != null)
-                          ActionMenuEntry(
-                            icon: Icons.push_pin_outlined,
-                            label: item.pinned ? 'Unpin' : 'Pin',
-                            onSelected: onTogglePin,
-                          ),
-                        if (onToggleStar != null)
-                          ActionMenuEntry(
-                            icon: Icons.star_outline_rounded,
-                            label: item.starred ? 'Unstar' : 'Star',
-                            onSelected: onToggleStar,
-                          ),
-                        if (onSetReminder != null)
-                          ActionMenuEntry(
-                            icon: Icons.notifications_none_rounded,
-                            label: item.reminder == null
-                                ? 'Add reminder'
-                                : 'Change reminder',
-                            onSelected: onSetReminder,
-                          ),
-                        if (onToggleLock != null)
-                          ActionMenuEntry(
-                            icon: item.locked
-                                ? Icons.remove_moderator_outlined
-                                : Icons.shield_outlined,
-                            label: item.locked
-                                ? 'Remove protection'
-                                : 'Protect',
-                            onSelected: onToggleLock,
-                          ),
-                        if (onDuplicate != null)
-                          ActionMenuEntry(
-                            icon: Icons.content_copy_outlined,
-                            label: 'Duplicate',
-                            onSelected: onDuplicate,
-                          ),
-                        if (onMove != null)
-                          ActionMenuEntry(
-                            icon: Icons.arrow_forward,
-                            label: 'Move',
-                            onSelected: onMove,
-                          ),
-                        if (onExport != null && !hidden)
-                          ActionMenuEntry(
-                            icon: Icons.file_download_outlined,
-                            label: 'Export PDF',
-                            onSelected: onExport,
-                          ),
-                        if (onArchive != null)
-                          ActionMenuEntry(
-                            icon: Icons.archive_outlined,
-                            label: 'Archive',
-                            onSelected: onArchive,
-                          ),
-                        if (onDelete != null)
-                          ActionMenuEntry(
-                            icon: Icons.delete_outline,
-                            label: 'Delete',
-                            onSelected: onDelete,
-                            danger: true,
-                          ),
-                      ],
-                    ),
-                  if (selectMode)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: SelectBox(selected: selected),
-                    ),
-                ],
+                    if (selectMode)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, right: 10),
+                        child: SelectBox(selected: selected),
+                      ),
+                  ],
+                ),
               ),
-              _tagsRow(context, scheme),
-              if (!_collapsed) ...[
-                const SizedBox(height: 10),
-                Divider(height: 1, color: scheme.outlineVariant),
-                const SizedBox(height: 10),
-                if (hidden) _lockedBody(scheme) else _buildBody(),
-              ],
+              // The body and tags sit inside the card's usual right margin.
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _tagsRow(context, scheme),
+                    if (!_collapsed) ...[
+                      const SizedBox(height: 6),
+                      if (hidden) _lockedBody(scheme) else _buildBody(),
+                      if (!hidden && _overflowing) _expandToggle(scheme),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -477,7 +484,7 @@ class _ItemCardState extends State<ItemCard>
   }
 
   /// The body preview. A long body is clamped to a fixed height and clipped,
-  /// with a soft fade at the bottom to signal there is more; tapping the card
+  /// with a soft fade at the bottom to signal there is more; "Show more"
   /// reveals it in full. The body is keyed and laid out at its full height (in
   /// a non-scrolling scroll view) so its true height can always be measured.
   ///
@@ -488,9 +495,9 @@ class _ItemCardState extends State<ItemCard>
   /// list would keep correcting its position (scrolling that sticks and falls
   /// back).
   ///
-  /// A long preview is wrapped in IgnorePointer: it needs no interaction (the
-  /// card's InkWell handles the tap-to-expand), and nothing in the clipped
-  /// region can trap the list's scroll gestures.
+  /// A long preview is wrapped in IgnorePointer: it needs no interaction (a
+  /// tap on it reaches the card and opens the editor), and nothing in the
+  /// clipped region can trap the list's scroll gestures.
   Widget _buildBody() {
     final body = KeyedSubtree(
       key: _bodyKey,
@@ -524,6 +531,21 @@ class _ItemCardState extends State<ItemCard>
     }
     return IgnorePointer(ignoring: _overflowing, child: clamped);
   }
+
+  /// "Show more" / "Show less" centred under a long body with its chevron: a
+  /// plain link, like the web.
+  Widget _expandToggle(ColorScheme scheme) => Center(
+    child: TextButton.icon(
+      onPressed: _toggleExpanded,
+      icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16),
+      label: Text(_expanded ? 'Show less' : 'Show more'),
+      style: TextButton.styleFrom(
+        foregroundColor: scheme.onSurfaceVariant,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      ),
+    ),
+  );
 
   Future<void> _unlock() async {
     final item = widget.item;
@@ -574,148 +596,41 @@ class _ItemCardState extends State<ItemCard>
   Widget _tagsRow(BuildContext context, ColorScheme scheme) {
     final tags = widget.item.tags;
     final reminder = widget.item.reminder;
-    final canEdit = widget.onSetTags != null && !widget.selectMode;
-    if (tags.isEmpty && reminder == null && !canEdit) {
+    final onSetTags = widget.selectMode ? null : widget.onSetTags;
+    final adding = _addingTag && onSetTags != null;
+    // Nothing to show until there's a tag or reminder ("Add tag" is in the
+    // menu).
+    if (tags.isEmpty && reminder == null && !adding) {
       return const SizedBox.shrink();
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (reminder != null)
-            ReminderChip(
-              reminder: reminder,
-              onTap: widget.selectMode ? null : widget.onSetReminder,
-            ),
-          for (final tag in tags)
-            _TagChip(
-              label: tag,
-              onRemove: canEdit ? () => _removeTag(tag) : null,
-            ),
-          if (canEdit && !_addingTag)
-            InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: () => setState(() => _addingTag = true),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, size: 12, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 2),
-                    Text(
-                      'Tag',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (canEdit && _addingTag)
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _tagController,
-                autofocus: true,
-                style: const TextStyle(fontSize: 12),
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'tag',
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                onSubmitted: (_) => _commitTag(),
-                onTapOutside: (_) => _commitTag(),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _removeTag(String tag) {
-    widget.onSetTags?.call(widget.item.tags.where((t) => t != tag).toList());
-  }
-
-  /// Commit the inline tag field: merge any comma-separated tags, then close.
-  void _commitTag() {
-    final value = _tagController.text;
-    _tagController.clear();
-    final additions = value
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty);
-    final merged = {...widget.item.tags, ...additions}.toList();
-    if (merged.length != widget.item.tags.length) {
-      widget.onSetTags?.call(merged);
-    }
-    if (mounted) setState(() => _addingTag = false);
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.label, this.onRemove});
-
-  final String label;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 6,
-        right: onRemove != null ? 1 : 6,
-        top: 1,
-        bottom: 1,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: scheme.onSurfaceVariant,
-            ),
+    return Wrap(
+      spacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (reminder != null)
+          ReminderChip(
+            reminder: reminder,
+            onTap: widget.selectMode ? null : widget.onSetReminder,
           ),
-          if (onRemove != null)
-            InkWell(
-              onTap: onRemove,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Icon(
-                  Icons.close,
-                  size: 12,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-        ],
-      ),
+        for (final tag in tags)
+          TagChip(
+            label: tag,
+            color: scheme.onSurfaceVariant,
+            fill: scheme.surfaceContainerHighest,
+            edge: BorderSide(color: scheme.outlineVariant),
+            onRemove: onSetTags == null
+                ? null
+                : () => onSetTags(tags.where((t) => t != tag).toList()),
+          ),
+        if (adding)
+          TagInput(
+            onCommit: (added) {
+              setState(() => _addingTag = false);
+              final merged = {...tags, ...added}.toList();
+              if (merged.length != tags.length) onSetTags(merged);
+            },
+          ),
+      ],
     );
   }
 }

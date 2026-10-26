@@ -2,7 +2,7 @@ import 'package:archespace_mobile/src/features/spaces/data/space_lifecycle.dart'
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 
-/// A space or item that is archived or in the recycle bin.
+/// A space or item that is archived or in the bin.
 class StoredEntry {
   StoredEntry({
     required this.id,
@@ -82,7 +82,7 @@ class StorageRepository {
     return results[0].length + results[1].length;
   }
 
-  /// Number of entries in the recycle bin (spaces + items); ids only, so
+  /// Number of entries in the bin (spaces + items); ids only, so
   /// nothing is decrypted.
   Future<int> deletedCount() async {
     final results = await Future.wait([
@@ -147,7 +147,7 @@ class StorageRepository {
 
   Future<void> restoreDeleted(StoredEntry e) => restoreDeletedMany([e]);
 
-  /// Move an archived entry to the recycle bin.
+  /// Move an archived entry to the bin.
   Future<void> moveToBin(StoredEntry e) => moveManyToBin([e]);
 
   /// Permanently delete (hard delete). For spaces, the DB cascade removes items.
@@ -207,7 +207,7 @@ class StorageRepository {
     }
   }
 
-  /// Permanently delete everything in the recycle bin (all soft-deleted rows).
+  /// Permanently delete everything in the bin (all soft-deleted rows).
   Future<void> purgeAll() async {
     await _client.from('spaces').delete().not('deleted_at', 'is', null);
     await _client.from('space_items').delete().not('deleted_at', 'is', null);

@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/features/spaces/application/drawer_spaces.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
-import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
 import 'package:archespace_mobile/src/features/settings/presentation/settings_screen.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/storage/presentation/storage_screen.dart';
@@ -28,10 +27,10 @@ enum DrawerPage {
   other,
 }
 
-/// The app's navigation drawer: the name and a theme "shuffle" at the top, All
-/// spaces and the top-level spaces (folding under their heading), the library
-/// (Reminders, Starred, Archive, Recycle bin) with counts, and Lock vault and
-/// Settings at the bottom. Sign out lives in Settings.
+/// The app's navigation drawer: the name at the top, All spaces and the
+/// top-level spaces (folding under their heading), the library (Reminders,
+/// Starred, Archive, Bin) with counts, and Lock vault and Settings at the
+/// bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
 /// dashboard also has a menu button). Its destinations go back to the
@@ -133,19 +132,11 @@ class _AppDrawerState extends State<AppDrawer> {
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 8, 0),
-              child: Row(
-                children: [
-                  const Expanded(child: BrandName(fontSize: 20)),
-                  IconButton(
-                    icon: const Icon(Icons.palette_outlined),
-                    tooltip: 'Shuffle accent and theme',
-                    onPressed: () => AppearanceController.instance.randomize(
-                      Theme.of(context).brightness,
-                    ),
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 16, 8, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: BrandName(fontSize: 23),
               ),
             ),
             Expanded(
@@ -258,7 +249,7 @@ class _AppDrawerState extends State<AppDrawer> {
               _tile(
                 context,
                 icon: Icons.delete_outline,
-                label: 'Recycle bin',
+                label: 'Bin',
                 count: StorageCounts.instance.bin,
                 selected: _isCurrent(DrawerPage.bin),
                 onTap: () => _open(
@@ -282,15 +273,13 @@ class _AppDrawerState extends State<AppDrawer> {
     bool expanded = true,
     VoidCallback? onTap,
   }) {
-    final color = Theme.of(
-      context,
-    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     final text = Row(
       children: [
         Text(
           label.toUpperCase(),
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
             color: color,
@@ -364,7 +353,7 @@ class _AppDrawerState extends State<AppDrawer> {
         ),
         trailing: protected
             ? Icon(
-                Icons.lock_outline,
+                Icons.shield_outlined,
                 size: 14,
                 color: scheme.onSurfaceVariant,
                 semanticLabel: 'Protected',

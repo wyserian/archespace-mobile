@@ -151,7 +151,7 @@ void main() {
     expect((await d.rpc('get_vault_pin_lock_status'))['locked'], isFalse);
   });
 
-  test('keeps recycle bin entries however old they are', () async {
+  test('keeps bin entries however old they are', () async {
     final store = MemoryStore();
     final old = DateTime.now()
         .subtract(const Duration(days: 400))

@@ -12,7 +12,7 @@ import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 
 enum StorageMode { archive, bin }
 
-/// Shared screen for the Archive and the Recycle bin. Lists archived / deleted
+/// Shared screen for the Archive and the Bin. Lists archived / deleted
 /// spaces and items with restore + delete actions.
 class StorageScreen extends StatefulWidget {
   const StorageScreen({super.key, required this.mode});
@@ -208,8 +208,8 @@ class _StorageScreenState extends State<StorageScreen> {
 
   Future<void> _emptyBin() async {
     final ok = await _confirm(
-      'Empty recycle bin?',
-      'Everything in the recycle bin will be permanently deleted. '
+      'Empty the bin?',
+      'Everything in the bin will be permanently deleted. '
           'This cannot be undone.',
       'Empty bin',
     );
@@ -219,7 +219,7 @@ class _StorageScreenState extends State<StorageScreen> {
       _exitSelect();
       if (mounted) _load();
     } catch (_) {
-      _snack("Couldn't empty the recycle bin.");
+      _snack("Couldn't empty the bin.");
     }
   }
 
@@ -254,7 +254,7 @@ class _StorageScreenState extends State<StorageScreen> {
           : AppBar(
               // Keep Back; the drawer opens with a slide from the left.
               leading: const BackButton(),
-              title: Text(_isBin ? 'Recycle bin' : 'Archive'),
+              title: Text(_isBin ? 'Bin' : 'Archive'),
               actions: [
                 if (hasEntries)
                   IconButton(
@@ -266,7 +266,7 @@ class _StorageScreenState extends State<StorageScreen> {
                   IconButton(
                     onPressed: _emptyBin,
                     icon: const Icon(Icons.delete_sweep_outlined),
-                    tooltip: 'Empty recycle bin',
+                    tooltip: 'Empty the bin',
                   ),
               ],
             ),
@@ -312,7 +312,7 @@ class _StorageScreenState extends State<StorageScreen> {
     if (entries.isEmpty) {
       return StateMessage(
         icon: _isBin ? Icons.delete_outline : Icons.archive_outlined,
-        title: _isBin ? 'Recycle bin is empty' : 'Nothing archived yet',
+        title: _isBin ? 'The bin is empty' : 'Nothing archived yet',
         message: _isBin
             ? 'Spaces and items you delete stay here until you delete them '
                   'for good.'

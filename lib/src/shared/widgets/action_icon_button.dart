@@ -13,35 +13,27 @@ class ActionIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     this.iconSize = 21,
-    this.size = 40,
-    this.selected = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
   final double iconSize;
-  final double size;
 
-  /// An "on" toggle: tinted with the accent colour.
-  final bool selected;
+  /// The tap area: the smallest comfortable touch target.
+  static const Size _size = Size(48, 48);
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
-      isSelected: selected,
-      icon: Icon(
-        icon,
-        size: iconSize,
-        color: selected ? Theme.of(context).colorScheme.primary : null,
-      ),
+      icon: Icon(icon, size: iconSize),
       style: IconButton.styleFrom(
         shape: const CircleBorder(),
-        fixedSize: Size(size, size),
-        minimumSize: Size(size, size),
-        maximumSize: Size(size, size),
+        fixedSize: _size,
+        minimumSize: _size,
+        maximumSize: _size,
         padding: EdgeInsets.zero,
       ),
     );

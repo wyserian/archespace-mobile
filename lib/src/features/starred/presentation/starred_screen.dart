@@ -160,8 +160,9 @@ class _StarredScreenState extends State<StarredScreen>
       title: 'Move space to bin?',
       message:
           '"${space.name.isEmpty ? 'Untitled' : space.name}" and its items '
-          'will be moved to the recycle bin.',
+          'will be moved to the bin.',
       confirmLabel: 'Move to bin',
+      destructive: true,
     );
     if (!ok) return;
     try {
@@ -319,6 +320,13 @@ class _StarredScreenState extends State<StarredScreen>
     },
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
+    onSetTags: _offline
+        ? null
+        : (tags) async {
+            final ok = await saveSpaceTags(context, space, tags);
+            if (ok && mounted) _load();
+            return ok;
+          },
   );
 
   Widget _itemCard(SpaceItem item, String where) {

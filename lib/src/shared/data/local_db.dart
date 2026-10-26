@@ -16,7 +16,7 @@ import 'package:archespace_mobile/src/shared/util/uuid.dart';
 /// It mirrors what the database does for these tables (the web repo's
 /// schema.sql): column defaults, `updated_at`, cascading deletes, the
 /// read-only space guards and the vault PIN lockout. Like the server, it never
-/// empties the recycle bin by itself. The web app's local mode works the same
+/// empties the bin by itself. The web app's local mode works the same
 /// way.
 class LocalDb implements Db {
   LocalDb(this._store);

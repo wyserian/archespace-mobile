@@ -220,7 +220,6 @@ class SpaceRepository {
     required String name,
     String description = '',
     String? color,
-    List<String> tags = const [],
     String? parentId,
   }) async {
     final userId = currentUserId();
@@ -239,19 +238,19 @@ class SpaceRepository {
       'color': color,
       // `tags` is jsonb NOT NULL; always store an encrypted array (matching the
       // web) rather than null, which would violate the constraint.
-      'tags': await _encTags(tags),
+      'tags': await _encTags(const []),
       'position': existing.length,
     };
     if (parentId != null) payload['parent_id'] = parentId;
     await _client.from('spaces').insert(payload);
   }
 
+  /// Save a space's details. Tags are saved on their own ([setTags]).
   Future<void> updateSpace({
     required String id,
     required String name,
     String description = '',
     String? color,
-    List<String> tags = const [],
   }) async {
     await _client
         .from('spaces')
@@ -259,9 +258,15 @@ class SpaceRepository {
           'name': await _enc(name),
           'description': await _enc(description),
           'color': color,
-          // `tags` is jsonb NOT NULL; store an encrypted array, never null.
-          'tags': await _encTags(tags),
         })
+        .eq('id', id);
+  }
+
+  /// Replace a space's tags (added and removed on its card).
+  Future<void> setTags(String id, List<String> tags) async {
+    await _client
+        .from('spaces')
+        .update({'tags': await _encTags(tags)})
         .eq('id', id);
   }
 
@@ -322,7 +327,7 @@ class SpaceRepository {
   Future<void> moveSpaces(List<String> ids, String? parentId) =>
       SpaceLifecycle().move(ids, parentId);
 
-  /// Soft-delete to the recycle bin (sets deleted_at), matching the web, with
+  /// Soft-delete to the bin (sets deleted_at), matching the web, with
   /// the space's sub-spaces at every level.
   Future<void> deleteSpace(String id) => SpaceLifecycle().delete([id]);
 

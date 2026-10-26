@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
@@ -8,9 +7,11 @@ import 'package:archespace_mobile/src/features/vault/application/vault_session.d
 import 'package:archespace_mobile/src/shared/util/errors.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
-/// Create or edit a space (name, description, colour, tags). Pass [existing] to
-/// edit. Pops `true` on save so the caller can refresh.
+/// Create or edit a space (name, description, colour); tags are added and
+/// removed on the space card. Pass [existing] to edit. Pops `true` on save so
+/// the caller can refresh.
 class SpaceEditorScreen extends StatefulWidget {
   const SpaceEditorScreen({super.key, this.existing, this.parentId});
 
@@ -30,12 +31,8 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
   late final TextEditingController _description = TextEditingController(
     text: widget.existing?.description ?? '',
   );
-  final TextEditingController _tagInput = TextEditingController();
 
   late String? _color = widget.existing?.color;
-  late final List<String> _tags = List<String>.of(
-    widget.existing?.tags ?? const [],
-  );
 
   bool _saving = false;
 
@@ -43,23 +40,10 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
   void dispose() {
     _name.dispose();
     _description.dispose();
-    _tagInput.dispose();
     super.dispose();
   }
 
-  void _addTags(String raw) {
-    final added = raw
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty && !_tags.contains(t));
-    setState(() {
-      _tags.addAll(added);
-      _tagInput.clear();
-    });
-  }
-
   Future<void> _save() async {
-    _addTags(_tagInput.text); // fold any pending text into tags
     final name = _name.text.trim();
     if (name.isEmpty) {
       showErrorSnack(context, 'Enter a name for the space.');
@@ -74,14 +58,12 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
           name: name,
           description: _description.text.trim(),
           color: _color,
-          tags: _tags,
         );
       } else {
         await repo.createSpace(
           name: name,
           description: _description.text.trim(),
           color: _color,
-          tags: _tags,
           parentId: widget.parentId,
         );
       }
@@ -96,13 +78,9 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
 
   bool _isDirty() {
     final e = widget.existing;
-    final tags = [..._tags];
-    final pending = _tagInput.text.trim();
-    if (pending.isNotEmpty) tags.add(pending);
     return _name.text.trim() != (e?.name ?? '').trim() ||
         _description.text.trim() != (e?.description ?? '').trim() ||
-        _color != e?.color ||
-        !listEquals(tags, e?.tags ?? const []);
+        _color != e?.color;
   }
 
   // Save on leave so edits aren't lost. If there's nothing to save, just close;
@@ -178,10 +156,6 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
               _label('Colour'),
               const SizedBox(height: 8),
               _colorPicker(),
-              const SizedBox(height: 20),
-              _label('Tags'),
-              const SizedBox(height: 8),
-              _tagsEditor(),
             ],
           ),
         ),
@@ -207,7 +181,7 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
         button: true,
         selected: isSelected,
         label: id == null ? 'No colour' : '$id colour',
-        child: GestureDetector(
+        child: TapArea(
           onTap: () => setState(() => _color = id),
           child: Container(
             width: 40,
@@ -232,43 +206,11 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
     }
 
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: 4,
+      runSpacing: 4,
       children: [
         dot(null, null),
         for (final entry in kSpaceColors.entries) dot(entry.key, entry.value),
-      ],
-    );
-  }
-
-  Widget _tagsEditor() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_tags.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final tag in _tags)
-                  Chip(
-                    label: Text(tag),
-                    onDeleted: () => setState(() => _tags.remove(tag)),
-                  ),
-              ],
-            ),
-          ),
-        TextField(
-          controller: _tagInput,
-          textInputAction: TextInputAction.done,
-          onSubmitted: _addTags,
-          decoration: const InputDecoration(
-            hintText: 'Add a tag and press Enter',
-            isDense: true,
-          ),
-        ),
       ],
     );
   }

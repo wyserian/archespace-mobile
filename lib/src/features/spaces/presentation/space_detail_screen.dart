@@ -22,6 +22,7 @@ import 'package:archespace_mobile/src/shared/realtime/reload_when_shown.dart';
 import 'package:archespace_mobile/src/shared/realtime/table_watcher.dart';
 import 'package:archespace_mobile/src/shared/sort/sort.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_icon_button.dart';
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
@@ -32,6 +33,7 @@ import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
+import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
 class SpaceDetailScreen extends StatefulWidget {
   const SpaceDetailScreen({super.key, required this.space, this.focusItemId});
@@ -72,6 +74,10 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
 
   /// The spaces above this one, top first.
   List<Space> _ancestors = const [];
+
+  // This space as last loaded (its name may have been edited here).
+  Space? _loaded;
+  Space get _space => _loaded ?? widget.space;
   Object? _error;
   bool _offline = false;
   TableWatcher? _watcher;
@@ -204,6 +210,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       if (mounted) {
         setState(() {
           _items = result.items;
+          _loaded = byId[widget.space.id] ?? _loaded;
           _subSpaces = [
             for (final s in spaces)
               if (s.parentId == widget.space.id) s,
@@ -283,9 +290,9 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Future<void> _deleteSubSpace(Space sub) async {
     final ok = await confirmAction(
       context,
-      title: 'Move space to recycle bin?',
-      message: 'This space and all its items will be moved to the recycle bin.',
-      confirmLabel: 'Move to recycle bin',
+      title: 'Move space to bin?',
+      message: 'This space and all its items will be moved to the bin.',
+      confirmLabel: 'Move to bin',
       destructive: true,
     );
     if (ok) {
@@ -337,6 +344,13 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       "Couldn't archive the space.",
     ),
     onDelete: () => _deleteSubSpace(sub),
+    onSetTags: _offline
+        ? null
+        : (tags) async {
+            final ok = await saveSpaceTags(context, sub, tags);
+            if (ok && mounted) _load();
+            return ok;
+          },
   );
 
   // Selection mode
@@ -501,7 +515,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       final ok = await confirmAction(
         context,
         title: 'Move $label to bin?',
-        message: 'They and their items go to the recycle bin.',
+        message: 'They and their items go to the bin.',
         confirmLabel: 'Move to bin',
         destructive: true,
       );
@@ -540,108 +554,134 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
 
   Future<void> _exportSpace() => exportPdf(
     build: () => PdfExporter.buildSpace(
-      widget.space.name,
+      _space.name,
       _items ?? const [],
       subSpaceNames: [
         for (final s in _subSpaces) s.name.isEmpty ? 'Untitled' : s.name,
       ],
     ),
-    filename: pdfFileName(widget.space.name),
+    filename: pdfFileName(_space.name),
     label: 'space',
   );
 
-  /// A compact app-bar icon action with a consistent circular tap splash.
-  Widget _barAction(
-    IconData icon,
-    String tooltip,
-    VoidCallback onPressed, {
-    double size = 40,
-  }) => ActionIconButton(
-    icon: icon,
-    tooltip: tooltip,
-    onPressed: onPressed,
-    size: size,
-  );
-
-  /// The normal-mode app-bar actions: the space-level export, shown directly.
-  /// The list controls (view, sort, select) live in the body header instead
-  /// (see [_buildItemsHeader]).
-  List<Widget> _buildBarActions(bool hasItems) {
-    // New sub-space is in the create button's dial with Add item (see
-    // CreateFabs).
-    return [
-      ActionIconButton(
-        icon: Icons.shield_outlined,
-        tooltip: _locked ? 'Protected - tap to remove protection' : 'Protect',
-        onPressed: _toggleLock,
-        selected: _locked,
-      ),
-      ActionIconButton(
-        icon: Icons.edit_off_outlined,
-        tooltip: _readOnly ? 'Read-only - tap to allow editing' : 'Read-only',
-        onPressed: _toggleReadOnly,
-        selected: _readOnly,
-      ),
-      if (hasItems)
-        _barAction(Icons.picture_as_pdf_outlined, 'Export PDF', _exportSpace),
-      const SizedBox(width: 4),
-    ];
+  Future<void> _editSpace() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => SpaceEditorScreen(existing: _space)),
+    );
+    if (saved == true && mounted) _load();
   }
+
+  /// A compact app-bar icon action with a consistent circular tap splash.
+  Widget _barAction(IconData icon, String tooltip, VoidCallback onPressed) =>
+      ActionIconButton(icon: icon, tooltip: tooltip, onPressed: onPressed);
+
+  /// The space's own actions, in one menu: only those that make sense while
+  /// inside it (the rest are on its card). Grouped like the web: content
+  /// (Edit, Export PDF), then keep (Read-only, Protect). The list controls
+  /// (view, sort, select) live in the body header (see [_buildItemsHeader]);
+  /// New sub-space is in the create button's dial.
+  List<Widget> _buildBarActions(bool hasItems) => [
+    ActionMenuButton(
+      tooltip: 'Space actions',
+      entries: [
+        if (!_readOnly)
+          ActionMenuEntry(
+            group: 'content',
+            icon: Icons.edit_outlined,
+            label: 'Edit',
+            onSelected: _editSpace,
+          ),
+        if (hasItems)
+          ActionMenuEntry(
+            group: 'content',
+            icon: Icons.file_download_outlined,
+            label: 'Export PDF',
+            onSelected: _exportSpace,
+          ),
+        ActionMenuEntry(
+          group: 'keep',
+          icon: _readOnly ? Icons.edit_outlined : Icons.edit_off_outlined,
+          label: _readOnly ? 'Allow editing' : 'Read-only',
+          onSelected: _toggleReadOnly,
+        ),
+        ActionMenuEntry(
+          group: 'keep',
+          icon: _locked
+              ? Icons.remove_moderator_outlined
+              : Icons.shield_outlined,
+          label: _locked ? 'Remove protection' : 'Protect',
+          onSelected: _toggleLock,
+        ),
+      ],
+    ),
+    const SizedBox(width: 4),
+  ];
 
   /// A fixed row (not scrolling) with a compact in-space search field and the
   /// list controls (view, sort, select) inline, in place of an "Items" label.
   Widget _buildItemsHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 4, 2),
+      padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 34,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Icon(Icons.search, size: 17, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocus,
-                      onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(fontSize: 13.5),
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration.collapsed(
-                        hintText: 'Search this space',
-                        hintStyle: TextStyle(
-                          fontSize: 13.5,
-                          color: scheme.onSurfaceVariant,
+            // The whole 48-tall row focuses the slimmer field.
+            child: TapArea(
+              onTap: _searchFocus.requestFocus,
+              child: Container(
+                height: 34,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.search,
+                      size: 17,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        onChanged: (v) => setState(() => _query = v),
+                        style: const TextStyle(fontSize: 13.5),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration.collapsed(
+                          hintText: 'Search this space',
+                          hintStyle: TextStyle(
+                            fontSize: 13.5,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (_query.isNotEmpty)
-                    InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () {
-                        _searchController.clear();
-                        setState(() => _query = '');
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(
-                          Icons.close,
-                          size: 16,
-                          color: scheme.onSurfaceVariant,
+                    if (_query.isNotEmpty)
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  const SizedBox(width: 6),
-                ],
+                    const SizedBox(width: 2),
+                  ],
+                ),
               ),
             ),
           ),
@@ -652,13 +692,11 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                 : Icons.grid_view_outlined,
             _view == 'grid' ? 'List view' : 'Grid view',
             () => _setView(_view == 'grid' ? 'list' : 'grid'),
-            size: 36,
           ),
-          SortMenu(value: _sort, onChanged: _setSort, size: 36),
+          SortMenu(value: _sort, onChanged: _setSort),
           // Every bulk action changes something here, so there's no
           // selecting while read-only.
-          if (!_readOnly)
-            _barAction(Icons.checklist, 'Select', _enterSelect, size: 36),
+          if (!_readOnly) _barAction(Icons.checklist, 'Select', _enterSelect),
         ],
       ),
     );
@@ -683,13 +721,30 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     if (mounted) setState(() {});
   }
 
-  /// The space's name, with the spaces above it on a small line above
-  /// ("A › B", or "A › … › D" when deeper).
+  /// The space's name (with a shield while protected), with the spaces above
+  /// it on a small line above ("A › B", or "A › … › D" when deeper).
   Widget _title(BuildContext context) {
-    final name = Text(
-      widget.space.name.isEmpty ? 'Untitled' : widget.space.name,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    final name = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            _space.name.isEmpty ? 'Untitled' : _space.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (_locked)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Icon(
+              Icons.shield_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+              semanticLabel: 'Protected',
+            ),
+          ),
+      ],
     );
     if (_ancestors.isEmpty) return name;
     final names = [

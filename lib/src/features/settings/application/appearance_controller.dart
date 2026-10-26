@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -99,22 +97,5 @@ class AppearanceController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAccent, id);
-  }
-
-  /// Shuffle the look: pick a random accent (never the current one) and flip
-  /// the theme between light and dark. [currentBrightness] is the brightness
-  /// actually showing now, so a "system" theme flips to its visible opposite.
-  Future<void> randomize(Brightness currentBrightness) async {
-    final others = kAccentOptions.where((a) => a.id != _accentId).toList();
-    if (others.isNotEmpty) {
-      _accentId = others[Random().nextInt(others.length)].id;
-    }
-    _themeMode = currentBrightness == Brightness.dark
-        ? ThemeMode.light
-        : ThemeMode.dark;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kAccent, _accentId);
-    await prefs.setString(_kMode, _themeMode.name);
   }
 }
