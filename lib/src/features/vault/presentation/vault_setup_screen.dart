@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
+import 'package:archespace_mobile/src/shared/widgets/secret_field.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 /// First-run vault creation for a freshly registered account (no vault yet).
@@ -94,7 +95,6 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
       title: SignOutText.title,
       message: SignOutText.message,
       confirmLabel: SignOutText.label,
-      destructive: true,
     );
     if (ok) await _auth.signOut();
   }
@@ -110,15 +110,16 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
   Widget build(BuildContext context) {
     final recoveryCode = _recoveryCode;
     return Scaffold(
+      // No title: the form names itself. The way out is spelled out so it
+      // can't be mistaken for part of the form.
       appBar: AppBar(
-        title: const Text('Create vault PIN'),
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
+          TextButton(
             onPressed: _confirmSignOut,
-            icon: const Icon(Icons.logout),
-            tooltip: SignOutText.label,
+            child: Text(SignOutText.label),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -161,24 +162,18 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),
-        TextField(
+        SecretField(
           controller: _pin,
-          obscureText: true,
+          label: 'New vault PIN',
           enabled: !_loading,
-          autocorrect: false,
-          enableSuggestions: false,
           onChanged: (_) => setState(() => _error = null),
-          decoration: const InputDecoration(labelText: 'New vault PIN'),
         ),
         const SizedBox(height: 12),
-        TextField(
+        SecretField(
           controller: _confirm,
-          obscureText: true,
+          label: 'Confirm vault PIN',
           enabled: !_loading,
-          autocorrect: false,
-          enableSuggestions: false,
           onSubmitted: (_) => _create(),
-          decoration: const InputDecoration(labelText: 'Confirm vault PIN'),
         ),
         if (warning != null) ...[
           const SizedBox(height: 12),

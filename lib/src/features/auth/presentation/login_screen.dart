@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
 import 'package:archespace_mobile/src/features/auth/domain/email.dart';
 import 'package:archespace_mobile/src/features/auth/domain/password_policy.dart';
+import 'package:archespace_mobile/src/features/auth/presentation/widgets/password_rules.dart';
 import 'package:archespace_mobile/src/shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/config/legal.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -234,10 +235,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         _isSignUp
                             ? 'Sign up for ArcheSpace'
                             : 'Sign in to ArcheSpace',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -262,7 +261,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       autofillHints: _isSignUp
                           ? const [AutofillHints.newPassword]
                           : const [AutofillHints.password],
-                      onChanged: _clearError,
+                      onChanged: (value) {
+                        _clearError(value);
+                        // The rules below tick off as you type.
+                        if (_isSignUp) setState(() {});
+                      },
                       onSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -280,6 +283,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     if (_isSignUp) ...[
+                      const SizedBox(height: 8),
+                      PasswordRules(password: _password.text),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _confirm,

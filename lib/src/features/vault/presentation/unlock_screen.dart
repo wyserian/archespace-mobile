@@ -10,6 +10,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/secret_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
@@ -174,6 +175,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       _error = null;
       _recoveryCode.clear();
       _newPin.clear();
+      _confirmPin.clear();
     });
   }
 
@@ -226,7 +228,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
       return;
     }
     if (!_resetConfirmed) {
-      setState(() => _error = 'Tick the box to confirm this deletes your data.');
+      setState(
+        () => _error = 'Tick the box to confirm this deletes your data.',
+      );
       return;
     }
 
@@ -256,7 +260,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
     } on VaultException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = 'Could not reset the vault. Check your connection.');
+      setState(
+        () => _error = 'Could not reset the vault. Check your connection.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -274,6 +280,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
     }
     if (_newPin.text.isEmpty) {
       setState(() => _error = 'Enter a new vault PIN.');
+      return;
+    }
+    // A typo here would lock the vault, with the recovery code just used up.
+    if (_newPin.text != _confirmPin.text) {
+      setState(() => _error = 'PINs do not match.');
       return;
     }
 
@@ -314,7 +325,6 @@ class _UnlockScreenState extends State<UnlockScreen> {
       title: SignOutText.title,
       message: SignOutText.message,
       confirmLabel: SignOutText.label,
-      destructive: true,
     );
     if (ok) await _auth.signOut();
   }
@@ -323,20 +333,15 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Widget build(BuildContext context) {
     final newRecoveryCode = _newRecoveryCode;
     return Scaffold(
+      // No title: each form names itself. The way out is spelled out so it
+      // can't be mistaken for part of the form.
       appBar: AppBar(
-        title: Text(
-          _resetVaultMode
-              ? 'Reset vault'
-              : _forgotPin
-              ? 'Reset vault PIN'
-              : 'Unlock vault',
-        ),
         actions: [
-          IconButton(
+          TextButton(
             onPressed: _confirmSignOut,
-            icon: const Icon(Icons.logout),
-            tooltip: SignOutText.label,
+            child: Text(SignOutText.label),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -384,14 +389,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        TextField(
+        SecretField(
           controller: _pin,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
+          label: 'PIN or passphrase',
           enabled: !_loading,
           onSubmitted: (_) => _unlockWithPin(),
-          decoration: const InputDecoration(labelText: 'PIN or passphrase'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
@@ -451,15 +453,19 @@ class _UnlockScreenState extends State<UnlockScreen> {
           decoration: const InputDecoration(labelText: 'Recovery code'),
         ),
         const SizedBox(height: 12),
-        TextField(
+        SecretField(
           controller: _newPin,
-          obscureText: true,
+          label: 'New vault PIN',
           enabled: !_loading,
-          autocorrect: false,
-          enableSuggestions: false,
+          onChanged: (_) => setState(() => _error = null),
+        ),
+        const SizedBox(height: 12),
+        SecretField(
+          controller: _confirmPin,
+          label: 'Confirm vault PIN',
+          enabled: !_loading,
           onChanged: (_) => setState(() => _error = null),
           onSubmitted: (_) => _resetWithRecovery(),
-          decoration: const InputDecoration(labelText: 'New vault PIN'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
@@ -532,48 +538,67 @@ class _UnlockScreenState extends State<UnlockScreen> {
         ),
         const SizedBox(height: 16),
         if (!AppMode.isLocal) ...[
-          TextField(
+          SecretField(
             controller: _accountPassword,
-            obscureText: true,
+            label: 'Account password',
             enabled: !_loading,
             onChanged: (_) => setState(() => _error = null),
-            decoration: const InputDecoration(labelText: 'Account password'),
           ),
           const SizedBox(height: 12),
         ],
-        TextField(
+        SecretField(
           controller: _newPin,
-          obscureText: true,
+          label: 'New vault PIN',
           enabled: !_loading,
-          autocorrect: false,
-          enableSuggestions: false,
           onChanged: (_) => setState(() => _error = null),
-          decoration: const InputDecoration(labelText: 'New vault PIN'),
         ),
         const SizedBox(height: 12),
-        TextField(
+        SecretField(
           controller: _confirmPin,
-          obscureText: true,
+          label: 'Confirm vault PIN',
           enabled: !_loading,
-          autocorrect: false,
-          enableSuggestions: false,
           onChanged: (_) => setState(() => _error = null),
-          decoration: const InputDecoration(labelText: 'Confirm vault PIN'),
         ),
-        const SizedBox(height: 4),
-        CheckboxListTile(
-          value: _resetConfirmed,
-          onChanged: _loading
+        const SizedBox(height: 10),
+        // Laid out like the sign-up terms checkbox: flush with the fields.
+        InkWell(
+          onTap: _loading
               ? null
-              : (v) => setState(() {
-                  _resetConfirmed = v ?? false;
+              : () => setState(() {
+                  _resetConfirmed = !_resetConfirmed;
                   _error = null;
                 }),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          title: const Text(
-            'I understand this permanently deletes all my data.',
-            style: TextStyle(fontSize: 12),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: _resetConfirmed,
+                    onChanged: _loading
+                        ? null
+                        : (v) => setState(() {
+                            _resetConfirmed = v ?? false;
+                            _error = null;
+                          }),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      'I understand this permanently deletes all my data.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         if (_error != null) ...[

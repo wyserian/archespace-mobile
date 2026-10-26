@@ -5,6 +5,9 @@ import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
 import 'package:archespace_mobile/src/features/auth/data/mfa_service.dart';
 import 'package:archespace_mobile/src/features/auth/domain/totp_code.dart';
 import 'package:archespace_mobile/src/features/vault/domain/recovery_code.dart';
+import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 
 /// Second-factor step shown after the password and before the vault. Accepts a
 /// 6-digit authenticator code, or a one-time backup code (which turns off 2FA so
@@ -78,17 +81,28 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
     }
   }
 
+  Future<void> _confirmSignOut() async {
+    final ok = await confirmAction(
+      context,
+      title: SignOutText.title,
+      message: SignOutText.message,
+      confirmLabel: SignOutText.label,
+    );
+    if (ok) await _auth.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // As on the vault screens: no title (the form names itself) and a
+      // spelled-out way out.
       appBar: AppBar(
-        title: const Text('Two-factor authentication'),
         actions: [
-          IconButton(
-            onPressed: () => _auth.signOut(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+          TextButton(
+            onPressed: _confirmSignOut,
+            child: Text(SignOutText.label),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -101,11 +115,10 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    _useBackup
+                  IconTile(
+                    icon: _useBackup
                         ? Icons.vpn_key_outlined
                         : Icons.verified_user_outlined,
-                    size: 48,
                   ),
                   const SizedBox(height: 16),
                   Text(

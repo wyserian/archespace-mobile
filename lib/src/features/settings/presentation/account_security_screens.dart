@@ -11,6 +11,9 @@ import 'package:archespace_mobile/src/features/auth/domain/totp_code.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/secret_field.dart';
+import 'package:archespace_mobile/src/features/auth/presentation/widgets/password_rules.dart';
 
 /// Returns the signed-in user id, or throws if the session vanished.
 String _requireUserId(AuthService auth) {
@@ -40,7 +43,6 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
   final TextEditingController _password = TextEditingController();
   final TextEditingController _code = TextEditingController();
 
-  bool _obscure = true;
   bool _loading = false;
   bool _codeStep = false;
 
@@ -157,12 +159,10 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
                 decoration: const InputDecoration(labelText: 'New email'),
               ),
               const SizedBox(height: 12),
-              _ObscureField(
+              SecretField(
                 controller: _password,
                 label: 'Login password',
-                obscure: _obscure,
                 enabled: !_loading,
-                onToggle: () => setState(() => _obscure = !_obscure),
               ),
               const SizedBox(height: 20),
               _SubmitButton(
@@ -211,7 +211,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final TextEditingController _next = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
 
-  bool _obscure = true;
   bool _loading = false;
   bool _resetLoading = false;
 
@@ -315,28 +314,26 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 20),
-            _ObscureField(
+            SecretField(
               controller: _current,
               label: 'Current password',
-              obscure: _obscure,
               enabled: !_loading,
-              onToggle: () => setState(() => _obscure = !_obscure),
             ),
             const SizedBox(height: 12),
-            _ObscureField(
+            SecretField(
               controller: _next,
               label: 'New password',
-              obscure: _obscure,
               enabled: !_loading,
-              onToggle: () => setState(() => _obscure = !_obscure),
+              // The rules below tick off as you type.
+              onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: 8),
+            PasswordRules(password: _next.text),
             const SizedBox(height: 12),
-            _ObscureField(
+            SecretField(
               controller: _confirm,
               label: 'Confirm new password',
-              obscure: _obscure,
               enabled: !_loading,
-              onToggle: () => setState(() => _obscure = !_obscure),
             ),
             const SizedBox(height: 20),
             _SubmitButton(
@@ -446,20 +443,20 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 20),
-            _PinField(
+            SecretField(
               controller: _current,
               label: 'Current vault PIN',
               enabled: !_loading,
             ),
             const SizedBox(height: 12),
-            _PinField(
+            SecretField(
               controller: _next,
               label: 'New vault PIN',
               enabled: !_loading,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
-            _PinField(
+            SecretField(
               controller: _confirm,
               label: 'Confirm new vault PIN',
               enabled: !_loading,
@@ -542,36 +539,39 @@ class _SetupRecoveryScreenState extends State<SetupRecoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final pinReady = _pin.text.isNotEmpty;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Recovery code')),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(
-              'Use your current vault PIN to create or replace your one-time '
-              'recovery code. It can reset your PIN if you forget it.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 20),
-            _PinField(
-              controller: _pin,
-              label: 'Current vault PIN',
-              enabled: !_loading,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 20),
-            _SubmitButton(
-              label: 'Create recovery code',
-              loading: _loading,
-              onPressed: pinReady ? _create : null,
-            ),
-            if (_code != null) ...[
+    return _UnsavedCodeGuard(
+      code: _code,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Recovery code')),
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(
+                'Use your current vault PIN to create or replace your one-time '
+                'recovery code. It can reset your PIN if you forget it.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 20),
-              _RecoveryCodeCard(code: _code!),
+              SecretField(
+                controller: _pin,
+                label: 'Current vault PIN',
+                enabled: !_loading,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 20),
+              _SubmitButton(
+                label: 'Create recovery code',
+                loading: _loading,
+                onPressed: pinReady ? _create : null,
+              ),
+              if (_code != null) ...[
+                const SizedBox(height: 20),
+                _RecoveryCodeCard(code: _code!),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -658,53 +658,56 @@ class _ResetPinScreenState extends State<ResetPinScreen> {
     final warning = validateVaultPin(_next.text) == null
         ? getWeakPinWarning(_next.text)
         : null;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Reset PIN with recovery code')),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(
-              'Use your recovery code to set a new vault PIN.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _recoveryCode,
-              enabled: !_loading,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: const InputDecoration(labelText: 'Recovery code'),
-            ),
-            const SizedBox(height: 12),
-            _PinField(
-              controller: _next,
-              label: 'New vault PIN',
-              enabled: !_loading,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            _PinField(
-              controller: _confirm,
-              label: 'Confirm new vault PIN',
-              enabled: !_loading,
-            ),
-            if (warning != null) ...[
-              const SizedBox(height: 12),
-              _WeakPinNote(message: warning),
-            ],
-            const SizedBox(height: 20),
-            _SubmitButton(
-              label: 'Reset PIN with recovery code',
-              loading: _loading,
-              onPressed: _reset,
-            ),
-            if (_newCode != null) ...[
+    return _UnsavedCodeGuard(
+      code: _newCode,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Reset PIN with recovery code')),
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(
+                'Use your recovery code to set a new vault PIN.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 20),
-              _RecoveryCodeCard(code: _newCode!),
+              TextField(
+                controller: _recoveryCode,
+                enabled: !_loading,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(labelText: 'Recovery code'),
+              ),
+              const SizedBox(height: 12),
+              SecretField(
+                controller: _next,
+                label: 'New vault PIN',
+                enabled: !_loading,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              SecretField(
+                controller: _confirm,
+                label: 'Confirm new vault PIN',
+                enabled: !_loading,
+              ),
+              if (warning != null) ...[
+                const SizedBox(height: 12),
+                _WeakPinNote(message: warning),
+              ],
+              const SizedBox(height: 20),
+              _SubmitButton(
+                label: 'Reset PIN with recovery code',
+                loading: _loading,
+                onPressed: _reset,
+              ),
+              if (_newCode != null) ...[
+                const SizedBox(height: 20),
+                _RecoveryCodeCard(code: _newCode!),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -727,7 +730,6 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   final TextEditingController _password = TextEditingController();
   final TextEditingController _pin = TextEditingController();
 
-  bool _obscure = true;
   bool _loading = false;
 
   @override
@@ -751,7 +753,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       return;
     }
     if (_password.text.isEmpty || _pin.text.isEmpty || email == null) {
-      showErrorVia(messenger, scheme, 'Enter your login password and vault PIN.');
+      showErrorVia(
+        messenger,
+        scheme,
+        'Enter your login password and vault PIN.',
+      );
       return;
     }
 
@@ -845,15 +851,17 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               decoration: const InputDecoration(labelText: 'Confirmation text'),
             ),
             const SizedBox(height: 12),
-            _ObscureField(
+            SecretField(
               controller: _password,
               label: 'Login password',
-              obscure: _obscure,
               enabled: !_loading,
-              onToggle: () => setState(() => _obscure = !_obscure),
             ),
             const SizedBox(height: 12),
-            _PinField(controller: _pin, label: 'Vault PIN', enabled: !_loading),
+            SecretField(
+              controller: _pin,
+              label: 'Vault PIN',
+              enabled: !_loading,
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _loading ? null : _delete,
@@ -881,65 +889,6 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
 // Shared widgets.
 
-class _ObscureField extends StatelessWidget {
-  const _ObscureField({
-    required this.controller,
-    required this.label,
-    required this.obscure,
-    required this.enabled,
-    required this.onToggle,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final bool obscure;
-  final bool enabled;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility : Icons.visibility_off),
-          onPressed: onToggle,
-        ),
-      ),
-    );
-  }
-}
-
-class _PinField extends StatelessWidget {
-  const _PinField({
-    required this.controller,
-    required this.label,
-    required this.enabled,
-    this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final bool enabled;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: true,
-      enabled: enabled,
-      autocorrect: false,
-      enableSuggestions: false,
-      onChanged: onChanged,
-      decoration: InputDecoration(labelText: label),
-    );
-  }
-}
-
 class _WeakPinNote extends StatelessWidget {
   const _WeakPinNote({required this.message});
 
@@ -964,6 +913,46 @@ class _WeakPinNote extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Once a new recovery code is shown ([code] set), leaving asks whether it
+/// was saved: it's shown only once, and the old code no longer works.
+class _UnsavedCodeGuard extends StatefulWidget {
+  const _UnsavedCodeGuard({required this.code, required this.child});
+
+  final String? code;
+  final Widget child;
+
+  @override
+  State<_UnsavedCodeGuard> createState() => _UnsavedCodeGuardState();
+}
+
+class _UnsavedCodeGuardState extends State<_UnsavedCodeGuard> {
+  bool _confirmed = false;
+
+  Future<void> _askBeforeLeaving() async {
+    final saved = await confirmAction(
+      context,
+      title: 'Saved your new recovery code?',
+      message:
+          "It's shown only once and replaces your old one. Without it, a "
+          "forgotten PIN can't be reset.",
+      confirmLabel: 'I saved it',
+      cancelLabel: 'Show it again',
+    );
+    if (!saved || !mounted) return;
+    setState(() => _confirmed = true);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: widget.code == null || _confirmed,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _askBeforeLeaving();
+    },
+    child: widget.child,
+  );
 }
 
 class _RecoveryCodeCard extends StatelessWidget {
