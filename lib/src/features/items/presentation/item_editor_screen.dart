@@ -381,7 +381,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           icon: _locked
               ? Icons.remove_moderator_outlined
               : Icons.shield_outlined,
-          label: _locked ? 'Remove protection' : 'Protect',
+          label: _locked ? 'Unprotect' : 'Protect',
           onSelected: () => _run((item) async {
             if (await w.onToggleLock!(item) && mounted) {
               setState(() => _locked = !_locked);

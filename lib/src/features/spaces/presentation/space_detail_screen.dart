@@ -700,7 +700,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           icon: _locked
               ? Icons.remove_moderator_outlined
               : Icons.shield_outlined,
-          label: _locked ? 'Remove protection' : 'Protect',
+          label: _locked ? 'Unprotect' : 'Protect',
           onSelected: _toggleLock,
         ),
         ActionMenuEntry(

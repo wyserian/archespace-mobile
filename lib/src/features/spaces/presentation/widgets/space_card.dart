@@ -456,7 +456,7 @@ class _SpaceCardState extends State<SpaceCard> {
             icon: space.locked
                 ? Icons.remove_moderator_outlined
                 : Icons.shield_outlined,
-            label: space.locked ? 'Remove protection' : 'Protect',
+            label: space.locked ? 'Unprotect' : 'Protect',
             onSelected: w.onToggleLock!,
           ),
         ActionMenuEntry(

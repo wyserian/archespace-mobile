@@ -440,9 +440,7 @@ class _ItemCardState extends State<ItemCard>
                               icon: item.locked
                                   ? Icons.remove_moderator_outlined
                                   : Icons.shield_outlined,
-                              label: item.locked
-                                  ? 'Remove protection'
-                                  : 'Protect',
+                              label: item.locked ? 'Unprotect' : 'Protect',
                               onSelected: onToggleLock,
                             ),
                           if (onArchive != null)
