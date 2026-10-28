@@ -1,20 +1,26 @@
+import 'package:archespace_mobile/src/features/items/data/item_repository.dart';
+import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_lifecycle.dart';
-import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
+import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 
-/// A space or item that is archived or in the bin.
+/// A space or item that is archived or in the bin, decrypted in full for its
+/// read-only card.
 class StoredEntry {
-  StoredEntry({
-    required this.id,
-    required this.label,
-    required this.isSpace,
-    required this.type,
-  });
+  StoredEntry.space(Space this.space, {this.at}) : item = null;
+  StoredEntry.item(SpaceItem this.item, {this.at}) : space = null;
 
-  final String id;
-  final String label;
-  final bool isSpace;
-  final String type; // 'space' or the item type
+  final Space? space;
+  final SpaceItem? item;
+
+  /// When it was archived or put in the bin.
+  final DateTime? at;
+
+  bool get isSpace => space != null;
+  String get id => space?.id ?? item!.id;
+  String get label => space?.name ?? item!.title;
 }
 
 /// Lists and manages archived / soft-deleted spaces and items. Transitions:
@@ -32,15 +38,17 @@ class StorageRepository {
   Future<List<StoredEntry>> loadArchived() async {
     final spaceRows = await _client
         .from('spaces')
-        .select('id, name')
+        .select('*')
         .not('archived_at', 'is', null)
-        .isFilter('deleted_at', null);
+        .isFilter('deleted_at', null)
+        .order('archived_at', ascending: false);
     final itemRows = await _client
         .from('space_items')
-        .select('id, title, type')
+        .select('*')
         .not('archived_at', 'is', null)
-        .isFilter('deleted_at', null);
-    return _decode(spaceRows, itemRows);
+        .isFilter('deleted_at', null)
+        .order('archived_at', ascending: false);
+    return _decode(spaceRows, itemRows, 'archived_at');
   }
 
   /// Number of archived entries (spaces + items). Selects only ids so nothing
@@ -95,47 +103,46 @@ class StorageRepository {
   Future<List<StoredEntry>> loadDeleted() async {
     final spaceRows = await _client
         .from('spaces')
-        .select('id, name')
-        .not('deleted_at', 'is', null);
+        .select('*')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', ascending: false);
     final itemRows = await _client
         .from('space_items')
-        .select('id, title, type')
-        .not('deleted_at', 'is', null);
-    return _decode(spaceRows, itemRows);
+        .select('*')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', ascending: false);
+    return _decode(spaceRows, itemRows, 'deleted_at');
   }
 
+  /// Decrypt the rows as the dashboard does, with when each was stored
+  /// ([atColumn]). A space's count is the items stored here with it.
   Future<List<StoredEntry>> _decode(
-    List<dynamic> spaces,
-    List<dynamic> items,
+    List<dynamic> spaceRows,
+    List<dynamic> itemRows,
+    String atColumn,
   ) async {
-    final entries = <StoredEntry>[];
-    for (final r in spaces) {
-      entries.add(
-        StoredEntry(
-          id: r['id'] as String,
-          label: await ArcheCrypto.decryptArc1(
-            (r['name'] ?? '') as String,
-            _masterKey,
-          ),
-          isSpace: true,
-          type: 'space',
-        ),
-      );
+    final counts = <String, int>{};
+    for (final r in itemRows) {
+      final sid = r['space_id'] as String?;
+      if (sid != null) counts[sid] = (counts[sid] ?? 0) + 1;
     }
-    for (final r in items) {
-      entries.add(
-        StoredEntry(
-          id: r['id'] as String,
-          label: await ArcheCrypto.decryptArc1(
-            (r['title'] ?? '') as String,
-            _masterKey,
-          ),
-          isSpace: false,
-          type: (r['type'] ?? '') as String,
-        ),
-      );
+    for (final r in spaceRows) {
+      final m = r as Map<String, dynamic>;
+      m['_item_count'] = counts[m['id']] ?? 0;
     }
-    return entries;
+    final at = {
+      for (final r in [...spaceRows, ...itemRows])
+        r['id'] as String: DateTime.tryParse((r[atColumn] ?? '').toString()),
+    };
+    final spaces = await SpaceRepository(_masterKey).decodeRows(spaceRows);
+    final items = await ItemRepository(_masterKey).decodeRows(itemRows);
+    // Their protection still holds here: a protected space's items stay
+    // hidden until the PIN opens it.
+    ContentLock.instance.setSpaces(spaces);
+    return [
+      for (final s in spaces) StoredEntry.space(s, at: at[s.id]),
+      for (final i in items) StoredEntry.item(i, at: at[i.id]),
+    ];
   }
 
   String _table(StoredEntry e) => e.isSpace ? 'spaces' : 'space_items';

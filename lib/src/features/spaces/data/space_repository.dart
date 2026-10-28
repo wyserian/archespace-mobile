@@ -67,11 +67,14 @@ class SpaceRepository {
     } catch (_) {
       final cached = await CacheStore.read(cacheKey);
       if (cached is List) {
-        return (spaces: _registerLocks(await _decode(cached)), fromCache: true);
+        return (
+          spaces: _registerLocks(await decodeRows(cached)),
+          fromCache: true,
+        );
       }
       rethrow;
     }
-    return (spaces: _registerLocks(await _decode(rows)), fromCache: false);
+    return (spaces: _registerLocks(await decodeRows(rows)), fromCache: false);
   }
 
   /// Tell ContentLock which spaces are protected, so their items stay hidden
@@ -81,7 +84,8 @@ class SpaceRepository {
     return spaces;
   }
 
-  Future<List<Space>> _decode(List<dynamic> rows) async {
+  /// Decrypt space rows (also the Archive's and Bin's), skipping any that fail.
+  Future<List<Space>> decodeRows(List<dynamic> rows) async {
     final spaces = <Space>[];
     for (final row in rows) {
       final m = row as Map;

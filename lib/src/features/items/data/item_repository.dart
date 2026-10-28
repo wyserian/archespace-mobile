@@ -96,14 +96,15 @@ class ItemRepository {
     } catch (_) {
       final cached = await CacheStore.read(cacheKey);
       if (cached is List) {
-        return (items: await _decode(cached), fromCache: true);
+        return (items: await decodeRows(cached), fromCache: true);
       }
       rethrow;
     }
-    return (items: await _decode(rows), fromCache: false);
+    return (items: await decodeRows(rows), fromCache: false);
   }
 
-  Future<List<SpaceItem>> _decode(List<dynamic> rows) async {
+  /// Decrypt item rows (also the Archive's and Bin's), skipping any that fail.
+  Future<List<SpaceItem>> decodeRows(List<dynamic> rows) async {
     final items = <SpaceItem>[];
     for (final row in rows) {
       final m = row as Map;

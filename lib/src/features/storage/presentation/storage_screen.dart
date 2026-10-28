@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
-import 'package:archespace_mobile/src/features/items/presentation/widgets/type_badge.dart';
+import 'package:archespace_mobile/src/features/items/presentation/item_card.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
 import 'package:archespace_mobile/src/features/storage/data/storage_repository.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
-import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 
 enum StorageMode { archive, bin }
 
-/// Shared screen for the Archive and the Bin. Lists archived / deleted
-/// spaces and items with restore + delete actions.
+/// Shared screen for the Archive and the Bin: archived / deleted spaces and
+/// items as their read-only cards, each with its date under the name and two
+/// buttons (Unarchive or Restore, and Delete), as on the web.
 class StorageScreen extends StatefulWidget {
   const StorageScreen({super.key, required this.mode});
 
@@ -319,59 +319,90 @@ class _StorageScreenState extends State<StorageScreen> {
     }
     final spaces = entries.where((e) => e.isSpace).toList();
     final items = entries.where((e) => !e.isSpace).toList();
+    // The spaces and items as their usual cards, read-only: nothing opens or
+    // changes, and each card's only actions are its two buttons.
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 16),
         children: [
           if (spaces.isNotEmpty) const _Header('Spaces'),
-          for (final e in spaces) _tile(e),
+          for (final e in spaces)
+            SpaceCard(
+              key: ValueKey(_key(e)),
+              space: e.space!,
+              actions: _buttons(e),
+              note: _note(e),
+              selectMode: _selectMode,
+              selected: _selected.contains(_key(e)),
+              onSelectToggle: () => _toggle(e),
+              // Unused: the buttons replace the card's menu.
+              onTap: _none,
+              onTogglePin: _none,
+              onEdit: _none,
+              onDuplicate: _none,
+              onArchive: _none,
+              onDelete: _none,
+            ),
           if (items.isNotEmpty) const _Header('Items'),
-          for (final e in items) _tile(e),
+          for (final e in items)
+            ItemCard(
+              key: ValueKey(_key(e)),
+              item: e.item!,
+              actions: _buttons(e),
+              note: _note(e),
+              selectMode: _selectMode,
+              selected: _selected.contains(_key(e)),
+              onSelectToggle: () => _toggle(e),
+            ),
         ],
       ),
     );
   }
 
-  Widget _tile(StoredEntry e) {
-    // An item shows its coloured type badge, as on item cards.
-    final Widget icon = e.isSpace || itemTypeDef(e.type) == null
-        ? Icon(e.isSpace ? Icons.folder_outlined : Icons.notes)
-        : TypeBadge(type: e.type);
-    final title = Text(e.label.isEmpty ? 'Untitled' : e.label);
+  static void _none() {}
 
-    if (_selectMode) {
-      final selected = _selected.contains(_key(e));
-      // The same check box as space and item cards, with no recolouring.
-      return ListTile(
-        leading: icon,
-        title: title,
-        trailing: SelectBox(selected: selected),
-        onTap: () => _toggle(e),
-      );
-    }
+  /// When it was archived or deleted: "Archived Today", "Deleted 3 days ago".
+  String? _note(StoredEntry e) {
+    final at = e.at;
+    if (at == null) return null;
+    final days = DateTime.now().difference(at.toLocal()).inDays;
+    final when = days <= 0
+        ? 'Today'
+        : days == 1
+        ? 'Yesterday'
+        : '$days days ago';
+    return '${_isBin ? 'Deleted' : 'Archived'} $when';
+  }
 
-    return ListTile(
-      leading: icon,
-      title: title,
-      onLongPress: () => _enterSelect(e),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            onPressed: () => _restore(e),
-            icon: const Icon(Icons.restore),
-            tooltip: 'Restore',
+  /// A card's two buttons: Unarchive / Restore, and Delete (to the bin, or
+  /// for good in the bin, in red).
+  Widget _buttons(StoredEntry e) {
+    final error = Theme.of(context).colorScheme.error;
+    const compact = VisualDensity.compact;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton.icon(
+          onPressed: () => _restore(e),
+          icon: const Icon(Icons.restore, size: 18),
+          label: Text(_isBin ? 'Restore' : 'Unarchive'),
+          style: TextButton.styleFrom(visualDensity: compact),
+        ),
+        TextButton.icon(
+          onPressed: () => _delete(e),
+          icon: Icon(
+            _isBin ? Icons.delete_forever : Icons.delete_outline,
+            size: 18,
           ),
-          IconButton(
-            onPressed: () => _delete(e),
-            icon: Icon(_isBin ? Icons.delete_forever : Icons.delete_outline),
-            tooltip: _isBin ? 'Delete permanently' : 'Move to bin',
-            // Permanent in the bin: red, set apart from Restore beside it.
-            color: _isBin ? Theme.of(context).colorScheme.error : null,
+          label: const Text('Delete'),
+          style: TextButton.styleFrom(
+            visualDensity: compact,
+            foregroundColor: error,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

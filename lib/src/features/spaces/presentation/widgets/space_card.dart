@@ -33,6 +33,8 @@ class SpaceCard extends StatefulWidget {
     this.onTagClick,
     this.activeTags = const {},
     this.margin,
+    this.actions,
+    this.note,
   });
 
   final Space space;
@@ -55,11 +57,11 @@ class SpaceCard extends StatefulWidget {
   /// Move into another space or to the top level. Null hides it.
   final VoidCallback? onMove;
 
-  /// Save a new tag list; true when saved. Null (e.g. offline) hides adding
-  /// and removing tags.
   /// Export the space (with its items) to PDF. Null hides it.
   final VoidCallback? onExport;
 
+  /// Save a new tag list; true when saved. Null (e.g. offline) hides adding
+  /// and removing tags.
   final Future<bool> Function(List<String> tags)? onSetTags;
   final bool selectMode;
   final bool selected;
@@ -69,6 +71,12 @@ class SpaceCard extends StatefulWidget {
   final void Function(String)? onTagClick;
   final Set<String> activeTags;
   final EdgeInsetsGeometry? margin;
+
+  /// Archive and Bin: the card's only actions, in the header in place of its
+  /// menu, and a line under the name ([note]: when it was archived or
+  /// deleted). The card then doesn't open: there's no page for it.
+  final Widget? actions;
+  final String? note;
 
   @override
   State<SpaceCard> createState() => _SpaceCardState();
@@ -128,6 +136,53 @@ class _SpaceCardState extends State<SpaceCard> {
     builder: (context, _) => _build(context),
   );
 
+  /// The name, with its markers (starred, read-only, protected).
+  Widget _nameRow(Space space, ColorScheme scheme, bool hidden) => Row(
+    children: [
+      Flexible(
+        child: Text(
+          space.name.isEmpty ? 'Untitled' : space.name,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      // Starred, right after the name, in the accent.
+      if (space.starred)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.star_rounded,
+            size: 19,
+            color: scheme.primary,
+            semanticLabel: 'Starred',
+          ),
+        ),
+      if (space.readOnly)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.edit_off_outlined,
+            size: 16,
+            color: scheme.onSurfaceVariant,
+            semanticLabel: 'Read-only',
+          ),
+        ),
+      if (space.locked || hidden)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.shield_outlined,
+            size: 16,
+            color: hidden ? scheme.onSurfaceVariant : scheme.primary,
+            semanticLabel: hidden ? 'Protected' : 'Protected, open',
+          ),
+        ),
+    ],
+  );
+
   Widget _build(BuildContext context) {
     final space = widget.space;
     final selectMode = widget.selectMode;
@@ -171,7 +226,12 @@ class _SpaceCardState extends State<SpaceCard> {
             side: borderSide,
           ),
           child: InkWell(
-            onTap: selectMode ? widget.onSelectToggle : widget.onTap,
+            // With actions (Archive, Bin) there's no page to open.
+            onTap: selectMode
+                ? widget.onSelectToggle
+                : widget.actions == null
+                ? widget.onTap
+                : null,
             child: Padding(
               // No top/right padding: the 48 menu button's own space sets the
               // header's height and its distance from the edge.
@@ -194,56 +254,32 @@ class _SpaceCardState extends State<SpaceCard> {
                             ),
                           ),
                         Expanded(
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Flexible(
-                                child: Text(
-                                  space.name.isEmpty ? 'Untitled' : space.name,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Starred, right after the name, in the accent.
-                              if (space.starred)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Icon(
-                                    Icons.star_rounded,
-                                    size: 19,
-                                    color: scheme.primary,
-                                    semanticLabel: 'Starred',
-                                  ),
-                                ),
-                              if (space.readOnly)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Icon(
-                                    Icons.edit_off_outlined,
-                                    size: 16,
-                                    color: scheme.onSurfaceVariant,
-                                    semanticLabel: 'Read-only',
-                                  ),
-                                ),
-                              if (space.locked || hidden)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Icon(
-                                    Icons.shield_outlined,
-                                    size: 16,
-                                    color: hidden
-                                        ? scheme.onSurfaceVariant
-                                        : scheme.primary,
-                                    semanticLabel: hidden
-                                        ? 'Protected'
-                                        : 'Protected, open',
-                                  ),
+                              _nameRow(space, scheme, hidden),
+                              if (widget.note != null)
+                                Text(
+                                  widget.note!,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
                                 ),
                             ],
                           ),
                         ),
-                        if (!selectMode) _menu(space, hidden, canEditTags),
+                        if (!selectMode)
+                          widget.actions != null
+                              ? Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 4,
+                                    right: 8,
+                                  ),
+                                  child: widget.actions,
+                                )
+                              : _menu(space, hidden, canEditTags),
                         if (selectMode)
                           Padding(
                             padding: const EdgeInsets.only(left: 8, right: 12),
@@ -394,6 +430,15 @@ class _SpaceCardState extends State<SpaceCard> {
             label: 'Move',
             onSelected: w.onMove!,
           ),
+        // Exporting releases the content, so a hidden protected space opens
+        // first.
+        if (w.onExport != null && !hidden)
+          ActionMenuEntry(
+            group: 'content',
+            icon: Icons.file_download_outlined,
+            label: 'Export PDF',
+            onSelected: w.onExport!,
+          ),
         // Read-only freezes the space's content (details and items); managing
         // the space itself stays.
         if (w.onToggleReadOnly != null)
@@ -430,15 +475,6 @@ class _SpaceCardState extends State<SpaceCard> {
       ],
     );
   }
-        // Exporting releases the content, so a hidden protected space opens
-        // first.
-        if (w.onExport != null && !hidden)
-          ActionMenuEntry(
-            group: 'content',
-            icon: Icons.file_download_outlined,
-            label: 'Export PDF',
-            onSelected: w.onExport!,
-          ),
 }
 
 /// Fills the space colour as a curved top border: [_thickness]px across the top

@@ -50,6 +50,8 @@ class ItemCard extends StatefulWidget {
     this.grid = false,
     this.contextLabel,
     this.readOnly = false,
+    this.actions,
+    this.note,
   });
 
   final SpaceItem item;
@@ -86,6 +88,12 @@ class ItemCard extends StatefulWidget {
 
   /// Whether the card is rendered in the two-column grid view.
   final bool grid;
+
+  /// Archive and Bin: the card's only actions, in the header in place of its
+  /// menu and collapse arrow, and a line under the title ([note]: when it was
+  /// archived or deleted).
+  final Widget? actions;
+  final String? note;
 
   @override
   State<ItemCard> createState() => _ItemCardState();
@@ -174,6 +182,85 @@ class _ItemCardState extends State<ItemCard>
     updateKeepAlive();
   }
 
+  /// The title, with its markers (starred, protected, read-only) and the
+  /// context label.
+  Widget _titleRow(SpaceItem item, ColorScheme scheme, bool hidden) => Row(
+    children: [
+      Flexible(
+        flex: 3,
+        child: Text(
+          item.title.isEmpty ? 'Untitled' : item.title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      // Starred, right after the name, in the accent.
+      if (item.starred)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.star_rounded,
+            size: 17,
+            color: scheme.primary,
+            semanticLabel: 'Starred',
+          ),
+        ),
+      // Protected: a shield, or once the PIN has opened it,
+      // a button to hide it again.
+      if (hidden)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.shield_outlined,
+            size: 16,
+            color: scheme.onSurfaceVariant,
+            semanticLabel: 'Protected',
+          ),
+        )
+      else if (item.locked)
+        SizedBox(
+          height: 48,
+          width: 40,
+          child: IconButton(
+            icon: Icon(
+              Icons.visibility_off_outlined,
+              size: 16,
+              color: scheme.primary,
+            ),
+            padding: EdgeInsets.zero,
+            tooltip: 'Hide again',
+            onPressed: () => ContentLock.instance.hide(item.id),
+          ),
+        ),
+      if (widget.readOnly && widget.contextLabel != null)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            Icons.edit_off_outlined,
+            size: 15,
+            color: scheme.onSurfaceVariant,
+            semanticLabel: 'Read-only',
+          ),
+        ),
+      if (widget.contextLabel != null) ...[
+        const SizedBox(width: 6),
+        Flexible(
+          flex: 2,
+          child: Text(
+            widget.contextLabel!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    ],
+  );
+
   Future<void> _copy() async {
     await Clipboard.setData(
       ClipboardData(text: itemClipboardText(widget.item)),
@@ -260,84 +347,27 @@ class _ItemCardState extends State<ItemCard>
                         child: TypeBadge(type: item.type, compact: widget.grid),
                       ),
                     Expanded(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Flexible(
-                            flex: 3,
-                            child: Text(
-                              item.title.isEmpty ? 'Untitled' : item.title,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                              overflow: TextOverflow.ellipsis,
+                          _titleRow(item, scheme, hidden),
+                          if (widget.note != null)
+                            Text(
+                              widget.note!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
                             ),
-                          ),
-                          // Starred, right after the name, in the accent.
-                          if (item.starred)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Icon(
-                                Icons.star_rounded,
-                                size: 17,
-                                color: scheme.primary,
-                                semanticLabel: 'Starred',
-                              ),
-                            ),
-                          // Protected: a shield, or once the PIN has opened it,
-                          // a button to hide it again.
-                          if (hidden)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Icon(
-                                Icons.shield_outlined,
-                                size: 16,
-                                color: scheme.onSurfaceVariant,
-                                semanticLabel: 'Protected',
-                              ),
-                            )
-                          else if (item.locked)
-                            SizedBox(
-                              height: 48,
-                              width: 40,
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.visibility_off_outlined,
-                                  size: 16,
-                                  color: scheme.primary,
-                                ),
-                                padding: EdgeInsets.zero,
-                                tooltip: 'Hide again',
-                                onPressed: () =>
-                                    ContentLock.instance.hide(item.id),
-                              ),
-                            ),
-                          if (widget.readOnly && widget.contextLabel != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Icon(
-                                Icons.edit_off_outlined,
-                                size: 15,
-                                color: scheme.onSurfaceVariant,
-                                semanticLabel: 'Read-only',
-                              ),
-                            ),
-                          if (widget.contextLabel != null) ...[
-                            const SizedBox(width: 6),
-                            Flexible(
-                              flex: 2,
-                              child: Text(
-                                widget.contextLabel!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
+                    if (!selectMode && widget.actions != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, right: 6),
+                        child: widget.actions,
+                      ),
                     // List view only: the compact grid cards keep their body.
-                    if (!selectMode && !widget.grid)
+                    if (!selectMode && !widget.grid && widget.actions == null)
                       SizedBox(
                         height: 48,
                         width: 40,
@@ -352,6 +382,7 @@ class _ItemCardState extends State<ItemCard>
                         ),
                       ),
                     if (!selectMode &&
+                        widget.actions == null &&
                         (canCopy ||
                             onTogglePin != null ||
                             onToggleStar != null ||
