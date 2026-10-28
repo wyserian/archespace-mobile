@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 
 /// One choice in a toolbar menu; [on] marks the current one.
 typedef _MenuOption<T> = ({T value, IconData icon, String label, bool on});
@@ -170,6 +171,32 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
   void _exec(String cmd, [Object? arg]) {
     final a = arg == null ? '' : ', ${jsonEncode(arg)}';
     _call('editorApi.exec(${jsonEncode(cmd)}$a)');
+  }
+
+  // Table deletes ask first, as on the web: (title, message) per command.
+  static const _tableDeletes = {
+    'deleteRow': (
+      'Delete this row?',
+      'The table row with the cursor will be removed.',
+    ),
+    'deleteColumn': (
+      'Delete this column?',
+      'The table column with the cursor will be removed.',
+    ),
+    'deleteTable': (
+      'Delete this table?',
+      'The whole table and its contents will be removed.',
+    ),
+  };
+
+  /// The Table menu's commands: a delete runs once confirmed.
+  Future<void> _execTable(String cmd) async {
+    final ask = _tableDeletes[cmd];
+    if (ask != null) {
+      final ok = await confirmDelete(context, title: ask.$1, message: ask.$2);
+      if (!ok || !mounted) return;
+    }
+    _exec(cmd);
   }
 
   Future<void> _link() async {
@@ -645,7 +672,7 @@ class _RichTextWebEditorState extends State<RichTextWebEditor> {
                 icon: Icons.table_chart_outlined,
                 tip: 'Table',
                 active: inTable,
-                onSelected: _exec,
+                onSelected: _execTable,
                 items: [
                   _item(
                     'table',

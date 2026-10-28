@@ -35,3 +35,25 @@ Future<bool> confirmAction(
   );
   return result ?? false;
 }
+
+/// Asks before a delete inside an item's editor (a list row, a card, a table
+/// row or column, a Kanban stage or card), as the web does.
+Future<bool> confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) => confirmAction(
+  context,
+  title: title,
+  message: message,
+  confirmLabel: 'Delete',
+  destructive: true,
+);
+
+/// A short quote of what's being deleted, for the dialog's message, or
+/// [fallback] when there's no text.
+String quotedOr(String? text, String fallback) {
+  final t = (text ?? '').trim();
+  if (t.isEmpty) return fallback;
+  return '"${t.length > 60 ? '${t.substring(0, 60)}...' : t}"';
+}

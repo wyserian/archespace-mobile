@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 
 /// Editor for the Kanban type (see domain/kanban.dart): columns side by side
 /// that scroll sideways under a compact Add column button, each a list of
@@ -75,7 +76,14 @@ class _KanbanEditorState extends State<KanbanEditor> {
     );
   }
 
-  void _removeCard(KanbanCard card) {
+  Future<void> _removeCard(KanbanCard card) async {
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this card?',
+      message:
+          '${quotedOr(card.title.trim().isNotEmpty ? card.title : card.description, 'This empty card')} will be removed.',
+    );
+    if (!ok || !mounted) return;
     _change(() => _columnOf(card).cards.remove(card));
     _text.remove('t${card.id}')?.dispose();
     _text.remove('d${card.id}')?.dispose();
@@ -113,34 +121,15 @@ class _KanbanEditorState extends State<KanbanEditor> {
   }
 
   Future<void> _removeColumn(KanbanColumn col) async {
-    if (col.cards.isNotEmpty) {
-      final n = col.cards.length;
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete column?'),
-          content: Text(
-            '"${col.title.isEmpty ? 'Untitled' : col.title}" and its $n '
-            '${n == 1 ? 'card' : 'cards'} will be deleted.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError,
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
-      if (ok != true) return;
-    }
+    final n = col.cards.length;
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this column?',
+      message:
+          '${quotedOr(col.title, 'This untitled column')}'
+          '${n > 0 ? ' and its $n ${n == 1 ? 'card' : 'cards'}' : ''} will be removed.',
+    );
+    if (!ok || !mounted) return;
     _change(() => _columns.remove(col));
   }
 

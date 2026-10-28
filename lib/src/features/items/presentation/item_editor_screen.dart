@@ -17,6 +17,7 @@ import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
 
@@ -848,9 +849,16 @@ class _ListEditorState extends State<_ListEditor> {
     }
   }
 
-  void _remove(int index) {
-    final id = _items[index]['id'] as String;
-    setState(() => _items.removeAt(index));
+  Future<void> _remove(Map<String, dynamic> item) async {
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this item?',
+      message:
+          '${quotedOr(item['text'] as String?, 'This empty item')} will be removed from the list.',
+    );
+    if (!ok || !mounted) return;
+    final id = item['id'] as String;
+    setState(() => _items.remove(item));
     _controllers.remove(id)?.dispose();
     _focusNodes.remove(id)?.dispose();
   }
@@ -927,7 +935,7 @@ class _ListEditorState extends State<_ListEditor> {
                     ),
                     if (!widget.readOnly) ...[
                       IconButton(
-                        onPressed: () => _remove(index),
+                        onPressed: () => _remove(item),
                         icon: const Icon(Icons.close, size: 18),
                         tooltip: 'Remove',
                         visualDensity: VisualDensity.compact,
@@ -1058,9 +1066,18 @@ class _CardsEditorState extends State<_CardsEditor> {
     setState(() => _items.add({'id': _uid(), 'title': '', 'description': ''}));
   }
 
-  void _remove(int index) {
-    final id = _items[index]['id'] as String;
-    setState(() => _items.removeAt(index));
+  Future<void> _remove(Map<String, dynamic> item) async {
+    final text = (item['title'] as String?)?.trim().isNotEmpty == true
+        ? item['title'] as String
+        : item['description'] as String?;
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this card?',
+      message: '${quotedOr(text, 'This empty card')} will be removed.',
+    );
+    if (!ok || !mounted) return;
+    final id = item['id'] as String;
+    setState(() => _items.remove(item));
     _titleCtrls.remove(id)?.dispose();
     _descCtrls.remove(id)?.dispose();
   }
@@ -1117,7 +1134,7 @@ class _CardsEditorState extends State<_CardsEditor> {
                           ),
                           if (!widget.readOnly) ...[
                             IconButton(
-                              onPressed: () => _remove(index),
+                              onPressed: () => _remove(item),
                               icon: const Icon(Icons.close, size: 18),
                               tooltip: 'Remove',
                             ),
@@ -1275,8 +1292,15 @@ class _TableEditorState extends State<_TableEditor> {
     });
   }
 
-  void _removeColumn(int c) {
+  Future<void> _removeColumn(int c) async {
     if (_columns.length <= 1) return;
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this column?',
+      message:
+          '${quotedOr(_columns[c], 'Column ${c + 1}')} and its cells will be removed.',
+    );
+    if (!ok || !mounted) return;
     setState(() {
       _columns.removeAt(c);
       _colCtrls.removeAt(c).dispose();
@@ -1311,8 +1335,14 @@ class _TableEditorState extends State<_TableEditor> {
     });
   }
 
-  void _removeRow(int r) {
+  Future<void> _removeRow(int r) async {
     if (_rows.length <= 1) return;
+    final ok = await confirmDelete(
+      context,
+      title: 'Delete this row?',
+      message: 'Row ${r + 1} and its cells will be removed.',
+    );
+    if (!ok || !mounted) return;
     setState(() {
       _rows.removeAt(r);
       for (final controller in _cellCtrls.removeAt(r)) {
