@@ -113,7 +113,7 @@ const List<ItemTypeDef> kItemTypes = [
   ItemTypeDef(
     type: 'kanban',
     label: 'Kanban',
-    description: 'Cards in columns, from to do to done',
+    description: 'Cards in stages, from to do to done',
     icon: Icons.view_kanban_outlined,
     color: Color(0xFF2DD4BF), // teal
   ),

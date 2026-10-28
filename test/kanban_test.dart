@@ -20,9 +20,9 @@ final board = <String, dynamic>{
 };
 
 void main() {
-  test('starts with To do, Doing and Done', () {
+  test('starts with To do, In Progress and Done', () {
     final columns = kanbanColumns(defaultContentFor('kanban'));
-    expect(columns.map((c) => c.title), ['To do', 'Doing', 'Done']);
+    expect(columns.map((c) => c.title), ['To do', 'In Progress', 'Done']);
     expect(columns.map((c) => c.id).toSet().length, 3);
   });
 

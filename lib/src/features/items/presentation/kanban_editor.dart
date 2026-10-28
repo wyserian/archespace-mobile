@@ -5,16 +5,16 @@ import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 
-/// Editor for the Kanban type (see domain/kanban.dart): columns side by side
-/// that scroll sideways under a compact Add column button, each a list of
-/// cards above a pinned Add card button.
+/// Editor for the Kanban type (see domain/kanban.dart; stages are stored as
+/// `columns`): stages side by side that scroll sideways under an Add stage
+/// button, each a list of cards above a pinned Add card button.
 ///
 /// A card moves by dragging its handle (onto another card to go before it, or
-/// onto a column's end), or with its menu's "Move to". Enter on a card's title
-/// adds the next card. Columns are renamed in place, and moved, coloured or
-/// deleted from their menu. Edits are written back into [content] (the editor
-/// screen saves it). With [readOnly] everything is readable and nothing
-/// changes.
+/// onto a stage's end), or with its menu's "Move to". Enter on a card's title
+/// adds the next card. Stages are renamed in place, and moved, coloured or
+/// deleted from their menu. Deleting a stage or a card always asks first.
+/// Edits are written back into [content] (the editor screen saves it). With
+/// [readOnly] everything is readable and nothing changes.
 class KanbanEditor extends StatefulWidget {
   const KanbanEditor({super.key, required this.content, this.readOnly = false});
 
@@ -124,9 +124,9 @@ class _KanbanEditorState extends State<KanbanEditor> {
     final n = col.cards.length;
     final ok = await confirmDelete(
       context,
-      title: 'Delete this column?',
+      title: 'Delete this stage?',
       message:
-          '${quotedOr(col.title, 'This untitled column')}'
+          '${quotedOr(col.title, 'This untitled stage')}'
           '${n > 0 ? ' and its $n ${n == 1 ? 'card' : 'cards'}' : ''} will be removed.',
     );
     if (!ok || !mounted) return;
@@ -136,21 +136,24 @@ class _KanbanEditorState extends State<KanbanEditor> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    // Wide enough to edit, narrow enough that the next column peeks in.
+    // Wide enough to edit, narrow enough that the next stage peeks in.
     final columnWidth = (width * 0.78).clamp(240.0, 320.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The same button as Add card, with a little room above it.
         if (!widget.readOnly)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _addColumn,
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add column'),
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(fontSize: 13),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _addColumn,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add stage'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ),
@@ -183,8 +186,8 @@ class _KanbanEditorState extends State<KanbanEditor> {
     final index = _columns.indexOf(col);
     final color = spaceColor(col.color);
     return Container(
-      // A soft fill sets the column apart; a colour adds a strip along the
-      // top and tints it.
+      // A soft fill sets the stage apart; a colour tints it and adds a thin,
+      // soft strip along the top, like a space card's.
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color:
@@ -195,7 +198,8 @@ class _KanbanEditorState extends State<KanbanEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (color != null) Container(height: 3, color: color),
+          if (color != null)
+            Container(height: 2, color: color.withValues(alpha: 0.5)),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
@@ -222,7 +226,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
                 onChanged: (v) => _change(() => col.title = v),
                 style: const TextStyle(fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
-                  hintText: widget.readOnly ? 'Untitled' : 'Column name',
+                  hintText: widget.readOnly ? 'Untitled' : 'Stage name',
                   border: InputBorder.none,
                   isDense: true,
                 ),
@@ -259,7 +263,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
             children: [
               for (var i = 0; i < col.cards.length; i++)
                 _dropZone(col, i, child: _card(col, col.cards[i])),
-              // The column's end: dropping here adds to the bottom.
+              // The stage's end: dropping here adds to the bottom.
               _dropZone(
                 col,
                 col.cards.length,
@@ -268,7 +272,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
             ],
           ),
         ),
-        // Add card stays at the column's bottom.
+        // Add card stays at the stage's bottom.
         if (!widget.readOnly)
           Align(
             alignment: Alignment.centerLeft,
@@ -300,7 +304,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
     // The compact menu the cards use; it stays clear of the keyboard and
     // scrolls if it's taller than the room left.
     return ActionMenuButton(
-      tooltip: 'Column actions',
+      tooltip: 'Stage actions',
       entries: [
         if (index > 0)
           ActionMenuEntry(
@@ -330,7 +334,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
           ),
         ActionMenuEntry(
           icon: Icons.delete_outline,
-          label: 'Delete column',
+          label: 'Delete stage',
           danger: true,
           dividerBefore: true,
           onSelected: () => _removeColumn(col),
@@ -340,7 +344,7 @@ class _KanbanEditorState extends State<KanbanEditor> {
   }
 
   /// A place a dragged card can land: before the card at [index], or at the
-  /// end when [index] is the column's length. Shows a line while hovered.
+  /// end when [index] is the stage's length. Shows a line while hovered.
   Widget _dropZone(KanbanColumn col, int index, {required Widget child}) {
     if (widget.readOnly) return child;
     final hovered = _dropAt == (col.id, index);

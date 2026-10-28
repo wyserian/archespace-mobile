@@ -1,8 +1,8 @@
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
 
-/// The Kanban item type: cards in columns, the same as the web app's
-/// (lib/kanban.js).
+/// The Kanban item type: cards in stages (stored as `columns`), the same as
+/// the web app's (lib/kanban.js).
 ///
 /// Content: { columns: [{ id, title, color, cards: [{ id, title, description }] }] }
 /// `color` is a space colour preset id (kSpaceColors), or null for none.
@@ -48,7 +48,7 @@ class KanbanColumn {
 
 /// A new Kanban's content.
 Map<String, dynamic> defaultKanban() => kanbanToJson([
-  for (final title in const ['To do', 'Doing', 'Done'])
+  for (final title in const ['To do', 'In Progress', 'Done'])
     KanbanColumn(title: title),
 ]);
 

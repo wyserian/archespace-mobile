@@ -52,7 +52,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 | Checklist | Items with checkboxes and progress tracking. |
 | Cards | Title and description pairs for planning and grouping ideas. |
 | Table | Rows and columns of text with a header row. Copies as tab-separated values that paste straight into a spreadsheet. |
-| Kanban | Cards in columns (To do, Doing, Done to start) that scroll sideways: drag a card by its handle, or use its menu's Move to; rename, move and delete columns. Cards show a preview of the columns. |
+| Kanban | Cards in stages (To do, In Progress, Done to start) that scroll sideways: drag a card by its handle, or use its menu's Move to; rename, move and delete stages. Cards show a preview of the stages. |
 | Whiteboard | An Excalidraw board: shapes, arrows, text and freehand drawing on a canvas you can pan and zoom. |
 | Code | A code snippet in a monospace block with automatic syntax highlighting (language auto-detected). Copies as plain text. |
 
