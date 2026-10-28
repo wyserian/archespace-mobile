@@ -415,6 +415,26 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     label: 'item',
   );
 
+  /// Export a space from its card: its items and sub-spaces load first (from
+  /// the cache when offline), as its own screen would load them.
+  Future<void> exportSpace(Space space) => exportPdf(
+    build: () async {
+      final key = VaultSession.instance.masterKey;
+      final spaces = SpaceRepository(key).listSpaces();
+      final items = (await ItemRepository(key).listItems(space.id)).items;
+      return PdfExporter.buildSpace(
+        space.name,
+        items,
+        subSpaceNames: [
+          for (final s in (await spaces).spaces)
+            if (s.parentId == space.id) s.name.isEmpty ? 'Untitled' : s.name,
+        ],
+      );
+    },
+    filename: pdfFileName(space.name),
+    label: 'space',
+  );
+
   /// Build the PDF behind a progress spinner (so a large space doesn't look
   /// like a frozen screen), then hand it to the share sheet. Any failure is
   /// surfaced instead of silently doing nothing.

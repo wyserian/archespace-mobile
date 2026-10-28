@@ -343,6 +343,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     onMove: () async {
       if (await moveSpacesTo(context, [sub.id]) && mounted) _load();
     },
+    onExport: () => exportSpace(sub),
     onArchive: () => _subSpaceOp(
       (r) => r.archiveSpace(sub.id),
       "Couldn't archive the space.",
@@ -579,15 +580,82 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Widget _barAction(IconData icon, String tooltip, VoidCallback onPressed) =>
       ActionIconButton(icon: icon, tooltip: tooltip, onPressed: onPressed);
 
-  /// The space's own actions, in one menu: only those that make sense while
-  /// inside it (the rest are on its card). Grouped like the web: content
-  /// (Edit, Export PDF), then keep (Read-only, Protect). The list controls
-  /// (view, sort, select) live in the body header (see [_buildItemsHeader]);
-  /// New sub-space is in the create button's dial.
-  List<Widget> _buildBarActions(bool hasItems) => [
+  /// Run [op] on this space, then leave it (it's gone from here): Archive and
+  /// Delete, as on the web.
+  Future<void> _leaveAfter(
+    Future<void> Function(SpaceRepository) op,
+    String done,
+    String error,
+  ) async {
+    try {
+      await op(SpaceRepository(VaultSession.instance.masterKey));
+      StorageCounts.instance.refresh();
+      if (!mounted) return;
+      showSuccessSnack(context, done);
+      Navigator.of(context).pop();
+    } catch (_) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _archiveSpace() => _leaveAfter(
+    (r) => r.archiveSpace(widget.space.id),
+    'Space archived',
+    "Couldn't archive the space.",
+  );
+
+  Future<void> _deleteSpace() async {
+    final ok = await confirmAction(
+      context,
+      title: 'Move space to bin?',
+      message: 'This space and all its items will be moved to the bin.',
+      confirmLabel: 'Move to bin',
+      destructive: true,
+    );
+    if (!ok) return;
+    await _leaveAfter(
+      (r) => r.deleteSpace(widget.space.id),
+      'Space moved to bin',
+      "Couldn't delete the space.",
+    );
+  }
+
+  /// The space's own actions: the same as on its card, in the same order
+  /// (as on the web): mark (Pin, Star, Add tag), content (Edit, Duplicate,
+  /// Move, Export PDF), keep (Read-only, Protect, Archive), then Delete. The
+  /// list controls (view, sort, select) live in the body header (see
+  /// [_buildItemsHeader]); New sub-space is in the create button's dial.
+  List<Widget> _buildBarActions() => [
     ActionMenuButton(
       tooltip: 'Space actions',
       entries: [
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.push_pin_outlined,
+          label: _space.pinned ? 'Unpin' : 'Pin',
+          onSelected: () => _subSpaceOp(
+            (r) => r.setPinned(widget.space.id, !_space.pinned),
+            "Couldn't update the space.",
+          ),
+        ),
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.star_outline_rounded,
+          label: _space.starred ? 'Unstar' : 'Star',
+          onSelected: () => _subSpaceOp((r) async {
+            await r.setStarred(widget.space.id, !_space.starred);
+            StorageCounts.instance.refresh();
+          }, "Couldn't update the star."),
+        ),
+        if (!_readOnly && !_offline)
+          ActionMenuEntry(
+            group: 'mark',
+            icon: Icons.sell_outlined,
+            label: 'Add tag',
+            onSelected: () async {
+              if (await editSpaceTags(context, _space) && mounted) _load();
+            },
+          ),
         if (!_readOnly)
           ActionMenuEntry(
             group: 'content',
@@ -595,13 +663,32 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             label: 'Edit',
             onSelected: _editSpace,
           ),
-        if (hasItems)
+        ActionMenuEntry(
+          group: 'content',
+          icon: Icons.content_copy_outlined,
+          label: 'Duplicate',
+          onSelected: () => _subSpaceOp((r) async {
+            await r.duplicateSpace(_space);
+            if (mounted) showSuccessSnack(context, 'Space duplicated');
+          }, "Couldn't duplicate the space."),
+        ),
+        if (!_readOnly)
           ActionMenuEntry(
             group: 'content',
-            icon: Icons.file_download_outlined,
-            label: 'Export PDF',
-            onSelected: _exportSpace,
+            icon: Icons.arrow_forward,
+            label: 'Move',
+            onSelected: () async {
+              if (await moveSpacesTo(context, [widget.space.id]) && mounted) {
+                _load();
+              }
+            },
           ),
+        ActionMenuEntry(
+          group: 'content',
+          icon: Icons.file_download_outlined,
+          label: 'Export PDF',
+          onSelected: _exportSpace,
+        ),
         ActionMenuEntry(
           group: 'keep',
           icon: _readOnly ? Icons.edit_outlined : Icons.edit_off_outlined,
@@ -615,6 +702,19 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               : Icons.shield_outlined,
           label: _locked ? 'Remove protection' : 'Protect',
           onSelected: _toggleLock,
+        ),
+        ActionMenuEntry(
+          group: 'keep',
+          icon: Icons.archive_outlined,
+          label: 'Archive',
+          onSelected: _archiveSpace,
+        ),
+        ActionMenuEntry(
+          group: 'delete',
+          icon: Icons.delete_outline,
+          label: 'Delete',
+          danger: true,
+          onSelected: _deleteSpace,
         ),
       ],
     ),
@@ -745,7 +845,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         ),
       );
     }
-    final hasItems = (_items ?? const <SpaceItem>[]).isNotEmpty;
     return Scaffold(
       drawer: _selectMode ? null : drawer,
       drawerEdgeDragWidth: AppDrawer.edgeDragWidth(context),
@@ -769,7 +868,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               leading: const BackButton(),
               titleSpacing: 0,
               title: _title(context),
-              actions: _buildBarActions(hasItems),
+              actions: _buildBarActions(),
             ),
       floatingActionButton: _selectMode || _readOnly
           ? null

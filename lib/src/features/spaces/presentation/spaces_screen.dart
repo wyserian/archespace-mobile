@@ -1026,6 +1026,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     onEdit: () => _editSpace(space),
     onDuplicate: () => _duplicateSpace(space),
     onMove: () => _moveSpaces([space.id]),
+    onExport: () => exportSpace(space),
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
     onSetTags: _offline ? null : (tags) => _setSpaceTags(space, tags),

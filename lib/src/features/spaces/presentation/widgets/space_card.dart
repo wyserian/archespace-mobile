@@ -25,6 +25,7 @@ class SpaceCard extends StatefulWidget {
     this.onToggleReadOnly,
     this.onToggleLock,
     this.onMove,
+    this.onExport,
     this.onSetTags,
     this.selectMode = false,
     this.selected = false,
@@ -56,6 +57,9 @@ class SpaceCard extends StatefulWidget {
 
   /// Save a new tag list; true when saved. Null (e.g. offline) hides adding
   /// and removing tags.
+  /// Export the space (with its items) to PDF. Null hides it.
+  final VoidCallback? onExport;
+
   final Future<bool> Function(List<String> tags)? onSetTags;
   final bool selectMode;
   final bool selected;
@@ -339,8 +343,8 @@ class _SpaceCardState extends State<SpaceCard> {
   }
 
   /// The actions menu, in the web's groups: mark (Pin, Star, Add tag),
-  /// content (Edit, Duplicate, Move), keep (Read-only, Protect, Archive), then
-  /// Delete.
+  /// content (Edit, Duplicate, Move, Export PDF), keep (Read-only, Protect,
+  /// Archive), then Delete.
   Widget _menu(Space space, bool hidden, bool canEditTags) {
     final w = widget;
     return ActionMenuButton(
@@ -426,6 +430,15 @@ class _SpaceCardState extends State<SpaceCard> {
       ],
     );
   }
+        // Exporting releases the content, so a hidden protected space opens
+        // first.
+        if (w.onExport != null && !hidden)
+          ActionMenuEntry(
+            group: 'content',
+            icon: Icons.file_download_outlined,
+            label: 'Export PDF',
+            onSelected: w.onExport!,
+          ),
 }
 
 /// Fills the space colour as a curved top border: [_thickness]px across the top
