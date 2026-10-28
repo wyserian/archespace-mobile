@@ -73,6 +73,11 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   @override
   bool isItemReadOnly(SpaceItem item) => _readOnly;
 
+  // A read-only item's viewer offers Allow editing (for the whole space).
+  @override
+  Future<bool> Function(SpaceItem item)? get allowEditing =>
+      (_) => _setReadOnly(false);
+
   List<SpaceItem>? _items;
   List<Space> _subSpaces = const [];
 
@@ -166,13 +171,15 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     } catch (_) {}
   }
 
-  Future<void> _toggleReadOnly() async {
-    final next = !_readOnly;
+  Future<void> _toggleReadOnly() => _setReadOnly(!_readOnly);
+
+  /// Turn read-only on or off; true when it changed.
+  Future<bool> _setReadOnly(bool next) async {
     try {
       await SpaceRepository(
         VaultSession.instance.masterKey,
       ).setReadOnly(widget.space.id, next);
-      if (!mounted) return;
+      if (!mounted) return true;
       setState(() {
         _readOnly = next;
         if (next) {
@@ -185,8 +192,10 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         context,
         next ? 'Space is now read-only' : 'Editing allowed',
       );
+      return true;
     } catch (_) {
       _showError("Couldn't change read-only.");
+      return false;
     }
   }
 
@@ -633,6 +642,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           group: 'mark',
           icon: Icons.push_pin_outlined,
           label: _space.pinned ? 'Unpin' : 'Pin',
+          crossed: _space.pinned,
           onSelected: () => _subSpaceOp(
             (r) => r.setPinned(widget.space.id, !_space.pinned),
             "Couldn't update the space.",
@@ -642,6 +652,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           group: 'mark',
           icon: Icons.star_outline_rounded,
           label: _space.starred ? 'Unstar' : 'Star',
+          crossed: _space.starred,
           onSelected: () => _subSpaceOp((r) async {
             await r.setStarred(widget.space.id, !_space.starred);
             StorageCounts.instance.refresh();
@@ -796,6 +807,12 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               semanticLabel: 'Protected',
             ),
           ),
+        // Stays in view while scrolling, unlike the banner.
+        if (_readOnly)
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: _ReadOnlyPill(),
+          ),
       ],
     );
     if (_ancestors.isEmpty) return name;
@@ -933,9 +950,13 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                 children: [
                   if (_offline) const OfflineBanner(),
                   if (_readOnly)
-                    const StatusBanner(
+                    StatusBanner(
                       icon: Icons.edit_off_outlined,
-                      message: 'Read-only - view, copy and export only',
+                      message:
+                          'Read-only. Items can be viewed, copied and '
+                          'exported, not changed.',
+                      actionLabel: 'Allow editing',
+                      onAction: _offline ? null : _toggleReadOnly,
                     ),
                   Expanded(
                     child: RefreshIndicator(onRefresh: _load, child: _body()),
@@ -1283,4 +1304,40 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     onDelete: _readOnly ? null : () => deleteItem(item),
     onSetTags: _offline || _readOnly ? null : (tags) => _setTags(item, tags),
   );
+}
+
+/// The small "Read-only" pill after a read-only space's name, as on the web.
+class _ReadOnlyPill extends StatelessWidget {
+  const _ReadOnlyPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.edit_off_outlined,
+            size: 12,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Read-only',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

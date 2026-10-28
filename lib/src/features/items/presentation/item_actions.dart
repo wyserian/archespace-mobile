@@ -44,6 +44,10 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
   /// host offers no edits for it.
   bool isItemReadOnly(SpaceItem item) => false;
 
+  /// Turns read-only off for [item]'s space (true when done), for the Allow
+  /// editing button in a read-only item's viewer. Null leaves the button out.
+  Future<bool> Function(SpaceItem item)? get allowEditing => null;
+
   ItemRepository get _repo => ItemRepository(VaultSession.instance.masterKey);
 
   void showItemError(String message) {
@@ -54,6 +58,9 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     // A protected item (or one in a protected space) opens after the PIN.
     if (!await unlockItem(item) || !mounted) return;
     final readOnly = isItemReadOnly(item);
+    final allow = allowEditing;
+    // Allowing editing from the viewer closes it; it then opens again to edit.
+    var reopen = false;
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ItemEditorScreen(
@@ -61,6 +68,9 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           type: item.type,
           existing: item,
           readOnly: readOnly,
+          onAllowEditing: readOnly && allow != null
+              ? () async => reopen = await allow(item)
+              : null,
           // The card's actions, with the same read-only limits.
           onTogglePin: readOnly ? null : togglePinItem,
           onToggleStar: toggleStarItem,
@@ -74,6 +84,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
         ),
       ),
     );
+    if (reopen && mounted) return editItem(item);
     if (saved == true && mounted) reloadItems();
   }
 

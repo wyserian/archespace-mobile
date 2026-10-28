@@ -387,6 +387,7 @@ class _ItemCardState extends State<ItemCard>
                               group: 'mark',
                               icon: Icons.push_pin_outlined,
                               label: item.pinned ? 'Unpin' : 'Pin',
+                              crossed: item.pinned,
                               onSelected: onTogglePin,
                             ),
                           if (onToggleStar != null)
@@ -394,6 +395,7 @@ class _ItemCardState extends State<ItemCard>
                               group: 'mark',
                               icon: Icons.star_outline_rounded,
                               label: item.starred ? 'Unstar' : 'Star',
+                              crossed: item.starred,
                               onSelected: onToggleStar,
                             ),
                           if (onSetTags != null)

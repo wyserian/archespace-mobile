@@ -48,6 +48,7 @@ class ItemEditorScreen extends StatefulWidget {
     this.onExport,
     this.onArchive,
     this.onDelete,
+    this.onAllowEditing,
   });
 
   /// The item's space, or null for a dashboard item (belongs to no space).
@@ -73,6 +74,10 @@ class ItemEditorScreen extends StatefulWidget {
   final Future<void> Function(SpaceItem item)? onExport;
   final Future<bool> Function(SpaceItem item)? onArchive;
   final Future<bool> Function(SpaceItem item)? onDelete;
+
+  /// Read-only viewer: tapping the content says why it can't change, with
+  /// this as an Allow editing button (true when allowed; the viewer closes).
+  final Future<bool> Function()? onAllowEditing;
 
   @override
   State<ItemEditorScreen> createState() => _ItemEditorScreenState();
@@ -125,6 +130,34 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
 
   // The web's AUTO_SAVE_DELAY_MS.
   static const Duration _kAutoSaveDelay = Duration(seconds: 5);
+
+  // Read-only viewer: a tap (not a scroll or long press, which select text to
+  // copy) on the content says why nothing changes, once per little while.
+  Offset? _tapDown;
+  DateTime _tapDownAt = DateTime.now();
+  DateTime? _lastNudge;
+
+  void _nudgeReadOnly(PointerUpEvent e) {
+    final down = _tapDown;
+    _tapDown = null;
+    if (down == null || (e.position - down).distance > 16) return;
+    if (DateTime.now().difference(_tapDownAt).inMilliseconds > 400) return;
+    final last = _lastNudge;
+    if (last != null && DateTime.now().difference(last).inSeconds < 4) return;
+    _lastNudge = DateTime.now();
+    final allow = widget.onAllowEditing;
+    showAppSnack(
+      context,
+      'This space is read-only',
+      SnackKind.info,
+      actionLabel: allow == null ? null : 'Allow editing',
+      onAction: allow == null
+          ? null
+          : () async {
+              if (await allow() && mounted) Navigator.of(context).pop();
+            },
+    );
+  }
 
   Map<String, dynamic> _initialContent() {
     final source = widget.existing?.content ?? defaultContentFor(widget.type);
@@ -318,6 +351,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           group: 'mark',
           icon: Icons.push_pin_outlined,
           label: _pinned ? 'Unpin' : 'Pin',
+          crossed: _pinned,
           onSelected: () => _run((item) async {
             if (await w.onTogglePin!(item) && mounted) {
               setState(() => _pinned = !_pinned);
@@ -329,6 +363,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           group: 'mark',
           icon: Icons.star_outline_rounded,
           label: _starred ? 'Unstar' : 'Star',
+          crossed: _starred,
           onSelected: () => _run((item) async {
             if (await w.onToggleStar!(item) && mounted) {
               setState(() => _starred = !_starred);
@@ -528,38 +563,47 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
             // editors) sits a uniform, small distance from the screen edge.
             // Rich text runs edge to edge: its page pads itself and its
             // toolbar spans the screen above the keyboard.
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: TextField(
-                    controller: _title,
-                    readOnly: widget.readOnly,
-                    style: Theme.of(context).textTheme.titleLarge,
-                    decoration: InputDecoration(
-                      hintText: widget.readOnly ? 'Untitled' : 'Title',
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+            child: Listener(
+              onPointerDown: widget.readOnly
+                  ? (e) {
+                      _tapDown = e.position;
+                      _tapDownAt = DateTime.now();
+                    }
+                  : null,
+              onPointerUp: widget.readOnly ? _nudgeReadOnly : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: TextField(
+                      controller: _title,
+                      readOnly: widget.readOnly,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      decoration: InputDecoration(
+                        hintText: widget.readOnly ? 'Untitled' : 'Title',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                      ),
                     ),
                   ),
-                ),
-                if (_tags.isNotEmpty || _addingTag)
-                  _tagsRow(Theme.of(context).colorScheme),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 8),
-                ),
-                Expanded(
-                  child: _isRichText
-                      ? _buildBody()
-                      : Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: _buildBody(),
-                        ),
-                ),
-              ],
+                  if (_tags.isNotEmpty || _addingTag)
+                    _tagsRow(Theme.of(context).colorScheme),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 8),
+                  ),
+                  Expanded(
+                    child: _isRichText
+                        ? _buildBody()
+                        : Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: _buildBody(),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

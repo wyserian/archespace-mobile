@@ -390,6 +390,7 @@ class _SpaceCardState extends State<SpaceCard> {
           group: 'mark',
           icon: Icons.push_pin_outlined,
           label: space.pinned ? 'Unpin' : 'Pin',
+          crossed: space.pinned,
           onSelected: w.onTogglePin,
         ),
         if (w.onToggleStar != null)
@@ -397,6 +398,7 @@ class _SpaceCardState extends State<SpaceCard> {
             group: 'mark',
             icon: Icons.star_outline_rounded,
             label: space.starred ? 'Unstar' : 'Star',
+            crossed: space.starred,
             onSelected: w.onToggleStar!,
           ),
         if (canEditTags)

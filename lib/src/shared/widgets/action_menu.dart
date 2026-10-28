@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 /// One row of an [ActionMenuButton]: an icon (or a [leading] widget, like a
 /// colour swatch) and a label, red when [danger], in the accent when
-/// [selected] (the current choice, as on the web). [dividerBefore] draws a
+/// [selected] (the current choice, as on the web). [crossed] draws a slash
+/// over the icon, for an undo like Unpin where Material has no "off" icon
+/// (the web's PinOff, StarOff). [dividerBefore] draws a
 /// thin rule above it, to start a new group; so does a [group] different from
 /// the previous entry's (as on the web), which keeps the rules right when
 /// some entries are left out.
@@ -14,6 +16,7 @@ class ActionMenuEntry {
     required this.onSelected,
     this.danger = false,
     this.selected = false,
+    this.crossed = false,
     this.dividerBefore = false,
     this.group,
   });
@@ -24,6 +27,7 @@ class ActionMenuEntry {
   final VoidCallback onSelected;
   final bool danger;
   final bool selected;
+  final bool crossed;
   final bool dividerBefore;
   final String? group;
 }
@@ -278,6 +282,30 @@ class _MenuPanel extends StatelessWidget {
   }
 }
 
+/// The slash of a crossed-out icon, corner to corner like the web's "off"
+/// icons.
+class _SlashPainter extends CustomPainter {
+  const _SlashPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = size.width * 0.1;
+    canvas.drawLine(
+      Offset(inset, inset),
+      Offset(size.width - inset, size.height - inset),
+      Paint()
+        ..color = color
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SlashPainter old) => old.color != color;
+}
+
 class _MenuRow extends StatelessWidget {
   const _MenuRow({required this.entry, required this.index});
 
@@ -314,8 +342,13 @@ class _MenuRow extends StatelessWidget {
               SizedBox(
                 width: 18,
                 child: Center(
-                  child:
-                      entry.leading ?? Icon(entry.icon, size: 18, color: color),
+                  child: entry.crossed
+                      ? CustomPaint(
+                          foregroundPainter: _SlashPainter(color),
+                          child: Icon(entry.icon, size: 18, color: color),
+                        )
+                      : entry.leading ??
+                            Icon(entry.icon, size: 18, color: color),
                 ),
               ),
               const SizedBox(width: 12),

@@ -5,18 +5,23 @@ enum StatusTone { info, pending }
 
 /// A thin, full-width status banner pinned at the top of a list (e.g. an
 /// offline notice or a pending-sync notice): a persistent state, unlike the
-/// transient snackbars.
+/// transient snackbars. [actionLabel] adds a button at its end ([onAction]
+/// null disables it).
 class StatusBanner extends StatelessWidget {
   const StatusBanner({
     super.key,
     required this.icon,
     required this.message,
     this.tone = StatusTone.info,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final String message;
   final StatusTone tone;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +47,16 @@ class StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(message, style: TextStyle(color: fg, fontSize: 13)),
           ),
+          if (actionLabel != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: fg,
+                visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              child: Text(actionLabel!),
+            ),
         ],
       ),
     );
