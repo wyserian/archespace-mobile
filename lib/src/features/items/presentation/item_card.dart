@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -385,17 +386,19 @@ class _ItemCardState extends State<ItemCard>
                           if (onTogglePin != null)
                             ActionMenuEntry(
                               group: 'mark',
-                              icon: Icons.push_pin_outlined,
+                              icon: item.pinned
+                                  ? CupertinoIcons.pin_slash
+                                  : CupertinoIcons.pin,
                               label: item.pinned ? 'Unpin' : 'Pin',
-                              crossed: item.pinned,
                               onSelected: onTogglePin,
                             ),
                           if (onToggleStar != null)
                             ActionMenuEntry(
                               group: 'mark',
-                              icon: Icons.star_outline_rounded,
+                              icon: item.starred
+                                  ? CupertinoIcons.star_slash
+                                  : CupertinoIcons.star,
                               label: item.starred ? 'Unstar' : 'Star',
-                              crossed: item.starred,
                               onSelected: onToggleStar,
                             ),
                           if (onSetTags != null)

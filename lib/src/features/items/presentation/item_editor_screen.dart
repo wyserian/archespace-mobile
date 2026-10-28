@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -349,9 +350,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       if (w.onTogglePin != null)
         ActionMenuEntry(
           group: 'mark',
-          icon: Icons.push_pin_outlined,
+          icon: _pinned ? CupertinoIcons.pin_slash : CupertinoIcons.pin,
           label: _pinned ? 'Unpin' : 'Pin',
-          crossed: _pinned,
           onSelected: () => _run((item) async {
             if (await w.onTogglePin!(item) && mounted) {
               setState(() => _pinned = !_pinned);
@@ -361,9 +361,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       if (w.onToggleStar != null)
         ActionMenuEntry(
           group: 'mark',
-          icon: Icons.star_outline_rounded,
+          icon: _starred ? CupertinoIcons.star_slash : CupertinoIcons.star,
           label: _starred ? 'Unstar' : 'Star',
-          crossed: _starred,
           onSelected: () => _run((item) async {
             if (await w.onToggleStar!(item) && mounted) {
               setState(() => _starred = !_starred);

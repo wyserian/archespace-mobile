@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -640,9 +641,8 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       entries: [
         ActionMenuEntry(
           group: 'mark',
-          icon: Icons.push_pin_outlined,
+          icon: _space.pinned ? CupertinoIcons.pin_slash : CupertinoIcons.pin,
           label: _space.pinned ? 'Unpin' : 'Pin',
-          crossed: _space.pinned,
           onSelected: () => _subSpaceOp(
             (r) => r.setPinned(widget.space.id, !_space.pinned),
             "Couldn't update the space.",
@@ -650,9 +650,10 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         ),
         ActionMenuEntry(
           group: 'mark',
-          icon: Icons.star_outline_rounded,
+          icon: _space.starred
+              ? CupertinoIcons.star_slash
+              : CupertinoIcons.star,
           label: _space.starred ? 'Unstar' : 'Star',
-          crossed: _space.starred,
           onSelected: () => _subSpaceOp((r) async {
             await r.setStarred(widget.space.id, !_space.starred);
             StorageCounts.instance.refresh();

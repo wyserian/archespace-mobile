@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
@@ -388,17 +389,17 @@ class _SpaceCardState extends State<SpaceCard> {
       entries: [
         ActionMenuEntry(
           group: 'mark',
-          icon: Icons.push_pin_outlined,
+          icon: space.pinned ? CupertinoIcons.pin_slash : CupertinoIcons.pin,
           label: space.pinned ? 'Unpin' : 'Pin',
-          crossed: space.pinned,
           onSelected: w.onTogglePin,
         ),
         if (w.onToggleStar != null)
           ActionMenuEntry(
             group: 'mark',
-            icon: Icons.star_outline_rounded,
+            icon: space.starred
+                ? CupertinoIcons.star_slash
+                : CupertinoIcons.star,
             label: space.starred ? 'Unstar' : 'Star',
-            crossed: space.starred,
             onSelected: w.onToggleStar!,
           ),
         if (canEditTags)
