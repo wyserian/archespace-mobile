@@ -116,7 +116,7 @@ void main() {
     expect(find.byTooltip('Remove tag'), findsNothing);
   });
 
-  testWidgets('item card: collapse arrow, Copy in the menu', (tester) async {
+  testWidgets('item card: no collapse arrow, Copy in the menu', (tester) async {
     await _pump(
       tester,
       ItemCard(
@@ -139,10 +139,8 @@ void main() {
     expect(find.text('Show more'), findsNothing);
     expect(find.text('Hello'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Collapse'));
-    await tester.pump();
-    expect(find.text('Hello'), findsNothing);
-    expect(find.text('work'), findsOneWidget); // tags stay
+    expect(find.byTooltip('Collapse'), findsNothing);
+    expect(find.text('work'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Item actions'));
     await tester.pumpAndSettle();

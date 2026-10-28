@@ -90,8 +90,8 @@ class ItemCard extends StatefulWidget {
   final bool grid;
 
   /// Archive and Bin: the card's only actions, in the header in place of its
-  /// menu and collapse arrow, and a line under the title ([note]: when it was
-  /// archived or deleted).
+  /// menu, and a line under the title ([note]: when it was archived or
+  /// deleted).
   final Widget? actions;
   final String? note;
 
@@ -100,8 +100,7 @@ class ItemCard extends StatefulWidget {
 }
 
 // A body taller than this is clamped to this fixed height (clipped, not
-// hidden); "Show more" under it reveals it in full. The header chevron (list
-// view only) is a separate control that hides the body entirely.
+// hidden); "Show more" under it reveals it in full.
 const double _kCollapsedMaxHeight = 480;
 
 // The clamped preview shows ~25 lines, so a very long note or markdown body is
@@ -115,8 +114,6 @@ class _ItemCardState extends State<ItemCard>
   bool _overflowing = false;
   // A long, clamped body shown in full ("Show more").
   bool _expanded = false;
-  // Header-only collapse (chevron): hides the body entirely.
-  bool _collapsed = false;
   // The inline tag field is open ("Add tag" in the menu).
   bool _addingTag = false;
   final GlobalKey _bodyKey = GlobalKey();
@@ -167,18 +164,13 @@ class _ItemCardState extends State<ItemCard>
     super.dispose();
   }
 
-  // A card the user expanded or collapsed is kept alive off-screen: rebuilt
-  // fresh, it would come back at a different height and shift the list.
+  // A card the user expanded is kept alive off-screen: rebuilt fresh, it
+  // would come back at a different height and shift the list.
   @override
-  bool get wantKeepAlive => _expanded || _collapsed;
+  bool get wantKeepAlive => _expanded;
 
   void _toggleExpanded() {
     setState(() => _expanded = !_expanded);
-    updateKeepAlive();
-  }
-
-  void _toggleCollapsed() {
-    setState(() => _collapsed = !_collapsed);
     updateKeepAlive();
   }
 
@@ -366,21 +358,6 @@ class _ItemCardState extends State<ItemCard>
                         padding: const EdgeInsets.only(left: 4, right: 6),
                         child: widget.actions,
                       ),
-                    // List view only: the compact grid cards keep their body.
-                    if (!selectMode && !widget.grid && widget.actions == null)
-                      SizedBox(
-                        height: 48,
-                        width: 40,
-                        child: IconButton(
-                          icon: Icon(
-                            _collapsed ? Icons.expand_more : Icons.expand_less,
-                            size: 20,
-                          ),
-                          padding: EdgeInsets.zero,
-                          tooltip: _collapsed ? 'Expand' : 'Collapse',
-                          onPressed: _toggleCollapsed,
-                        ),
-                      ),
                     if (!selectMode &&
                         widget.actions == null &&
                         (canCopy ||
@@ -500,11 +477,9 @@ class _ItemCardState extends State<ItemCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _tagsRow(context, scheme),
-                    if (!_collapsed || widget.grid) ...[
-                      const SizedBox(height: 6),
-                      if (hidden) _lockedBody(scheme) else _buildBody(),
-                      if (!hidden && _overflowing) _expandToggle(scheme),
-                    ],
+                    const SizedBox(height: 6),
+                    if (hidden) _lockedBody(scheme) else _buildBody(),
+                    if (!hidden && _overflowing) _expandToggle(scheme),
                   ],
                 ),
               ),
