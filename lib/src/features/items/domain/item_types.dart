@@ -154,8 +154,14 @@ Map<String, dynamic> defaultContentFor(String type) {
       return {'code': ''};
     case 'menu_list':
     case 'numbered_list':
-    case 'card_list':
       return {'items': <dynamic>[]};
+    // One empty card, like Checklist's first row, ready to fill in.
+    case 'card_list':
+      return {
+        'items': [
+          {'id': _newId(), 'title': '', 'description': ''},
+        ],
+      };
     case 'checkbox_list':
       return {
         'items': [
