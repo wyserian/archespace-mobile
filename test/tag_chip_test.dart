@@ -10,7 +10,7 @@ Widget _host(Widget child) => MaterialApp(
 );
 
 void main() {
-  testWidgets('tag chip: label and x each take taps above the chip', (
+  testWidgets('tag chip: tap filters, long press offers Remove, above too', (
     tester,
   ) async {
     var filtered = 0;
@@ -27,19 +27,24 @@ void main() {
       ),
     );
 
-    // Just above each half's visible chip, inside its 36-tall tap area.
-    final label = tester.getRect(find.text('work'));
-    await tester.tapAt(Offset(label.center.dx, label.top - 6));
-    final x = tester.getRect(find.byIcon(Icons.close));
-    await tester.tapAt(Offset(x.center.dx, x.top - 6));
+    expect(find.byIcon(Icons.close), findsNothing);
 
+    // Just above the visible chip, inside its 36-tall tap area.
+    final label = tester.getRect(find.text('work'));
+    final above = Offset(label.center.dx, label.top - 6);
+    await tester.tapAt(above);
+    expect(filtered, 1);
+    expect(removed, 0);
+
+    await tester.longPressAt(above);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove tag'));
+    await tester.pumpAndSettle();
     expect(filtered, 1);
     expect(removed, 1);
   });
 
-  testWidgets('tag halves and the reminder chip share one height', (
-    tester,
-  ) async {
+  testWidgets('tag and reminder chips share one height', (tester) async {
     await tester.pumpWidget(
       _host(
         Wrap(
@@ -63,7 +68,6 @@ void main() {
         .height;
 
     expect(faceHeight(find.text('work')), kChipHeight);
-    expect(faceHeight(find.byIcon(Icons.close)), kChipHeight);
     expect(
       faceHeight(find.byIcon(Icons.notifications_none_rounded)),
       kChipHeight,

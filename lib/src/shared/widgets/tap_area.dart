@@ -9,11 +9,13 @@ class TapArea extends StatelessWidget {
     super.key,
     required this.onTap,
     required this.child,
+    this.onLongPress,
     this.minSize = 48,
     this.minWidth,
   });
 
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final Widget child;
   final double minSize;
 
@@ -27,6 +29,7 @@ class TapArea extends StatelessWidget {
     // The child's own semantics already describe the tap.
     excludeFromSemantics: true,
     onTap: onTap,
+    onLongPress: onLongPress,
     child: ConstrainedBox(
       constraints: BoxConstraints(
         minWidth: minWidth ?? minSize,

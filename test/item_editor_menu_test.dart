@@ -131,6 +131,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Star'), findsOneWidget);
     expect(find.text('Add tag'), findsNothing);
-    expect(find.byTooltip('Remove tag'), findsNothing);
   });
 }

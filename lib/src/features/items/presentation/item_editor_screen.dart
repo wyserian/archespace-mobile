@@ -442,7 +442,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     return ActionMenuButton(tooltip: 'Item actions', entries: entries);
   }
 
-  /// The item's tags under the title: x removes one, "Add tag" (menu) adds.
+  /// The item's tags under the title: a long press removes one, "Add tag"
+  /// (menu) adds.
   Widget _tagsRow(ColorScheme scheme) {
     final editable = !widget.readOnly && _itemId != null;
     return Padding(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
 /// Tag chips on a card are this tall to tap: shorter than the usual 48 so a
@@ -13,9 +14,8 @@ const double kChipRadius = 7;
 const double kChipFontSize = 12;
 
 /// A small tag chip: [label] on a [fill], with an optional [edge]. With
-/// [onTap] the label is tappable (e.g. to filter); with [onRemove] an x at
-/// its end removes the tag. Label and x are two halves of one chip, each with
-/// its own [kTagTapHeight] tap area, so neither tap lands on the other.
+/// [onTap] it's tappable (e.g. to filter); with [onRemove] a long press opens
+/// a "Remove tag" menu, so a tap can't remove a tag by mistake.
 class TagChip extends StatelessWidget {
   const TagChip({
     super.key,
@@ -29,90 +29,65 @@ class TagChip extends StatelessWidget {
 
   final String label;
 
-  /// The text and x colour.
+  /// The text colour.
   final Color color;
   final Color fill;
   final BorderSide edge;
   final VoidCallback? onTap;
   final VoidCallback? onRemove;
 
-  static const Radius _r = Radius.circular(kChipRadius);
-
-  Widget _half({
-    required Widget child,
-    required VoidCallback? onTap,
-    required BorderRadius radius,
-    required Border border,
-    required EdgeInsets padding,
-    String? tooltip,
-  }) {
-    // A fixed height, content centred: both halves line up whatever the text.
-    Widget face = Container(
-      height: kChipHeight,
-      alignment: Alignment.center,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: radius,
-        border: border,
-      ),
-      child: child,
-    );
-    if (onTap == null) return face;
-    face = InkWell(borderRadius: radius, onTap: onTap, child: face);
-    if (tooltip != null) face = Tooltip(message: tooltip, child: face);
-    return TapArea(
-      onTap: onTap,
-      minSize: kTagTapHeight,
-      minWidth: 0,
-      child: face,
-    );
-  }
+  static const BorderRadius _radius = BorderRadius.all(
+    Radius.circular(kChipRadius),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final text = Text(
-      label,
-      style: TextStyle(
-        fontSize: kChipFontSize,
-        fontWeight: FontWeight.w600,
-        color: color,
-        height: 1,
+    Widget face = Container(
+      height: kChipHeight,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: _radius,
+        border: Border.fromBorderSide(edge),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: kChipFontSize,
+          fontWeight: FontWeight.w600,
+          color: color,
+          height: 1,
+        ),
       ),
     );
-    if (onRemove == null) {
-      return _half(
-        child: text,
-        onTap: onTap,
-        radius: const BorderRadius.all(_r),
-        border: Border.fromBorderSide(edge),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-      );
+    if (onTap == null && onRemove == null) return face;
+    final remove = onRemove;
+    final onLongPress = remove == null
+        ? null
+        : () => showActionMenu(context, [
+            ActionMenuEntry(
+              icon: Icons.close,
+              label: 'Remove tag',
+              danger: true,
+              onSelected: remove,
+            ),
+          ]);
+    face = InkWell(
+      borderRadius: _radius,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: face,
+    );
+    if (remove != null) {
+      face = Semantics(onLongPressHint: 'Remove tag', child: face);
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _half(
-          child: text,
-          onTap: onTap,
-          radius: const BorderRadius.horizontal(left: _r),
-          border: Border(top: edge, left: edge, bottom: edge),
-          padding: const EdgeInsets.only(left: 8, right: 3),
-        ),
-        _half(
-          child: Icon(
-            Icons.close,
-            size: 13,
-            color: color,
-            semanticLabel: 'Remove tag $label',
-          ),
-          onTap: onRemove,
-          tooltip: 'Remove tag',
-          radius: const BorderRadius.horizontal(right: _r),
-          border: Border(top: edge, right: edge, bottom: edge),
-          padding: const EdgeInsets.only(left: 2, right: 6),
-        ),
-      ],
+    return TapArea(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      minSize: kTagTapHeight,
+      minWidth: 0,
+      child: face,
     );
   }
 }

@@ -138,7 +138,7 @@ Future<bool> editSpaceTags(BuildContext context, Space space) async {
             const SizedBox(height: 12),
             Text(
               'Type a tag and tap Done on the keyboard. Separate several with '
-              'commas.',
+              'commas. Long-press a tag to remove it.',
               style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
                 color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
               ),
