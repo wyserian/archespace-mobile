@@ -14,6 +14,8 @@ import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
 import 'package:archespace_mobile/src/features/auth/data/mfa_service.dart';
 import 'package:archespace_mobile/src/features/backup/data/backup_repository.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
+import 'package:archespace_mobile/src/features/updates/application/app_updater.dart';
+import 'package:archespace_mobile/src/features/updates/presentation/update_flow.dart';
 import 'package:archespace_mobile/src/features/vault/application/auto_lock_controller.dart';
 import 'package:archespace_mobile/src/features/settings/presentation/account_security_screens.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
@@ -41,6 +43,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final SecureKeyStore _store = SecureKeyStore();
   final BiometricService _biometric = BiometricService();
   bool _biometricEnabled = false;
+  bool _checkingUpdate = false;
+
+  Future<void> _checkForUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    await checkForUpdate(context);
+    if (mounted) setState(() => _checkingUpdate = false);
+  }
+
   bool _biometricAvailable = false;
   // Null until known (or if it couldn't be checked).
   bool? _twoFactorOn;
@@ -626,6 +637,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _openUrl(BuildInfo.repoUrl),
                 ),
+                if (AppUpdater.supported) ...[
+                  _SettingTile(
+                    icon: Icons.system_update_outlined,
+                    title: 'Check for updates',
+                    subtitle:
+                        'Looks for a newer release on GitHub. This is '
+                        'v${BuildInfo.appVersion}.',
+                    trailing: _checkingUpdate
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                    onTap: _checkForUpdate,
+                    chevron: false,
+                  ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: AppUpdater.instance.autoCheck,
+                    builder: (context, on, _) => _SettingTile(
+                      icon: Icons.update,
+                      title: 'Check automatically',
+                      subtitle:
+                          'Once a day, asks GitHub for a new release and '
+                          'shows a banner when there is one.',
+                      trailing: Switch(
+                        value: on,
+                        onChanged: AppUpdater.instance.setAutoCheck,
+                      ),
+                      onTap: () => AppUpdater.instance.setAutoCheck(!on),
+                    ),
+                  ),
+                ],
               ],
             ),
             const _BuildFooter(),

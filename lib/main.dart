@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/app.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
+import 'package:archespace_mobile/src/features/updates/application/app_updater.dart';
 import 'package:archespace_mobile/src/features/vault/application/auto_lock_controller.dart';
 import 'package:archespace_mobile/src/shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/error/error_handling.dart';
@@ -45,6 +46,7 @@ Future<void> main() async {
       AppMode.load(),
       AppearanceController.instance.load(),
       AutoLockController.instance.load(),
+      AppUpdater.instance.load(),
     ]);
     await WriteQueue.instance.init();
     WriteQueue.instance.flush(); // replay any writes queued while offline

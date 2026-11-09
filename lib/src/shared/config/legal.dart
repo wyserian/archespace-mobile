@@ -8,8 +8,8 @@
 class Legal {
   const Legal._();
 
-  static const String termsVersion = '2026-09-20';
-  static const String termsLastUpdated = '20 September 2026';
+  static const String termsVersion = '2026-11-09';
+  static const String termsLastUpdated = '9 November 2026';
 
   static const String termsUrl = 'https://archespace.app/terms';
   static const String privacyUrl = 'https://archespace.app/privacy';

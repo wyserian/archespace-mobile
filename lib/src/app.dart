@@ -18,6 +18,8 @@ import 'package:archespace_mobile/src/features/settings/application/appearance_c
 import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/unlock_screen.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/vault_setup_screen.dart';
+import 'package:archespace_mobile/src/features/updates/application/app_updater.dart';
+import 'package:archespace_mobile/src/features/updates/presentation/update_flow.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 
@@ -191,13 +193,15 @@ class _RootGateState extends State<_RootGate> {
     if (mounted) setState(() {});
   }
 
-  /// Unlocked: schedule the reminders (readable only now), and open Reminders
-  /// for one tapped while locked.
+  /// Unlocked: schedule the reminders (readable only now), open Reminders
+  /// for one tapped while locked, and look for an app update once a day.
   void _onUnlockChanged() {
     if (!VaultSession.instance.unlocked.value) return;
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => ReminderNotifications.instance.sync(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      ReminderNotifications.instance.sync();
+      final update = await AppUpdater.instance.dailyCheck();
+      if (update != null && mounted) showUpdateBanner(context, update);
+    });
   }
 
   @override
