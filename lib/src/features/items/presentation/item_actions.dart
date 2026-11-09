@@ -19,6 +19,7 @@ import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_
 import 'package:archespace_mobile/src/shared/export/pdf_exporter.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 
 /// Item actions shared by a space's screen and the dashboard: open to edit,
 /// pin, duplicate, move (to another space or the dashboard), archive and
@@ -75,6 +76,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           onTogglePin: readOnly ? null : togglePinItem,
           onToggleStar: toggleStarItem,
           onSetReminder: editItemReminder,
+          onSetExpiry: editItemExpiry,
           onToggleLock: toggleLockItem,
           onDuplicate: readOnly ? null : duplicateItem,
           onMove: readOnly ? null : moveItem,
@@ -208,6 +210,31 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       return edit;
     } catch (_) {
       showItemError("Couldn't save the reminder.");
+      return null;
+    }
+  }
+
+  /// Set, change or cancel [item]'s self-destruct time. The saved change, or
+  /// null when closed or it failed.
+  Future<ExpiryEdit?> editItemExpiry(SpaceItem item) async {
+    final edit = await showExpirySheet(
+      context,
+      space: false,
+      initial: item.expiresAt,
+    );
+    if (edit == null) return null;
+    try {
+      await _repo.setExpiry(item.id, edit.at);
+      if (mounted) {
+        reloadItems();
+        showSuccessSnack(
+          context,
+          edit.at == null ? 'Self-destruct cancelled' : 'Self-destruct set',
+        );
+      }
+      return edit;
+    } catch (_) {
+      showItemError("Couldn't save the self-destruct time.");
       return null;
     }
   }
@@ -412,6 +439,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     spaceId: item.spaceId,
     tags: tags,
     reminder: item.reminder,
+    expiresAt: item.expiresAt,
     createdAt: item.createdAt,
   );
 

@@ -6,6 +6,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
+import 'package:archespace_mobile/src/shared/data/expiry.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -29,7 +30,7 @@ class SpaceRepository {
       rows = await _client
           .from('spaces')
           .select(
-            'id, name, description, tags, color, parent_id, pinned, starred, read_only, locked, position, created_at',
+            'id, name, description, tags, color, parent_id, pinned, starred, read_only, locked, position, expires_at, created_at',
           )
           .isFilter('deleted_at', null)
           .isFilter('archived_at', null)
@@ -84,11 +85,13 @@ class SpaceRepository {
     return spaces;
   }
 
-  /// Decrypt space rows (also the Archive's and Bin's), skipping any that fail.
+  /// Decrypt space rows (also the Archive's and Bin's), skipping any that fail
+  /// and any whose self-destruct time has passed (cached since).
   Future<List<Space>> decodeRows(List<dynamic> rows) async {
     final spaces = <Space>[];
     for (final row in rows) {
       final m = row as Map;
+      if (isExpired(m.cast<String, dynamic>())) continue;
       try {
         spaces.add(
           Space(
@@ -109,6 +112,7 @@ class SpaceRepository {
             color: m['color'] as String?,
             parentId: m['parent_id'] as String?,
             itemCount: (m['_item_count'] ?? 0) as int,
+            expiresAt: expiresAtOf(m.cast<String, dynamic>()),
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
           ),
         );
@@ -123,6 +127,24 @@ class SpaceRepository {
 
   Future<String> _enc(String value) =>
       ArcheCrypto.encryptArc1(value, _masterKey);
+
+  /// Set or (with null) cancel a space's self-destruct time; when it passes,
+  /// its items and sub-spaces go too. Plain metadata, so a read-only space
+  /// allows it, like a delete.
+  Future<void> setExpiry(String id, DateTime? at) async {
+    await _client
+        .from('spaces')
+        .update({'expires_at': at?.toUtc().toIso8601String()})
+        .eq('id', id);
+  }
+
+  /// Ask the database to delete what has self-destructed (schema.sql 3b),
+  /// in case pg_cron isn't set up, and in local mode. Best effort.
+  static Future<void> purgeExpired() async {
+    try {
+      await Db.instance.rpc('purge_expired');
+    } catch (_) {}
+  }
 
   Future<String> _encTags(List<String> tags) =>
       ArcheCrypto.encryptArc1(jsonEncode(tags), _masterKey);

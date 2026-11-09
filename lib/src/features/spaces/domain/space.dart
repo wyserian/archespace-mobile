@@ -12,6 +12,7 @@ class Space {
     this.color,
     this.parentId,
     this.itemCount = 0,
+    this.expiresAt,
     this.createdAt,
   });
 
@@ -42,5 +43,9 @@ class Space {
   /// Number of (non-deleted, non-archived) items in this space and every
   /// sub-space below it. Computed at fetch time; 0 when unknown.
   final int itemCount;
+
+  /// When it self-destructs (deleted for good, with its items and
+  /// sub-spaces), or null (see expiry.dart).
+  final DateTime? expiresAt;
   final DateTime? createdAt;
 }

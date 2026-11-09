@@ -45,6 +45,49 @@ void main() {
     expect(await errorCode(d.from('spaces').select().single()), 'PGRST116');
   });
 
+  test(
+    'hides expired rows; purge_expired removes them with their contents',
+    () async {
+      final d = db();
+      final past = DateTime.now()
+          .subtract(const Duration(seconds: 1))
+          .toUtc()
+          .toIso8601String();
+      final future = DateTime.now()
+          .add(const Duration(hours: 1))
+          .toUtc()
+          .toIso8601String();
+      final gone = await d
+          .from('spaces')
+          .insert({'name': 'Gone', 'expires_at': past})
+          .select()
+          .single();
+      await d.from('spaces').insert([
+        {'name': 'Child', 'parent_id': gone['id']},
+        {'name': 'Later', 'expires_at': future},
+      ]);
+      await d.from('space_items').insert([
+        {'space_id': gone['id'], 'type': 'textbox'},
+        {'space_id': null, 'type': 'textbox', 'expires_at': past},
+        {'space_id': null, 'type': 'textbox'},
+      ]);
+      Future<List<String>> names() async => [
+        for (final r in await d.from('spaces').select('name'))
+          r['name'] as String,
+      ]..sort();
+
+      // As the "Hide expired" policies: the expired rows themselves are gone.
+      expect(await names(), ['Child', 'Later']);
+      expect(await d.from('space_items').select(), hasLength(2));
+
+      await d.rpc('purge_expired');
+      expect(await names(), ['Later']);
+      final items = await d.from('space_items').select();
+      expect(items, hasLength(1));
+      expect(items.first['expires_at'], isNull);
+    },
+  );
+
   test('cascades a hard delete and matches "or" filters', () async {
     final d = db();
     final parent = await d

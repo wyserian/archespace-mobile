@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
+import 'package:archespace_mobile/src/shared/data/expiry.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
 
 /// Local mode's database: the same tables as the server, kept in this app's
@@ -15,7 +16,8 @@ import 'package:archespace_mobile/src/shared/util/uuid.dart';
 ///
 /// It mirrors what the database does for these tables (the web repo's
 /// schema.sql): column defaults, `updated_at`, cascading deletes, the
-/// read-only space guards and the vault PIN lockout. Like the server, it never
+/// read-only space guards, self-destruct (expired rows hidden, removed by
+/// purge_expired) and the vault PIN lockout. Like the server, it never
 /// empties the bin by itself. The web app's local mode works the same
 /// way.
 class LocalDb implements Db {
@@ -49,6 +51,7 @@ class LocalDb implements Db {
       'read_only': false,
       'deleted_at': null,
       'archived_at': null,
+      'expires_at': null,
     },
     'space_items' => {
       'space_id': null,
@@ -62,6 +65,7 @@ class LocalDb implements Db {
       'locked': false,
       'deleted_at': null,
       'archived_at': null,
+      'expires_at': null,
     },
     _ => {
       'wrapped_key': null,
@@ -114,8 +118,15 @@ class LocalDb implements Db {
     final t = await _tables;
     final rows = t[q._table]!;
     final key = tables[q._table]!;
-    List<Map<String, dynamic>> matching() =>
-        rows.values.where((r) => q._filters.every((f) => f(r))).toList();
+    // Expired spaces and items are out of reach, as the "Hide expired"
+    // policies make them on the server, until purge_expired removes them.
+    final hideExpired = q._table != 'user_encryption';
+    List<Map<String, dynamic>> matching() => rows.values
+        .where(
+          (r) =>
+              !(hideExpired && isExpired(r)) && q._filters.every((f) => f(r)),
+        )
+        .toList();
     switch (q._op) {
       case 'insert':
         final created = [
@@ -158,23 +169,7 @@ class LocalDb implements Db {
       case 'delete':
         final removed = matching();
         if (q._table == 'spaces') {
-          // ON DELETE CASCADE: sub-spaces at every level, and the items of
-          // every space.
-          final roots = removed.map((r) => r['id'] as String).toList();
-          final ids = {
-            ...roots,
-            ...descendantsOf(
-              roots,
-              t['spaces']!.values,
-              idOf: (s) => s['id'] as String,
-              parentOf: (s) => s['parent_id'] as String?,
-            ),
-          };
-          await _erase(t, 'space_items', [
-            for (final item in t['space_items']!.values)
-              if (ids.contains(item['space_id'])) item,
-          ]);
-          await _erase(t, 'spaces', [for (final id in ids) ?t['spaces']![id]]);
+          await _eraseSpaces(t, removed);
         } else {
           await _erase(t, q._table, removed);
         }
@@ -288,6 +283,29 @@ class LocalDb implements Db {
     await _persist(t, table);
   }
 
+  /// ON DELETE CASCADE: sub-spaces at every level, and the items of every
+  /// space removed.
+  Future<void> _eraseSpaces(
+    Map<String, Map<String, Map<String, dynamic>>> t,
+    List<Map<String, dynamic>> removed,
+  ) async {
+    final roots = removed.map((r) => r['id'] as String).toList();
+    final ids = {
+      ...roots,
+      ...descendantsOf(
+        roots,
+        t['spaces']!.values,
+        idOf: (s) => s['id'] as String,
+        parentOf: (s) => s['parent_id'] as String?,
+      ),
+    };
+    await _erase(t, 'space_items', [
+      for (final item in t['space_items']!.values)
+        if (ids.contains(item['space_id'])) item,
+    ]);
+    await _erase(t, 'spaces', [for (final id in ids) ?t['spaces']![id]]);
+  }
+
   // Saves run one at a time, so two quick changes can't race on a file.
   Future<void> _saving = Future<void>.value();
 
@@ -362,6 +380,18 @@ class LocalDb implements Db {
         return null;
       case 'log_client_event':
         return null; // Nothing is logged in local mode.
+      case 'purge_expired':
+        // As schema.sql: expired items, then expired spaces with what they
+        // hold.
+        await _erase(t, 'space_items', [
+          for (final r in t['space_items']!.values)
+            if (isExpired(r)) r,
+        ]);
+        await _eraseSpaces(t, [
+          for (final r in t['spaces']!.values)
+            if (isExpired(r)) r,
+        ]);
+        return null;
       default:
         throw _fail('Not available in local mode.');
     }

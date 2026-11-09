@@ -259,6 +259,7 @@ class _RemindersScreenState extends State<RemindersScreen>
       onTogglePin: readOnly ? null : () => togglePinItem(item),
       onToggleStar: () => toggleStarItem(item),
       onSetReminder: _offline ? null : () => editItemReminder(item),
+      onSetExpiry: _offline ? null : () => editItemExpiry(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),

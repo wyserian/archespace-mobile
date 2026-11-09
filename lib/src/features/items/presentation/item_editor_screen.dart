@@ -20,6 +20,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
@@ -45,6 +46,7 @@ class ItemEditorScreen extends StatefulWidget {
     this.onTogglePin,
     this.onToggleStar,
     this.onSetReminder,
+    this.onSetExpiry,
     this.onToggleLock,
     this.onDuplicate,
     this.onMove,
@@ -71,6 +73,7 @@ class ItemEditorScreen extends StatefulWidget {
   final Future<bool> Function(SpaceItem item)? onTogglePin;
   final Future<bool> Function(SpaceItem item)? onToggleStar;
   final Future<ReminderEdit?> Function(SpaceItem item)? onSetReminder;
+  final Future<ExpiryEdit?> Function(SpaceItem item)? onSetExpiry;
   final Future<bool> Function(SpaceItem item)? onToggleLock;
   final Future<void> Function(SpaceItem item)? onDuplicate;
   final Future<bool> Function(SpaceItem item)? onMove;
@@ -119,6 +122,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late bool _starred = widget.existing?.starred ?? false;
   late bool _locked = widget.existing?.locked ?? false;
   late Reminder? _reminder = widget.existing?.reminder;
+  late DateTime? _expiresAt = widget.existing?.expiresAt;
   late List<String> _tags = widget.existing?.tags ?? const [];
   bool _addingTag = false;
 
@@ -297,6 +301,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     spaceId: widget.spaceId,
     tags: _tags,
     reminder: _reminder,
+    expiresAt: _expiresAt,
     createdAt: widget.existing?.createdAt,
   );
 
@@ -331,6 +336,12 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       showErrorSnack(context, "Couldn't update the tags.");
     }
   }
+
+  /// From the menu or the chip: set, change or cancel self-destruct.
+  void _editExpiry() => _run((item) async {
+    final edit = await widget.onSetExpiry!(item);
+    if (edit != null && mounted) setState(() => _expiresAt = edit.at);
+  });
 
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: itemClipboardText(_current)));
@@ -431,6 +442,13 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           label: 'Archive',
           onSelected: () => _runAndLeave(w.onArchive!),
         ),
+      if (w.onSetExpiry != null)
+        ActionMenuEntry(
+          group: 'keep',
+          icon: Icons.hourglass_bottom_rounded,
+          label: _expiresAt == null ? 'Self-destruct' : 'Change self-destruct',
+          onSelected: _editExpiry,
+        ),
       if (w.onDelete != null)
         ActionMenuEntry(
           group: 'delete',
@@ -454,6 +472,11 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
         spacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (_expiresAt case final at?)
+            ExpiryChip(
+              at: at,
+              onTap: widget.onSetExpiry == null ? null : _editExpiry,
+            ),
           for (final tag in _tags)
             TagChip(
               label: tag,
@@ -590,7 +613,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                       ),
                     ),
                   ),
-                  if (_tags.isNotEmpty || _addingTag)
+                  if (_tags.isNotEmpty || _addingTag || _expiresAt != null)
                     _tagsRow(Theme.of(context).colorScheme),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),

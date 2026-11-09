@@ -318,6 +318,11 @@ class _StarredScreenState extends State<StarredScreen>
     onMove: () async {
       if (await moveSpacesTo(context, [space.id]) && mounted) _load();
     },
+    onSetExpiry: _offline
+        ? null
+        : () async {
+            if (await editSpaceExpiry(context, space) && mounted) _load();
+          },
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
     onSetTags: _offline
@@ -339,6 +344,7 @@ class _StarredScreenState extends State<StarredScreen>
       onTogglePin: readOnly ? null : () => togglePinItem(item),
       onToggleStar: () => toggleStarItem(item),
       onSetReminder: _offline ? null : () => editItemReminder(item),
+      onSetExpiry: _offline ? null : () => editItemExpiry(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),

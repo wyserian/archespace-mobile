@@ -4,6 +4,7 @@ import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
+import 'package:archespace_mobile/src/shared/data/expiry.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
@@ -71,7 +72,7 @@ class ItemRepository {
 
   static const _columns =
       'id, space_id, type, title, content, tags, reminder, pinned, starred, '
-      'locked, position, created_at';
+      'locked, position, expires_at, created_at';
 
   /// Fetch active items matching [where], caching the encrypted rows under
   /// [cacheKey]; on a network error, fall back to that cache.
@@ -103,11 +104,13 @@ class ItemRepository {
     return (items: await decodeRows(rows), fromCache: false);
   }
 
-  /// Decrypt item rows (also the Archive's and Bin's), skipping any that fail.
+  /// Decrypt item rows (also the Archive's and Bin's), skipping any that fail
+  /// and any whose self-destruct time has passed (cached since).
   Future<List<SpaceItem>> decodeRows(List<dynamic> rows) async {
     final items = <SpaceItem>[];
     for (final row in rows) {
       final m = row as Map;
+      if (isExpired(m.cast<String, dynamic>())) continue;
       try {
         items.add(
           SpaceItem(
@@ -124,6 +127,7 @@ class ItemRepository {
             starred: (m['starred'] ?? false) as bool,
             locked: (m['locked'] ?? false) as bool,
             spaceId: m['space_id'] as String?,
+            expiresAt: expiresAtOf(m.cast<String, dynamic>()),
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
           ),
         );
@@ -169,6 +173,15 @@ class ItemRepository {
                   _masterKey,
                 ),
         })
+        .eq('id', id);
+  }
+
+  /// Set or (with null) cancel an item's self-destruct time. A plain time, not
+  /// content, so a read-only space allows it, like a delete.
+  Future<void> setExpiry(String id, DateTime? at) async {
+    await _client
+        .from('space_items')
+        .update({'expires_at': at?.toUtc().toIso8601String()})
         .eq('id', id);
   }
 

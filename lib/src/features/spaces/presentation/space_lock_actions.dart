@@ -7,6 +7,7 @@ import 'package:archespace_mobile/src/features/vault/application/content_lock.da
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
 /// Open a protected space with the vault PIN. True when it can be shown.
@@ -60,6 +61,34 @@ Future<bool> toggleSpaceLock(
         context,
         locked ? "Couldn't remove protection." : "Couldn't protect the space.",
       );
+    }
+    return false;
+  }
+}
+
+/// Set, change or cancel a space's self-destruct time (its items and
+/// sub-spaces go with it). True when it changed (the caller reloads).
+Future<bool> editSpaceExpiry(BuildContext context, Space space) async {
+  final edit = await showExpirySheet(
+    context,
+    space: true,
+    initial: space.expiresAt,
+  );
+  if (edit == null) return false;
+  try {
+    await SpaceRepository(
+      VaultSession.instance.masterKey,
+    ).setExpiry(space.id, edit.at);
+    if (context.mounted) {
+      showSuccessSnack(
+        context,
+        edit.at == null ? 'Self-destruct cancelled' : 'Self-destruct set',
+      );
+    }
+    return true;
+  } catch (_) {
+    if (context.mounted) {
+      showErrorSnack(context, "Couldn't save the self-destruct time.");
     }
     return false;
   }

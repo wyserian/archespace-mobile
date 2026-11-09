@@ -27,6 +27,7 @@ import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/locked_view.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
@@ -354,6 +355,11 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       if (await moveSpacesTo(context, [sub.id]) && mounted) _load();
     },
     onExport: () => exportSpace(sub),
+    onSetExpiry: _offline
+        ? null
+        : () async {
+            if (await editSpaceExpiry(context, sub) && mounted) _load();
+          },
     onArchive: () => _subSpaceOp(
       (r) => r.archiveSpace(sub.id),
       "Couldn't archive the space.",
@@ -721,6 +727,15 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           label: 'Archive',
           onSelected: _archiveSpace,
         ),
+        if (!_offline)
+          ActionMenuEntry(
+            group: 'keep',
+            icon: Icons.hourglass_bottom_rounded,
+            label: _space.expiresAt == null
+                ? 'Self-destruct'
+                : 'Change self-destruct',
+            onSelected: _editExpiry,
+          ),
         ActionMenuEntry(
           group: 'delete',
           icon: Icons.delete_outline,
@@ -732,6 +747,10 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     ),
     const SizedBox(width: 4),
   ];
+
+  Future<void> _editExpiry() async {
+    if (await editSpaceExpiry(context, _space) && mounted) _load();
+  }
 
   /// A fixed row (not scrolling) with the in-space search field and the list
   /// controls (view, sort, select) inline, in place of an "Items" label.
@@ -813,6 +832,11 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           const Padding(
             padding: EdgeInsets.only(left: 8),
             child: _ReadOnlyPill(),
+          ),
+        if (_space.expiresAt case final at?)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: ExpiryChip(at: at, onTap: _offline ? null : _editExpiry),
           ),
       ],
     );
@@ -1297,6 +1321,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     onTogglePin: _readOnly ? null : () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
     onSetReminder: _offline ? null : () => editItemReminder(item),
+    onSetExpiry: _offline ? null : () => editItemExpiry(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: _readOnly ? null : () => duplicateItem(item),
     onMove: _readOnly ? null : () => moveItem(item),

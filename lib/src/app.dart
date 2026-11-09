@@ -13,6 +13,7 @@ import 'package:archespace_mobile/src/features/vault/application/vault_session.d
 import 'package:archespace_mobile/src/features/vault/presentation/inactivity_locker.dart';
 import 'package:archespace_mobile/src/features/auth/presentation/login_screen.dart';
 import 'package:archespace_mobile/src/features/onboarding/presentation/splash_screen.dart';
+import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/spaces_screen.dart';
 import 'package:archespace_mobile/src/features/settings/application/appearance_controller.dart';
 import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
@@ -193,11 +194,13 @@ class _RootGateState extends State<_RootGate> {
     if (mounted) setState(() {});
   }
 
-  /// Unlocked: schedule the reminders (readable only now), open Reminders
-  /// for one tapped while locked, and look for an app update once a day.
+  /// Unlocked: delete what has self-destructed, schedule the reminders
+  /// (readable only now), open Reminders for one tapped while locked, and look
+  /// for an app update once a day.
   void _onUnlockChanged() {
     if (!VaultSession.instance.unlocked.value) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      SpaceRepository.purgeExpired();
       ReminderNotifications.instance.sync();
       final update = await AppUpdater.instance.dailyCheck();
       if (update != null && mounted) showUpdateBanner(context, update);

@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'package:archespace_mobile/src/shared/data/expiry.dart';
+
 /// A tiny JSON-file cache under the app support directory, used to keep the
 /// last-seen **encrypted** rows for offline reads. Only ciphertext is written
 /// to disk - decryption still needs the in-memory master key - so this does not
@@ -39,9 +41,11 @@ class CacheStore {
   }
 
   /// Read a cached list of rows (empty if absent / not a list).
+  /// The cached rows, without any whose self-destruct time has passed (the
+  /// server hides those too).
   static Future<List<Map<String, dynamic>>> readRows(String key) async {
     final data = await read(key);
-    if (data is List) return data.cast<Map<String, dynamic>>();
+    if (data is List) return withoutExpired(data.cast<Map<String, dynamic>>());
     return [];
   }
 

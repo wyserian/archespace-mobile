@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
@@ -27,6 +28,7 @@ class SpaceCard extends StatefulWidget {
     this.onToggleLock,
     this.onMove,
     this.onExport,
+    this.onSetExpiry,
     this.onSetTags,
     this.selectMode = false,
     this.selected = false,
@@ -60,6 +62,9 @@ class SpaceCard extends StatefulWidget {
 
   /// Export the space (with its items) to PDF. Null hides it.
   final VoidCallback? onExport;
+
+  /// Open the self-destruct sheet. Null hides it (the chip still shows).
+  final VoidCallback? onSetExpiry;
 
   /// Save a new tag list; true when saved. Null (e.g. offline) hides adding
   /// and removing tags.
@@ -307,6 +312,13 @@ class _SpaceCardState extends State<SpaceCard> {
                       spacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        if (space.expiresAt case final at?)
+                          ExpiryChip(
+                            at: at,
+                            onTap: selectMode || widget.actions != null
+                                ? null
+                                : widget.onSetExpiry,
+                          ),
                         for (final tag in tags)
                           _tagChip(
                             tag,
@@ -326,7 +338,9 @@ class _SpaceCardState extends State<SpaceCard> {
                               }
                             },
                           ),
-                        if (tags.isNotEmpty || adding)
+                        if (tags.isNotEmpty ||
+                            adding ||
+                            space.expiresAt != null)
                           Text(
                             '·',
                             style: TextStyle(
@@ -337,7 +351,10 @@ class _SpaceCardState extends State<SpaceCard> {
                         // Lined up with the tag chips' tap height when there
                         // are tags; on its own it takes only its text height.
                         SizedBox(
-                          height: tags.isNotEmpty || adding
+                          height:
+                              tags.isNotEmpty ||
+                                  adding ||
+                                  space.expiresAt != null
                               ? kTagTapHeight
                               : null,
                           child: Center(
@@ -468,6 +485,15 @@ class _SpaceCardState extends State<SpaceCard> {
           label: 'Archive',
           onSelected: w.onArchive,
         ),
+        if (w.onSetExpiry != null)
+          ActionMenuEntry(
+            group: 'keep',
+            icon: Icons.hourglass_bottom_rounded,
+            label: space.expiresAt == null
+                ? 'Self-destruct'
+                : 'Change self-destruct',
+            onSelected: w.onSetExpiry!,
+          ),
         ActionMenuEntry(
           group: 'delete',
           icon: Icons.delete_outline,

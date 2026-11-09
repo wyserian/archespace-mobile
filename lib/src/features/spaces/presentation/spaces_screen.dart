@@ -1027,6 +1027,11 @@ class _SpacesScreenState extends State<SpacesScreen>
     onDuplicate: () => _duplicateSpace(space),
     onMove: () => _moveSpaces([space.id]),
     onExport: () => exportSpace(space),
+    onSetExpiry: _offline
+        ? null
+        : () async {
+            if (await editSpaceExpiry(context, space) && mounted) _load();
+          },
     onArchive: () => _archiveSpace(space),
     onDelete: () => _deleteSpace(space),
     onSetTags: _offline ? null : (tags) => _setSpaceTags(space, tags),
@@ -1051,6 +1056,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     onTogglePin: () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
     onSetReminder: _offline ? null : () => editItemReminder(item),
+    onSetExpiry: _offline ? null : () => editItemExpiry(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: () => duplicateItem(item),
     onMove: () => moveItem(item),

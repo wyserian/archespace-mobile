@@ -23,6 +23,7 @@ import 'package:archespace_mobile/src/features/vault/application/content_lock.da
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
@@ -45,6 +46,7 @@ class ItemCard extends StatefulWidget {
     this.onExport,
     this.onSetTags,
     this.onSetReminder,
+    this.onSetExpiry,
     this.selectMode = false,
     this.selected = false,
     this.onSelectToggle,
@@ -83,6 +85,9 @@ class ItemCard extends StatefulWidget {
 
   /// Open the reminder sheet. Null hides reminder editing.
   final VoidCallback? onSetReminder;
+
+  /// Open the self-destruct sheet. Null hides it (the chip still shows).
+  final VoidCallback? onSetExpiry;
   final bool selectMode;
   final bool selected;
   final VoidCallback? onSelectToggle;
@@ -279,6 +284,7 @@ class _ItemCardState extends State<ItemCard>
     final onExport = widget.onExport;
     final onToggleLock = widget.onToggleLock;
     final onSetReminder = widget.onSetReminder;
+    final onSetExpiry = widget.onSetExpiry;
     final onSetTags = widget.onSetTags;
     final scheme = Theme.of(context).colorScheme;
     // Protected (itself or its space) and not opened with the PIN: the content,
@@ -367,6 +373,7 @@ class _ItemCardState extends State<ItemCard>
                             onToggleStar != null ||
                             onSetTags != null ||
                             onSetReminder != null ||
+                            onSetExpiry != null ||
                             onToggleLock != null ||
                             onDuplicate != null ||
                             onMove != null ||
@@ -455,6 +462,15 @@ class _ItemCardState extends State<ItemCard>
                               icon: Icons.archive_outlined,
                               label: 'Archive',
                               onSelected: onArchive,
+                            ),
+                          if (onSetExpiry != null)
+                            ActionMenuEntry(
+                              group: 'keep',
+                              icon: Icons.hourglass_bottom_rounded,
+                              label: item.expiresAt == null
+                                  ? 'Self-destruct'
+                                  : 'Change self-destruct',
+                              onSelected: onSetExpiry,
                             ),
                           if (onDelete != null)
                             ActionMenuEntry(
@@ -607,11 +623,12 @@ class _ItemCardState extends State<ItemCard>
   Widget _tagsRow(BuildContext context, ColorScheme scheme) {
     final tags = widget.item.tags;
     final reminder = widget.item.reminder;
+    final expiresAt = widget.item.expiresAt;
     final onSetTags = widget.selectMode ? null : widget.onSetTags;
     final adding = _addingTag && onSetTags != null;
-    // Nothing to show until there's a tag or reminder ("Add tag" is in the
-    // menu).
-    if (tags.isEmpty && reminder == null && !adding) {
+    // Nothing to show until there's a tag, reminder or self-destruct time
+    // ("Add tag" is in the menu).
+    if (tags.isEmpty && reminder == null && expiresAt == null && !adding) {
       return const SizedBox.shrink();
     }
     return Wrap(
@@ -622,6 +639,11 @@ class _ItemCardState extends State<ItemCard>
           ReminderChip(
             reminder: reminder,
             onTap: widget.selectMode ? null : widget.onSetReminder,
+          ),
+        if (expiresAt != null)
+          ExpiryChip(
+            at: expiresAt,
+            onTap: widget.selectMode ? null : widget.onSetExpiry,
           ),
         for (final tag in tags)
           TagChip(
