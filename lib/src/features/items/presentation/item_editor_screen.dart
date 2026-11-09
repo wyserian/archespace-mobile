@@ -893,12 +893,17 @@ class _ListEditorState extends State<_ListEditor> {
   }
 
   Future<void> _remove(Map<String, dynamic> item) async {
-    final ok = await confirmDelete(
-      context,
-      title: 'Delete this item?',
-      message:
-          '${quotedOr(item['text'] as String?, 'This empty item')} will be removed from the list.',
-    );
+    // A done checklist item goes without asking; it's already finished.
+    final done =
+        widget.variant == _ListVariant.checklist && item['checked'] == true;
+    final ok =
+        done ||
+        await confirmDelete(
+          context,
+          title: 'Delete this item?',
+          message:
+              '${quotedOr(item['text'] as String?, 'This empty item')} will be removed from the list.',
+        );
     if (!ok || !mounted) return;
     final id = item['id'] as String;
     setState(() => _items.remove(item));
