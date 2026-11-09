@@ -522,6 +522,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                ListenableBuilder(
+                  listenable: AutoLockController.instance,
+                  builder: (context, _) {
+                    final on = AutoLockController.instance.lockOnScreenLock;
+                    void toggle(bool value) {
+                      AutoLockController.instance.setLockOnScreenLock(value);
+                      showSuccessSnack(
+                        context,
+                        value
+                            ? 'The vault will lock when the screen locks.'
+                            : 'Lock when screen locks turned off.',
+                      );
+                    }
+
+                    return _SettingTile(
+                      icon: Icons.screen_lock_portrait_outlined,
+                      title: 'Lock when screen locks',
+                      subtitle:
+                          'Lock the vault as soon as this phone locks. This '
+                          'device only.',
+                      trailing: Switch(value: on, onChanged: toggle),
+                      onTap: () => toggle(!on),
+                    );
+                  },
+                ),
                 _SettingTile(
                   icon: Icons.lock_outline,
                   title: 'Lock now',

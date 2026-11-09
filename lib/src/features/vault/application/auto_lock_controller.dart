@@ -29,17 +29,21 @@ const List<AutoLockOption> kAutoLockOptions = [
 
 const String kDefaultAutoLockId = '5m';
 
-/// Holds the vault auto-lock duration, persisted per-device with
-/// shared_preferences (a security preference, not synced to the account).
-/// Auto-lock is inactivity-based; [InactivityLocker] applies it.
+/// Holds the vault auto-lock duration and whether the screen locking locks
+/// the vault, persisted per-device with shared_preferences (security
+/// preferences, not synced to the account). [InactivityLocker] applies both.
 class AutoLockController extends ChangeNotifier {
   AutoLockController._();
   static final AutoLockController instance = AutoLockController._();
 
   static const String _key = 'vault_auto_lock';
+  static const String _screenLockKey = 'vault_lock_on_screen_lock';
 
   String _id = kDefaultAutoLockId;
   String get id => _id;
+
+  bool _lockOnScreenLock = true;
+  bool get lockOnScreenLock => _lockOnScreenLock;
 
   Duration? get duration => kAutoLockOptions
       .firstWhere(
@@ -54,8 +58,17 @@ class AutoLockController extends ChangeNotifier {
     final saved = prefs.getString(_key);
     if (saved != null && kAutoLockOptions.any((o) => o.id == saved)) {
       _id = saved;
-      notifyListeners();
     }
+    _lockOnScreenLock = prefs.getBool(_screenLockKey) ?? true;
+    notifyListeners();
+  }
+
+  Future<void> setLockOnScreenLock(bool on) async {
+    if (on == _lockOnScreenLock) return;
+    _lockOnScreenLock = on;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_screenLockKey, on);
   }
 
   Future<void> setId(String id) async {
