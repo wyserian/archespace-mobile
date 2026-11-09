@@ -16,8 +16,10 @@ import 'package:archespace_mobile/src/features/reminders/presentation/reminder_w
 import 'package:archespace_mobile/src/features/items/presentation/rich_text_web_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web_editor.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
+import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
@@ -1058,8 +1060,9 @@ int _idCounter = 0;
 String _uid() =>
     '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(_idCounter++).toRadixString(36)}';
 
-/// Editable cards for `card_list` (`{ items: [{id, title, description}] }`).
-/// Two fields per card; add, remove, and drag to reorder.
+/// Editable cards for `card_list`
+/// (`{ items: [{id, title, description, color}] }`). Two fields per card;
+/// add, drag to reorder, and colour (none by default) or delete from its menu.
 class _CardsEditor extends StatefulWidget {
   const _CardsEditor({required this.content, this.readOnly = false});
 
@@ -1155,70 +1158,85 @@ class _CardsEditorState extends State<_CardsEditor> {
               return Padding(
                 key: ValueKey(item['id']),
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: border),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _titleFor(item),
-                              readOnly: widget.readOnly,
-                              onChanged: (value) => item['title'] = value,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: widget.readOnly ? null : 'Title',
-                                border: InputBorder.none,
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                          if (!widget.readOnly) ...[
-                            IconButton(
-                              onPressed: () => _remove(item),
-                              icon: const Icon(Icons.close, size: 18),
-                              tooltip: 'Remove',
-                            ),
-                            ReorderableDragStartListener(
-                              index: index,
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(
-                                  Icons.drag_handle,
-                                  size: 18,
-                                  semanticLabel: 'Drag to reorder',
+                child: colorTinted(
+                  color: spaceColor(item['color'] as String?),
+                  fill: null,
+                  border: Border.all(color: border),
+                  radius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 4, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _titleFor(item),
+                                readOnly: widget.readOnly,
+                                onChanged: (value) => item['title'] = value,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: widget.readOnly ? null : 'Title',
+                                  border: InputBorder.none,
+                                  isDense: true,
                                 ),
                               ),
                             ),
+                            if (!widget.readOnly) ...[
+                              ActionMenuButton(
+                                tooltip: 'Card actions',
+                                entries: [
+                                  ...colorMenuEntries(
+                                    context,
+                                    current: item['color'] as String?,
+                                    onPick: (id) =>
+                                        setState(() => item['color'] = id),
+                                  ),
+                                  ActionMenuEntry(
+                                    icon: Icons.delete_outline,
+                                    label: 'Delete card',
+                                    danger: true,
+                                    group: 'delete',
+                                    onSelected: () => _remove(item),
+                                  ),
+                                ],
+                              ),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    size: 18,
+                                    semanticLabel: 'Drag to reorder',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      // Separator between the card's heading and its content.
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4, bottom: 4),
-                        child: Divider(height: 1, color: border),
-                      ),
-                      TextField(
-                        controller: _descFor(item),
-                        readOnly: widget.readOnly,
-                        onChanged: (value) => item['description'] = value,
-                        minLines: 1,
-                        maxLines: null,
-                        decoration: InputDecoration(
-                          hintText: widget.readOnly ? null : 'Description',
-                          border: InputBorder.none,
-                          isDense: true,
                         ),
-                      ),
-                    ],
+                        // Separator between the card's heading and its content.
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4, bottom: 4),
+                          child: Divider(height: 1, color: border),
+                        ),
+                        TextField(
+                          controller: _descFor(item),
+                          readOnly: widget.readOnly,
+                          onChanged: (value) => item['description'] = value,
+                          minLines: 1,
+                          maxLines: null,
+                          decoration: InputDecoration(
+                            hintText: widget.readOnly ? null : 'Description',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

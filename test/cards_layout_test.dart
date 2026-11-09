@@ -151,4 +151,34 @@ void main() {
     expect(find.text('Copy'), findsOneWidget);
     expect(find.text('Add tag'), findsOneWidget);
   });
+
+  testWidgets('a Cards item shows coloured and plain cards', (tester) async {
+    await _pump(
+      tester,
+      ItemCard(
+        item: SpaceItem(
+          id: 'i2',
+          type: 'card_list',
+          title: 'Ideas',
+          content: const {
+            'items': [
+              {
+                'id': 'a',
+                'title': 'Blue one',
+                'description': '',
+                'color': 'blue',
+              },
+              {'id': 'b', 'title': 'Plain one', 'description': 'text'},
+            ],
+          },
+          pinned: false,
+        ),
+        onTap: () {},
+        onTogglePin: () {},
+        onDelete: () {},
+      ),
+    );
+    expect(find.text('Blue one'), findsOneWidget);
+    expect(find.text('Plain one'), findsOneWidget);
+  });
 }

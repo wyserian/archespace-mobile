@@ -22,6 +22,7 @@ import 'package:archespace_mobile/src/features/reminders/presentation/reminder_w
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
@@ -810,36 +811,44 @@ class _Cards extends StatelessWidget {
               builder: (context) {
                 final title = (raw['title'] ?? '').toString();
                 final desc = (raw['description'] ?? '').toString();
-                return Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
+                final color = spaceColor(raw['color'] as String?);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: colorTinted(
+                    color: color,
+                    fill: null,
                     border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.5),
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title.isNotEmpty)
-                        Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      // A divider separates the heading from the content when
-                      // both are present.
-                      if (title.isNotEmpty && desc.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Divider(
-                            height: 1,
-                            color: scheme.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      if (desc.isNotEmpty) Text(desc),
-                    ],
+                    radius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (title.isNotEmpty)
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          // A divider separates the heading from the content when
+                          // both are present.
+                          if (title.isNotEmpty && desc.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Divider(
+                                height: 1,
+                                color: scheme.outlineVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          if (desc.isNotEmpty) Text(desc),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },

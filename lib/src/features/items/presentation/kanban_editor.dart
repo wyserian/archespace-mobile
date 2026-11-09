@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:archespace_mobile/src/features/items/domain/kanban.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 
 /// Editor for the Kanban type (see domain/kanban.dart; stages are stored as
@@ -184,29 +185,14 @@ class _KanbanEditorState extends State<KanbanEditor> {
   Widget _column(KanbanColumn col) {
     final scheme = Theme.of(context).colorScheme;
     final index = _columns.indexOf(col);
-    final color = spaceColor(col.color);
-    return Container(
-      // A soft fill sets the stage apart; a colour tints it and adds a thin,
-      // soft strip along the top, like a space card's.
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color:
-            color?.withValues(alpha: 0.08) ??
-            scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (color != null)
-            Container(height: 2, color: color.withValues(alpha: 0.5)),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-              child: _columnBody(col, index),
-            ),
-          ),
-        ],
+    // A soft fill sets the stage apart; a colour tints it instead.
+    return colorTinted(
+      color: spaceColor(col.color),
+      fill: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      radius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+        child: _columnBody(col, index),
       ),
     );
   }
@@ -288,19 +274,6 @@ class _KanbanEditorState extends State<KanbanEditor> {
   }
 
   Widget _columnMenu(KanbanColumn col, int index) {
-    Widget swatch(Color? c) => Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: c,
-        shape: BoxShape.circle,
-        border: c == null
-            ? Border.all(color: Theme.of(context).colorScheme.outline)
-            : null,
-      ),
-    );
-    String label(String id) => id[0].toUpperCase() + id.substring(1);
-    final canMove = _columns.length > 1;
     // The compact menu the cards use; it stays clear of the keyboard and
     // scrolls if it's taller than the room left.
     return ActionMenuButton(
@@ -310,33 +283,26 @@ class _KanbanEditorState extends State<KanbanEditor> {
           ActionMenuEntry(
             icon: Icons.arrow_back,
             label: 'Move left',
+            group: 'move',
             onSelected: () => _moveColumn(col, -1),
           ),
         if (index < _columns.length - 1)
           ActionMenuEntry(
             icon: Icons.arrow_forward,
             label: 'Move right',
+            group: 'move',
             onSelected: () => _moveColumn(col, 1),
           ),
-        ActionMenuEntry(
-          leading: swatch(null),
-          label: 'No color',
-          selected: col.color == null,
-          dividerBefore: canMove,
-          onSelected: () => _change(() => col.color = null),
+        ...colorMenuEntries(
+          context,
+          current: col.color,
+          onPick: (id) => _change(() => col.color = id),
         ),
-        for (final entry in kSpaceColors.entries)
-          ActionMenuEntry(
-            leading: swatch(entry.value),
-            label: label(entry.key),
-            selected: col.color == entry.key,
-            onSelected: () => _change(() => col.color = entry.key),
-          ),
         ActionMenuEntry(
           icon: Icons.delete_outline,
           label: 'Delete stage',
           danger: true,
-          dividerBefore: true,
+          group: 'delete',
           onSelected: () => _removeColumn(col),
         ),
       ],
