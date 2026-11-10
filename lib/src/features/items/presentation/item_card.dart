@@ -22,9 +22,9 @@ import 'package:archespace_mobile/src/features/reminders/presentation/reminder_w
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
-import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
@@ -47,6 +47,7 @@ class ItemCard extends StatefulWidget {
     this.onSetTags,
     this.onSetReminder,
     this.onSetExpiry,
+    this.onSetColor,
     this.selectMode = false,
     this.selected = false,
     this.onSelectToggle,
@@ -88,6 +89,9 @@ class ItemCard extends StatefulWidget {
 
   /// Open the self-destruct sheet. Null hides it (the chip still shows).
   final VoidCallback? onSetExpiry;
+
+  /// Open the colour sheet. Null hides it (the colour still shows).
+  final VoidCallback? onSetColor;
   final bool selectMode;
   final bool selected;
   final VoidCallback? onSelectToggle;
@@ -285,6 +289,7 @@ class _ItemCardState extends State<ItemCard>
     final onToggleLock = widget.onToggleLock;
     final onSetReminder = widget.onSetReminder;
     final onSetExpiry = widget.onSetExpiry;
+    final onSetColor = widget.onSetColor;
     final onSetTags = widget.onSetTags;
     final scheme = Theme.of(context).colorScheme;
     // Protected (itself or its space) and not opened with the PIN: the content,
@@ -298,12 +303,16 @@ class _ItemCardState extends State<ItemCard>
     final borderSide = selected
         ? BorderSide(color: scheme.primary.withValues(alpha: 0.4), width: 1.5)
         : BorderSide.none;
+    final margin =
+        widget.margin ??
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+    // Its colour, if set, as a faint tint over the card's surface and its
+    // content's, as a coloured Kanban stage had.
+    final tinted = tintedTheme(Theme.of(context), spaceColor(item.color));
     return Card(
-      margin:
-          widget.margin ??
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: margin,
       clipBehavior: Clip.antiAlias,
-      color: scheme.surfaceContainer,
+      color: tinted.colorScheme.surfaceContainer,
       elevation: 2,
       shadowColor: Colors.black,
       shape: RoundedRectangleBorder(
@@ -374,6 +383,7 @@ class _ItemCardState extends State<ItemCard>
                             onSetTags != null ||
                             onSetReminder != null ||
                             onSetExpiry != null ||
+                            onSetColor != null ||
                             onToggleLock != null ||
                             onDuplicate != null ||
                             onMove != null ||
@@ -408,6 +418,13 @@ class _ItemCardState extends State<ItemCard>
                                   : CupertinoIcons.star,
                               label: item.starred ? 'Unstar' : 'Star',
                               onSelected: onToggleStar,
+                            ),
+                          if (onSetColor != null)
+                            ActionMenuEntry(
+                              group: 'mark',
+                              icon: Icons.palette_outlined,
+                              label: 'Color',
+                              onSelected: onSetColor,
                             ),
                           if (onSetTags != null)
                             ActionMenuEntry(
@@ -498,7 +515,10 @@ class _ItemCardState extends State<ItemCard>
                   children: [
                     _tagsRow(context, scheme),
                     const SizedBox(height: 6),
-                    if (hidden) _lockedBody(scheme) else _buildBody(),
+                    if (hidden)
+                      _lockedBody(scheme)
+                    else
+                      Theme(data: tinted, child: _buildBody()),
                     if (!hidden && _overflowing) _expandToggle(scheme),
                   ],
                 ),
@@ -833,44 +853,36 @@ class _Cards extends StatelessWidget {
               builder: (context) {
                 final title = (raw['title'] ?? '').toString();
                 final desc = (raw['description'] ?? '').toString();
-                final color = spaceColor(raw['color'] as String?);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: colorTinted(
-                    color: color,
-                    fill: null,
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
                     border: Border.all(
                       color: scheme.outlineVariant.withValues(alpha: 0.5),
                     ),
-                    radius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (title.isNotEmpty)
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          // A divider separates the heading from the content when
-                          // both are present.
-                          if (title.isNotEmpty && desc.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Divider(
-                                height: 1,
-                                color: scheme.outlineVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                            ),
-                          if (desc.isNotEmpty) Text(desc),
-                        ],
-                      ),
-                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (title.isNotEmpty)
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      // A divider separates the heading from the content when
+                      // both are present.
+                      if (title.isNotEmpty && desc.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Divider(
+                            height: 1,
+                            color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      if (desc.isNotEmpty) Text(desc),
+                    ],
                   ),
                 );
               },

@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
-import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/util/errors.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
-import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
 /// Create or edit a space (name, description, colour); tags are added and
 /// removed on the space card. Pass [existing] to edit. Pops `true` on save so
@@ -173,45 +172,6 @@ class _SpaceEditorScreenState extends State<SpaceEditorScreen> {
     ),
   );
 
-  Widget _colorPicker() {
-    final scheme = Theme.of(context).colorScheme;
-    Widget dot(String? id, Color? color) {
-      final isSelected = _color == id;
-      return Semantics(
-        button: true,
-        selected: isSelected,
-        label: id == null ? 'No colour' : '$id colour',
-        child: TapArea(
-          onTap: () => setState(() => _color = id),
-          child: Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              border: Border.all(
-                color: isSelected ? scheme.onSurface : scheme.outlineVariant,
-                width: isSelected ? 3 : 1,
-              ),
-            ),
-            child: color == null
-                ? Icon(Icons.block, size: 18, color: scheme.outline)
-                : (isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 20)
-                      : null),
-          ),
-        ),
-      );
-    }
-
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: [
-        dot(null, null),
-        for (final entry in kSpaceColors.entries) dot(entry.key, entry.value),
-      ],
-    );
-  }
+  Widget _colorPicker() =>
+      ColorDots(value: _color, onChanged: (id) => setState(() => _color = id));
 }

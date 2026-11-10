@@ -1322,6 +1322,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     onToggleStar: () => toggleStarItem(item),
     onSetReminder: _offline ? null : () => editItemReminder(item),
     onSetExpiry: _offline ? null : () => editItemExpiry(item),
+    onSetColor: _offline || _readOnly ? null : () => editItemColor(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: _readOnly ? null : () => duplicateItem(item),
     onMove: _readOnly ? null : () => moveItem(item),

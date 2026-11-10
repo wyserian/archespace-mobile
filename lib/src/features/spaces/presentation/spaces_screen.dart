@@ -1057,6 +1057,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     onToggleStar: () => toggleStarItem(item),
     onSetReminder: _offline ? null : () => editItemReminder(item),
     onSetExpiry: _offline ? null : () => editItemExpiry(item),
+    onSetColor: _offline ? null : () => editItemColor(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: () => duplicateItem(item),
     onMove: () => moveItem(item),

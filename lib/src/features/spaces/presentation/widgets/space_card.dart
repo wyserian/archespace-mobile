@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/select_box.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
@@ -214,185 +215,162 @@ class _SpaceCardState extends State<SpaceCard> {
     final borderSide = widget.selected
         ? BorderSide(color: scheme.primary.withValues(alpha: 0.4), width: 1.5)
         : BorderSide.none;
-    final topColor = spaceColor(space.color)?.withValues(alpha: 0.5);
-
-    return Stack(
-      children: [
-        Card(
-          margin: margin,
-          clipBehavior: Clip.antiAlias,
-          // Borderless: the card is set off from the page by a lighter surface
-          // (a couple of tones up from colorScheme.surface) plus a soft shadow.
-          // surfaceContainer keeps it distinct without being washed-out light.
-          color: scheme.surfaceContainer,
-          elevation: 2,
-          shadowColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: borderSide,
-          ),
-          child: InkWell(
-            // With actions (Archive, Bin) there's no page to open.
-            onTap: selectMode
-                ? widget.onSelectToggle
-                : widget.actions == null
-                ? widget.onTap
-                : null,
-            child: Padding(
-              // No top/right padding: the 48 menu button's own space sets the
-              // header's height and its distance from the edge.
-              padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Row(
-                      children: [
-                        if (space.pinned)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Icon(
-                              Icons.push_pin,
-                              size: 18,
-                              color: scheme.primary,
-                              semanticLabel: 'Pinned',
-                            ),
-                          ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _nameRow(space, scheme, hidden),
-                              if (widget.note != null)
-                                Text(
-                                  widget.note!,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
-                            ],
+    return TopColorBorder(
+      color: spaceColor(space.color),
+      margin: margin,
+      child: Card(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        // Borderless: the card is set off from the page by a lighter surface
+        // (a couple of tones up from colorScheme.surface) plus a soft shadow.
+        // surfaceContainer keeps it distinct without being washed-out light.
+        color: scheme.surfaceContainer,
+        elevation: 2,
+        shadowColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: borderSide,
+        ),
+        child: InkWell(
+          // With actions (Archive, Bin) there's no page to open.
+          onTap: selectMode
+              ? widget.onSelectToggle
+              : widget.actions == null
+              ? widget.onTap
+              : null,
+          child: Padding(
+            // No top/right padding: the 48 menu button's own space sets the
+            // header's height and its distance from the edge.
+            padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      if (space.pinned)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Icon(
+                            Icons.push_pin,
+                            size: 18,
+                            color: scheme.primary,
+                            semanticLabel: 'Pinned',
                           ),
                         ),
-                        if (!selectMode)
-                          widget.actions != null
-                              ? Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: 4,
-                                    right: 8,
-                                  ),
-                                  child: widget.actions,
-                                )
-                              : _menu(space, hidden, canEditTags),
-                        if (selectMode)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8, right: 12),
-                            child: SelectBox(selected: widget.selected),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (space.description.isNotEmpty && !hidden)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Text(
-                        space.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _nameRow(space, scheme, hidden),
+                            if (widget.note != null)
+                              Text(
+                                widget.note!,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
+                      if (!selectMode)
+                        widget.actions != null
+                            ? Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  right: 8,
+                                ),
+                                child: widget.actions,
+                              )
+                            : _menu(space, hidden, canEditTags),
+                      if (selectMode)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8, right: 12),
+                          child: SelectBox(selected: widget.selected),
+                        ),
+                    ],
+                  ),
+                ),
+                if (space.description.isNotEmpty && !hidden)
                   Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 16),
-                    child: Wrap(
-                      spacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (space.expiresAt case final at?)
-                          ExpiryChip(
-                            at: at,
-                            onTap: selectMode || widget.actions != null
-                                ? null
-                                : widget.onSetExpiry,
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Text(
+                      space.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 16),
+                  child: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (space.expiresAt case final at?)
+                        ExpiryChip(
+                          at: at,
+                          onTap: selectMode || widget.actions != null
+                              ? null
+                              : widget.onSetExpiry,
+                        ),
+                      for (final tag in tags)
+                        _tagChip(
+                          tag,
+                          onRemove: canEditTags
+                              ? () => _saveTags(
+                                  tags.where((t) => t != tag).toList(),
+                                )
+                              : null,
+                        ),
+                      if (adding)
+                        TagInput(
+                          onCommit: (added) {
+                            setState(() => _addingTag = false);
+                            final merged = {...tags, ...added}.toList();
+                            if (merged.length != tags.length) {
+                              _saveTags(merged);
+                            }
+                          },
+                        ),
+                      if (tags.isNotEmpty || adding || space.expiresAt != null)
+                        Text(
+                          '·',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: scheme.onSurfaceVariant,
                           ),
-                        for (final tag in tags)
-                          _tagChip(
-                            tag,
-                            onRemove: canEditTags
-                                ? () => _saveTags(
-                                    tags.where((t) => t != tag).toList(),
-                                  )
-                                : null,
-                          ),
-                        if (adding)
-                          TagInput(
-                            onCommit: (added) {
-                              setState(() => _addingTag = false);
-                              final merged = {...tags, ...added}.toList();
-                              if (merged.length != tags.length) {
-                                _saveTags(merged);
-                              }
-                            },
-                          ),
-                        if (tags.isNotEmpty ||
-                            adding ||
-                            space.expiresAt != null)
-                          Text(
-                            '·',
+                        ),
+                      // Lined up with the tag chips' tap height when there
+                      // are tags; on its own it takes only its text height.
+                      SizedBox(
+                        height:
+                            tags.isNotEmpty || adding || space.expiresAt != null
+                            ? kTagTapHeight
+                            : null,
+                        child: Center(
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: Text(
+                            _countLabel,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 12,
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
-                        // Lined up with the tag chips' tap height when there
-                        // are tags; on its own it takes only its text height.
-                        SizedBox(
-                          height:
-                              tags.isNotEmpty ||
-                                  adding ||
-                                  space.expiresAt != null
-                              ? kTagTapHeight
-                              : null,
-                          child: Center(
-                            widthFactor: 1,
-                            heightFactor: 1,
-                            child: Text(
-                              _countLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-        // Space colour as the card's top border, curved around the top corners
-        // to match the web (a coloured top border on a rounded card).
-        if (topColor != null)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Padding(
-                // Must match the Card's margin exactly so the colour strip sits
-                // flush on the card's top edge (mismatched insets leave a gap).
-                padding: margin,
-                child: CustomPaint(
-                  painter: _TopBorderPainter(color: topColor, radius: 16),
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
@@ -504,58 +482,4 @@ class _SpaceCardState extends State<SpaceCard> {
       ],
     );
   }
-}
-
-/// Fills the space colour as a curved top border: [_thickness]px across the top
-/// and around the upper part of each corner, then tapering to a gradual point
-/// as it curves down toward the sides (rather than ending in a straight cut).
-class _TopBorderPainter extends CustomPainter {
-  _TopBorderPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  static const double _thickness = 2;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final r = radius;
-    const t = _thickness;
-    final ri = r - t;
-    const s45 = 0.70710678; // sin/cos 45 deg: the band is full thickness here
-    const sTip = 0.92718385; // sin 68 deg: where the band tapers out
-    const cTip = 0.37460659; // cos 68 deg
-    // Inner edge stays a concentric band down to the 45-degree diagonal; the
-    // outer edge continues a little further, and the two meet so each end
-    // narrows to a gradual point instead of a straight diagonal cut.
-    final iLeft = Offset(r - ri * s45, r - ri * s45);
-    final iRight = Offset(w - (r - ri * s45), r - ri * s45);
-    final tipLeft = Offset(r * (1 - sTip), r * (1 - cTip));
-    final tipRight = Offset(w - r * (1 - sTip), r * (1 - cTip));
-
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    final path = Path()
-      ..moveTo(tipLeft.dx, tipLeft.dy)
-      ..arcToPoint(Offset(r, 0), radius: Radius.circular(r))
-      ..lineTo(w - r, 0)
-      ..arcToPoint(tipRight, radius: Radius.circular(r))
-      ..lineTo(iRight.dx, iRight.dy)
-      ..arcToPoint(
-        Offset(w - r, t),
-        radius: Radius.circular(ri),
-        clockwise: false,
-      )
-      ..lineTo(r, t)
-      ..arcToPoint(iLeft, radius: Radius.circular(ri), clockwise: false)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TopBorderPainter old) =>
-      old.color != color || old.radius != radius;
 }

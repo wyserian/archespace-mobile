@@ -18,6 +18,7 @@ import 'package:archespace_mobile/src/features/vault/application/vault_session.d
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/export/pdf_exporter.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 
@@ -77,6 +78,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
           onToggleStar: toggleStarItem,
           onSetReminder: editItemReminder,
           onSetExpiry: editItemExpiry,
+          onSetColor: readOnly ? null : editItemColor,
           onToggleLock: toggleLockItem,
           onDuplicate: readOnly ? null : duplicateItem,
           onMove: readOnly ? null : moveItem,
@@ -210,6 +212,21 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
       return edit;
     } catch (_) {
       showItemError("Couldn't save the reminder.");
+      return null;
+    }
+  }
+
+  /// Pick [item]'s card colour. The saved change, or null when closed or it
+  /// failed.
+  Future<ColorEdit?> editItemColor(SpaceItem item) async {
+    final edit = await showColorSheet(context, current: item.color);
+    if (edit == null || edit.color == item.color) return null;
+    try {
+      await _repo.setColor(item.id, edit.color);
+      if (mounted) reloadItems();
+      return edit;
+    } catch (_) {
+      showItemError("Couldn't change the color.");
       return null;
     }
   }
@@ -439,6 +456,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     spaceId: item.spaceId,
     tags: tags,
     reminder: item.reminder,
+    color: item.color,
     expiresAt: item.expiresAt,
     createdAt: item.createdAt,
   );

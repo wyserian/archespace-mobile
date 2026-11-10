@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/presentation/item_card.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
+import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
 
 // A phone-width screen; any layout overflow fails the test.
 Future<void> _pump(WidgetTester tester, Widget child) async {
@@ -152,33 +153,61 @@ void main() {
     expect(find.text('Add tag'), findsOneWidget);
   });
 
-  testWidgets('a Cards item shows coloured and plain cards', (tester) async {
+  testWidgets('an item card shows its colour, and Color in its menu', (
+    tester,
+  ) async {
+    var asked = 0;
     await _pump(
       tester,
       ItemCard(
         item: SpaceItem(
           id: 'i2',
-          type: 'card_list',
-          title: 'Ideas',
-          content: const {
-            'items': [
-              {
-                'id': 'a',
-                'title': 'Blue one',
-                'description': '',
-                'color': 'blue',
-              },
-              {'id': 'b', 'title': 'Plain one', 'description': 'text'},
-            ],
-          },
+          type: 'textbox',
+          title: 'Blue note',
+          content: const {'text': 'Hello'},
           pinned: false,
+          color: 'blue',
         ),
         onTap: () {},
         onTogglePin: () {},
         onDelete: () {},
+        onSetColor: () => asked++,
       ),
     );
-    expect(find.text('Blue one'), findsOneWidget);
-    expect(find.text('Plain one'), findsOneWidget);
+    // A faint tint of the surface, with no strip along the top.
+    expect(find.byType(TopColorBorder), findsNothing);
+    final card = tester.widget<Card>(find.byType(Card).first);
+    final plain = Theme.of(
+      tester.element(find.byType(Card).first),
+    ).colorScheme.surfaceContainer;
+    expect(card.color, isNot(plain));
+    // Its content sits in a theme whose surfaces carry the tint too.
+    final body = Theme.of(tester.element(find.text('Hello')));
+    expect(body.colorScheme.surfaceContainer, isNot(plain));
+
+    await tester.tap(find.byTooltip('Item actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Color'));
+    await tester.pumpAndSettle();
+    expect(asked, 1);
+  });
+
+  testWidgets('the colour sheet returns the picked colour', (tester) async {
+    ColorEdit? picked;
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async =>
+              picked = await showColorSheet(context, current: 'blue'),
+          child: const Text('open'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('green colour'));
+    await tester.pumpAndSettle();
+    expect(picked?.color, 'green');
   });
 }

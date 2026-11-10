@@ -132,40 +132,4 @@ void main() {
     expect(find.text('Star'), findsOneWidget);
     expect(find.text('Add tag'), findsNothing);
   });
-
-  testWidgets('a card takes a colour from its menu, none by default', (
-    tester,
-  ) async {
-    final content = <String, dynamic>{
-      'items': [
-        {'id': 'c1', 'title': 'Card', 'description': ''},
-      ],
-    };
-    await _open(
-      tester,
-      ItemEditorScreen(
-        spaceId: 's1',
-        type: 'card_list',
-        existing: SpaceItem(
-          id: 'i2',
-          type: 'card_list',
-          title: 'Ideas',
-          content: content,
-          pinned: false,
-        ),
-      ),
-    );
-    await tester.tap(find.byTooltip('Card actions'));
-    await tester.pumpAndSettle();
-    expect(find.text('No color'), findsOneWidget);
-    expect(find.text('Delete card'), findsOneWidget);
-
-    await tester.tap(find.text('Blue'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Card actions'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('No color'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
 }

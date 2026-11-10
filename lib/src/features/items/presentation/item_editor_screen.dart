@@ -15,8 +15,8 @@ import 'package:archespace_mobile/src/features/items/presentation/kanban_editor.
 import 'package:archespace_mobile/src/features/reminders/presentation/reminder_widgets.dart';
 import 'package:archespace_mobile/src/features/items/presentation/rich_text_web_editor.dart';
 import 'package:archespace_mobile/src/features/items/presentation/whiteboard_web_editor.dart';
-import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
+import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_menu.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/color_menu.dart';
@@ -47,6 +47,7 @@ class ItemEditorScreen extends StatefulWidget {
     this.onToggleStar,
     this.onSetReminder,
     this.onSetExpiry,
+    this.onSetColor,
     this.onToggleLock,
     this.onDuplicate,
     this.onMove,
@@ -74,6 +75,7 @@ class ItemEditorScreen extends StatefulWidget {
   final Future<bool> Function(SpaceItem item)? onToggleStar;
   final Future<ReminderEdit?> Function(SpaceItem item)? onSetReminder;
   final Future<ExpiryEdit?> Function(SpaceItem item)? onSetExpiry;
+  final Future<ColorEdit?> Function(SpaceItem item)? onSetColor;
   final Future<bool> Function(SpaceItem item)? onToggleLock;
   final Future<void> Function(SpaceItem item)? onDuplicate;
   final Future<bool> Function(SpaceItem item)? onMove;
@@ -123,6 +125,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late bool _locked = widget.existing?.locked ?? false;
   late Reminder? _reminder = widget.existing?.reminder;
   late DateTime? _expiresAt = widget.existing?.expiresAt;
+  late String? _color = widget.existing?.color;
   late List<String> _tags = widget.existing?.tags ?? const [];
   bool _addingTag = false;
 
@@ -301,6 +304,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     spaceId: widget.spaceId,
     tags: _tags,
     reminder: _reminder,
+    color: _color,
     expiresAt: _expiresAt,
     createdAt: widget.existing?.createdAt,
   );
@@ -336,6 +340,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       showErrorSnack(context, "Couldn't update the tags.");
     }
   }
+
+  /// The theme with the item's colour (if any) faintly over its surfaces, as
+  /// on its card.
+  ThemeData get _tinted => tintedTheme(Theme.of(context), spaceColor(_color));
 
   /// From the menu or the chip: set, change or cancel self-destruct.
   void _editExpiry() => _run((item) async {
@@ -380,6 +388,16 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
             if (await w.onToggleStar!(item) && mounted) {
               setState(() => _starred = !_starred);
             }
+          }),
+        ),
+      if (w.onSetColor != null)
+        ActionMenuEntry(
+          group: 'mark',
+          icon: Icons.palette_outlined,
+          label: 'Color',
+          onSelected: () => _run((item) async {
+            final edit = await w.onSetColor!(item);
+            if (edit != null && mounted) setState(() => _color = edit.color);
           }),
         ),
       if (!w.readOnly)
@@ -538,7 +556,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
           ),
         ),
         child: Scaffold(
+          // The item's colour, if set, as the same faint tint as its card.
+          backgroundColor: _tinted.colorScheme.surface,
           appBar: AppBar(
+            backgroundColor: _tinted.colorScheme.surface,
             title: Text(
               widget.readOnly
                   ? label
@@ -620,12 +641,16 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                     child: Divider(height: 8),
                   ),
                   Expanded(
-                    child: _isRichText
-                        ? _buildBody()
-                        : Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: _buildBody(),
-                          ),
+                    // Its input areas take on the item's colour too.
+                    child: Theme(
+                      data: _tinted,
+                      child: _isRichText
+                          ? _buildBody()
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: _buildBody(),
+                            ),
+                    ),
                   ),
                 ],
               ),
@@ -1083,9 +1108,8 @@ int _idCounter = 0;
 String _uid() =>
     '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(_idCounter++).toRadixString(36)}';
 
-/// Editable cards for `card_list`
-/// (`{ items: [{id, title, description, color}] }`). Two fields per card;
-/// add, drag to reorder, and colour (none by default) or delete from its menu.
+/// Editable cards for `card_list` (`{ items: [{id, title, description}] }`).
+/// Two fields per card; add, remove, and drag to reorder.
 class _CardsEditor extends StatefulWidget {
   const _CardsEditor({required this.content, this.readOnly = false});
 
@@ -1181,85 +1205,70 @@ class _CardsEditorState extends State<_CardsEditor> {
               return Padding(
                 key: ValueKey(item['id']),
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                child: colorTinted(
-                  color: spaceColor(item['color'] as String?),
-                  fill: null,
-                  border: Border.all(color: border),
-                  radius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 4, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _titleFor(item),
-                                readOnly: widget.readOnly,
-                                onChanged: (value) => item['title'] = value,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: widget.readOnly ? null : 'Title',
-                                  border: InputBorder.none,
-                                  isDense: true,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: border),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _titleFor(item),
+                              readOnly: widget.readOnly,
+                              onChanged: (value) => item['title'] = value,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: widget.readOnly ? null : 'Title',
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          if (!widget.readOnly) ...[
+                            IconButton(
+                              onPressed: () => _remove(item),
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Remove',
+                            ),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.drag_handle,
+                                  size: 18,
+                                  semanticLabel: 'Drag to reorder',
                                 ),
                               ),
                             ),
-                            if (!widget.readOnly) ...[
-                              ActionMenuButton(
-                                tooltip: 'Card actions',
-                                entries: [
-                                  ...colorMenuEntries(
-                                    context,
-                                    current: item['color'] as String?,
-                                    onPick: (id) =>
-                                        setState(() => item['color'] = id),
-                                  ),
-                                  ActionMenuEntry(
-                                    icon: Icons.delete_outline,
-                                    label: 'Delete card',
-                                    danger: true,
-                                    group: 'delete',
-                                    onSelected: () => _remove(item),
-                                  ),
-                                ],
-                              ),
-                              ReorderableDragStartListener(
-                                index: index,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(6),
-                                  child: Icon(
-                                    Icons.drag_handle,
-                                    size: 18,
-                                    semanticLabel: 'Drag to reorder',
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
+                        ],
+                      ),
+                      // Separator between the card's heading and its content.
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4, bottom: 4),
+                        child: Divider(height: 1, color: border),
+                      ),
+                      TextField(
+                        controller: _descFor(item),
+                        readOnly: widget.readOnly,
+                        onChanged: (value) => item['description'] = value,
+                        minLines: 1,
+                        maxLines: null,
+                        decoration: InputDecoration(
+                          hintText: widget.readOnly ? null : 'Description',
+                          border: InputBorder.none,
+                          isDense: true,
                         ),
-                        // Separator between the card's heading and its content.
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4, bottom: 4),
-                          child: Divider(height: 1, color: border),
-                        ),
-                        TextField(
-                          controller: _descFor(item),
-                          readOnly: widget.readOnly,
-                          onChanged: (value) => item['description'] = value,
-                          minLines: 1,
-                          maxLines: null,
-                          decoration: InputDecoration(
-                            hintText: widget.readOnly ? null : 'Description',
-                            border: InputBorder.none,
-                            isDense: true,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               );

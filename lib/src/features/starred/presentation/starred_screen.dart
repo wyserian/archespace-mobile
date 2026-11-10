@@ -345,6 +345,7 @@ class _StarredScreenState extends State<StarredScreen>
       onToggleStar: () => toggleStarItem(item),
       onSetReminder: _offline ? null : () => editItemReminder(item),
       onSetExpiry: _offline ? null : () => editItemExpiry(item),
+      onSetColor: _offline || readOnly ? null : () => editItemColor(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),

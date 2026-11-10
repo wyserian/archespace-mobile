@@ -72,7 +72,7 @@ class ItemRepository {
 
   static const _columns =
       'id, space_id, type, title, content, tags, reminder, pinned, starred, '
-      'locked, position, expires_at, created_at';
+      'locked, color, position, expires_at, created_at';
 
   /// Fetch active items matching [where], caching the encrypted rows under
   /// [cacheKey]; on a network error, fall back to that cache.
@@ -127,6 +127,7 @@ class ItemRepository {
             starred: (m['starred'] ?? false) as bool,
             locked: (m['locked'] ?? false) as bool,
             spaceId: m['space_id'] as String?,
+            color: m['color'] as String?,
             expiresAt: expiresAtOf(m.cast<String, dynamic>()),
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
           ),
@@ -174,6 +175,12 @@ class ItemRepository {
                 ),
         })
         .eq('id', id);
+  }
+
+  /// Set or (with null) clear an item card's colour (a space colour preset
+  /// id; plain, like a space's).
+  Future<void> setColor(String id, String? color) async {
+    await _client.from('space_items').update({'color': color}).eq('id', id);
   }
 
   /// Set or (with null) cancel an item's self-destruct time. A plain time, not

@@ -14,6 +14,7 @@ class SpaceItem {
     this.spaceId,
     this.tags = const [],
     this.reminder,
+    this.color,
     this.expiresAt,
     this.createdAt,
   });
@@ -39,6 +40,10 @@ class SpaceItem {
 
   /// The item's reminder, or null (encrypted like the tags).
   final Reminder? reminder;
+
+  /// The card's colour, a space colour preset id, or null (plain, like a
+  /// space's).
+  final String? color;
 
   /// When it self-destructs (deleted for good), or null (see expiry.dart).
   final DateTime? expiresAt;

@@ -63,6 +63,7 @@ class LocalDb implements Db {
       'pinned': false,
       'starred': false,
       'locked': false,
+      'color': null,
       'deleted_at': null,
       'archived_at': null,
       'expires_at': null,
