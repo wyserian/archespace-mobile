@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/shared/data/expiry.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
-import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
 /// The result of the self-destruct sheet: the new time, or null to cancel it.
 typedef ExpiryEdit = ({DateTime? at});
@@ -233,50 +232,13 @@ class _ExpiryChipState extends State<ExpiryChip> {
     final soon = expiresSoon(widget.at);
     final color = soon ? scheme.error : scheme.onSurfaceVariant;
     final text = 'Deletes ${formatExpiresIn(widget.at)}';
-    return Semantics(
-      button: widget.onTap != null,
-      label: 'Self-destructs: $text',
-      excludeSemantics: true,
-      child: TapArea(
-        onTap: widget.onTap,
-        minSize: kTagTapHeight,
-        minWidth: 0,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(kChipRadius),
-          child: Container(
-            height: kChipHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: soon
-                  ? color.withValues(alpha: 0.12)
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(kChipRadius),
-              border: Border.all(
-                color: soon
-                    ? color.withValues(alpha: 0.35)
-                    : scheme.outlineVariant,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.hourglass_bottom_rounded, size: 13, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: kChipFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return StatusChip(
+      icon: Icons.hourglass_bottom_rounded,
+      text: text,
+      color: color,
+      emphasized: soon,
+      onTap: widget.onTap,
+      semanticsLabel: 'Self-destructs: $text',
     );
   }
 }

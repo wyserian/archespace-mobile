@@ -92,6 +92,89 @@ class TagChip extends StatelessWidget {
   }
 }
 
+/// A chip beside a card's tags (its reminder, its self-destruct time), in the
+/// tag chips' shape: an [icon] and [text] in [color], tinted and bordered in
+/// it when [emphasized], with an optional [trailing] icon. Tappable with
+/// [onTap]; read out as [semanticsLabel].
+class StatusChip extends StatelessWidget {
+  const StatusChip({
+    super.key,
+    required this.icon,
+    required this.text,
+    required this.color,
+    required this.semanticsLabel,
+    this.emphasized = false,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color color;
+  final String semanticsLabel;
+  final bool emphasized;
+  final IconData? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: onTap != null,
+      label: semanticsLabel,
+      excludeSemantics: true,
+      child: TapArea(
+        onTap: onTap,
+        minSize: kTagTapHeight,
+        minWidth: 0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(kChipRadius),
+          child: Container(
+            height: kChipHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: emphasized
+                  ? color.withValues(alpha: 0.12)
+                  : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(kChipRadius),
+              border: Border.all(
+                color: emphasized
+                    ? color.withValues(alpha: 0.35)
+                    : scheme.outlineVariant,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 13, color: color),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: kChipFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(trailing, size: 13, color: color),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The small field "Add tag" opens: Done or tapping away commits the typed
 /// tag(s) (comma-separated, possibly none) through [onCommit] once; the host
 /// then closes it.

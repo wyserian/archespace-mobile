@@ -29,18 +29,20 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 ## Features
 
 - **Zero-knowledge encryption**: the server only ever stores ciphertext ([Security model](#security-model))
-- **Vault PIN** with a recovery code, auto-lock and fingerprint / face unlock
+- **Vault PIN** with a recovery code, auto-lock, locking when the phone locks, and fingerprint / face unlock
 - **Protected** items and spaces, and **read-only** spaces
-- **Spaces** with sub-spaces nested to any depth, tags and colours
-- **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types))
+- **Self-destruct**: a space or item deletes itself for good at a time you set
+- **Spaces** with sub-spaces nested to any depth, tags (long-press one to remove it) and colours
+- **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types)), each with an optional card colour
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
-- **Starred**, **archive** and **bin**
+- **Starred**, **Self-destruct** (soonest first), **archive** and **bin** views
 - **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **offline mode**
 - **Encrypted backups** and **PDF export**
 - **Local mode**: no account, nothing leaves the phone
 - **Two-factor sign-in**
 - **Verifiable build** linked to its source commit ([Release verification](#release-verification))
+- **In-app updates** on Android from GitHub releases, checked against the release's SHA-256 ([In-app updates](#in-app-updates))
 
 ## Item types
 
@@ -49,10 +51,10 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 | Note | Free-form plain text. |
 | Rich text | A full document editor, the same one as the web app (bundled offline): headings, bullet, numbered and task lists, quotes, code blocks, tables, links, highlight, text alignment, superscript and subscript, line spacing, and find and replace (with regular expressions), from a native toolbar. Cards show a native preview. |
 | List | Bullet or numbered list (a Numbered checkbox switches between them); numbering updates as rows are added, removed, or reordered. |
-| Checklist | Items with checkboxes and progress tracking. |
+| Checklist | Items with checkboxes and progress tracking. A done item deletes without asking. |
 | Cards | Title and description pairs for planning and grouping ideas. |
 | Table | Rows and columns of text with a header row. Copies as tab-separated values that paste straight into a spreadsheet. |
-| Kanban | Cards in stages (To do, In Progress, Done to start) that scroll sideways: drag a card by its handle, or use its menu's Move to; rename, move and delete stages. Cards show a preview of the stages. |
+| Kanban | Cards in stages (To do, In Progress, Done to start) that scroll sideways: drag a card by its handle, or use its menu's Move to; rename, colour, move and delete stages. Cards show a preview of the stages. |
 | Whiteboard | An Excalidraw board: shapes, arrows, text and freehand drawing on a canvas you can pan and zoom. |
 | Code | A code snippet in a monospace block with automatic syntax highlighting (language auto-detected). Copies as plain text. |
 
@@ -65,7 +67,8 @@ Two separate secrets: a **login password** for the account and a **vault PIN** (
 - **Encrypted on the device.** Content is encrypted with AES-256-GCM before it leaves the phone; the server stores only ciphertext and non-sensitive metadata (IDs, timestamps, positions, flags). The offline cache and write queue hold ciphertext too.
 - **PIN never stored.** A random vault key is wrapped with a key derived from the PIN by Argon2id.
 - **Same format as the web app** (`arc1`), checked against shared test vectors in [`spec/`](spec/).
-- **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle. Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
+- **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle, and when the phone locks (a switch in Settings). Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
+- **Self-destruct.** Its time is plain metadata, so the server hides an expired space or item at once and deletes it (with what it holds) for good, on every device.
 - **Server-side guards.** Row Level Security limits each user to their own data, and optional two-factor sign-in is enforced by the database, not just the app.
 - **Protected items and spaces** need the PIN again inside an unlocked vault, as does erasing a local-mode vault: a guard against someone using your unlocked phone.
 - **Encrypted backups** open in the same vault, or anywhere with the PIN used when exporting.
@@ -175,6 +178,10 @@ git push origin v0.1.0
 
 You can also run the workflow manually from the Actions tab.
 
+### In-app updates
+
+On Android, a release build checks this repo's latest GitHub release at most once a day after unlock (a switch in **Settings > About** turns this off), and on **Check for updates**. It downloads the arm64 or universal APK, checks it against the release's `.sha256` file, and hands it to Android's installer, which also checks it carries the same signing key. The first update asks for Android's "Install unknown apps" permission. Dev builds (hash `dev`) and iOS skip this.
+
 ## Tech stack
 
 | Layer | Technology |
@@ -217,6 +224,7 @@ archespace-mobile/
         storage/          # archive + bin
         settings/         # account, security, appearance, backup, build footer
         backup/           # JSON import/export
+        updates/          # in-app updates from GitHub releases (Android)
       shared/
         config/           # app config + build info
         crypto/           # arc1 port (AES-GCM, Argon2id)

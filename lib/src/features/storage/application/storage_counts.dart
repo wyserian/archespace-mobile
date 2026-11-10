@@ -5,10 +5,9 @@ import 'package:archespace_mobile/src/features/reminders/application/reminder_no
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
 /// Holds the starred, self-destruct, archive and recycle-bin counts app-wide
-/// so the drawer
-/// can show them instantly (like the spaces count, which is already in memory).
-/// Loaded once at launch and refreshed when the drawer opens or storage
-/// changes.
+/// so the drawer can show them instantly (like the spaces count, which is
+/// already in memory). Loaded once at launch and refreshed when the drawer
+/// opens or storage changes.
 class StorageCounts extends ChangeNotifier {
   StorageCounts._();
   static final StorageCounts instance = StorageCounts._();

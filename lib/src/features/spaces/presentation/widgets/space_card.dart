@@ -12,8 +12,8 @@ import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
 
 /// A space as a borderless card: the space colour as a curved top border, the
 /// pin marker, name and actions menu on one row, then the description, tag
-/// chips (tap one to filter, long-press to remove it; "Add tag" is in the menu) and
-/// the item count.
+/// chips (tap one to filter, long-press to remove it; "Add tag" is in the
+/// menu) and the item count.
 class SpaceCard extends StatefulWidget {
   const SpaceCard({
     super.key,

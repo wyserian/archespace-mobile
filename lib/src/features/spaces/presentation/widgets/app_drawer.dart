@@ -30,8 +30,8 @@ enum DrawerPage {
 
 /// The app's navigation drawer: the name at the top, All spaces and the
 /// top-level spaces (folding under their heading), the library (Reminders,
-/// Starred, Self-destruct, Archive, Bin) with counts, and Lock vault and Settings at the
-/// bottom. Sign out lives in Settings.
+/// Starred, Self-destruct, Archive, Bin) with counts, and Lock vault and
+/// Settings at the bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
 /// dashboard also has a menu button). Its destinations go back to the

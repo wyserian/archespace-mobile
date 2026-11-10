@@ -307,7 +307,7 @@ class _ItemCardState extends State<ItemCard>
         widget.margin ??
         const EdgeInsets.symmetric(horizontal: 12, vertical: 6);
     // Its colour, if set, as a faint tint over the card's surface and its
-    // content's, as a coloured Kanban stage had.
+    // content's, as on a coloured Kanban stage.
     final tinted = tintedTheme(Theme.of(context), spaceColor(item.color));
     return Card(
       margin: margin,

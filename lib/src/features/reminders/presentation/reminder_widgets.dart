@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
-import 'package:archespace_mobile/src/shared/widgets/tap_area.dart';
 
 /// The result of the reminder sheet: the new reminder, or null to remove it.
 typedef ReminderEdit = ({Reminder? reminder});
@@ -345,66 +344,18 @@ class _ReminderChipState extends State<ReminderChip> {
         ? scheme.primary
         : scheme.onSurfaceVariant;
     final when = reminder.label(context, now);
-    final text = reminder.name.isEmpty ? when : '${reminder.name} · $when';
-    // The tag chips' shape and text size (see tag_chip.dart), so the chips in
-    // one row match.
-    final style = TextStyle(
-      fontSize: kChipFontSize,
-      fontWeight: FontWeight.w600,
+    return StatusChip(
+      icon: Icons.notifications_none_rounded,
+      text: reminder.name.isEmpty ? when : '${reminder.name} · $when',
       color: color,
-      height: 1,
-    );
-    return Semantics(
-      button: widget.onTap != null,
-      label: [
+      emphasized: past || today,
+      trailing: reminder.repeats ? Icons.repeat_rounded : null,
+      onTap: widget.onTap,
+      semanticsLabel: [
         'Reminder${reminder.name.isEmpty ? '' : ' "${reminder.name}"'}'
             '${past ? ', over' : ''}: $when',
         if (reminder.repeats) reminder.describeRepeat(now),
       ].join(', '),
-      excludeSemantics: true,
-      child: TapArea(
-        onTap: widget.onTap,
-        minSize: kTagTapHeight,
-        minWidth: 0,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(kChipRadius),
-          child: Container(
-            height: kChipHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: past || today
-                  ? color.withValues(alpha: 0.12)
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(kChipRadius),
-              border: Border.all(
-                color: past || today
-                    ? color.withValues(alpha: 0.35)
-                    : scheme.outlineVariant,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.notifications_none_rounded, size: 13, color: color),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    text,
-                    style: style,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (reminder.repeats) ...[
-                  const SizedBox(width: 4),
-                  Icon(Icons.repeat_rounded, size: 13, color: color),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
