@@ -242,6 +242,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     if (edit == null) return null;
     try {
       await _repo.setExpiry(item.id, edit.at);
+      StorageCounts.instance.refresh();
       if (mounted) {
         reloadItems();
         showSuccessSnack(

@@ -21,6 +21,7 @@ enum DrawerPage {
   space,
   reminders,
   starred,
+  selfDestruct,
   archive,
   bin,
   settings,
@@ -29,7 +30,7 @@ enum DrawerPage {
 
 /// The app's navigation drawer: the name at the top, All spaces and the
 /// top-level spaces (folding under their heading), the library (Reminders,
-/// Starred, Archive, Bin) with counts, and Lock vault and Settings at the
+/// Starred, Self-destruct, Archive, Bin) with counts, and Lock vault and Settings at the
 /// bottom. Sign out lives in Settings.
 ///
 /// Every main screen has it, opened by sliding from the left edge (the
@@ -233,6 +234,18 @@ class _AppDrawerState extends State<AppDrawer> {
                 selected: _isCurrent(DrawerPage.starred),
                 onTap: () =>
                     _open(context, DrawerPage.starred, const StarredScreen()),
+              ),
+              _tile(
+                context,
+                icon: Icons.hourglass_bottom_rounded,
+                label: 'Self-destruct',
+                count: StorageCounts.instance.expiring,
+                selected: _isCurrent(DrawerPage.selfDestruct),
+                onTap: () => _open(
+                  context,
+                  DrawerPage.selfDestruct,
+                  const StarredScreen(selfDestruct: true),
+                ),
               ),
               _tile(
                 context,

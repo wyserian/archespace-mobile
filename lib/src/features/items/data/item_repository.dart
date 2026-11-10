@@ -45,6 +45,11 @@ class ItemRepository {
   Future<({List<SpaceItem> items, bool fromCache})> listStarredItems() =>
       _list('items_starred', (q) => q.eq('starred', true));
 
+  /// Items set to self-destruct, from every space and the dashboard
+  /// (the Self-destruct view).
+  Future<({List<SpaceItem> items, bool fromCache})> listExpiringItems() =>
+      _list('items_expiring', (q) => q.not('expires_at', 'is', null));
+
   /// Items with a reminder, from every space and the dashboard (Reminders).
   Future<({List<SpaceItem> items, bool fromCache})> listReminderItems() =>
       _list('items_reminders', (q) => q.not('reminder', 'is', null));

@@ -4,7 +4,8 @@ import 'package:archespace_mobile/src/features/storage/data/storage_repository.d
 import 'package:archespace_mobile/src/features/reminders/application/reminder_notifications.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 
-/// Holds the starred, archive and recycle-bin counts app-wide so the drawer
+/// Holds the starred, self-destruct, archive and recycle-bin counts app-wide
+/// so the drawer
 /// can show them instantly (like the spaces count, which is already in memory).
 /// Loaded once at launch and refreshed when the drawer opens or storage
 /// changes.
@@ -13,6 +14,7 @@ class StorageCounts extends ChangeNotifier {
   static final StorageCounts instance = StorageCounts._();
 
   int? starred;
+  int? expiring;
   int? archive;
   int? bin;
   bool _loading = false;
@@ -31,9 +33,10 @@ class StorageCounts extends ChangeNotifier {
       ]);
       archive = counts[0];
       bin = counts[1];
-      // Fetched on its own so a failure here can't hide the other counts.
+      // Fetched on their own so a failure here can't hide the other counts.
       try {
         starred = await repo.starredCount();
+        expiring = await repo.expiringCount();
       } catch (_) {}
       notifyListeners();
     } catch (_) {
@@ -46,6 +49,7 @@ class StorageCounts extends ChangeNotifier {
   /// Clear the counts (e.g. on lock/sign-out) so a new session reloads them.
   void reset() {
     starred = null;
+    expiring = null;
     archive = null;
     bin = null;
     notifyListeners();

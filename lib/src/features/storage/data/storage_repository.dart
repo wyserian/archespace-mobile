@@ -72,20 +72,18 @@ class StorageRepository {
 
   /// Number of starred active entries (spaces + items), for the drawer count;
   /// ids only, so nothing is decrypted.
-  Future<int> starredCount() async {
+  Future<int> starredCount() => _activeCount((q) => q.eq('starred', true));
+
+  /// Number of active entries set to self-destruct, for the drawer count.
+  Future<int> expiringCount() =>
+      _activeCount((q) => q.not('expires_at', 'is', null));
+
+  Future<int> _activeCount(DbQuery Function(DbQuery) where) async {
     final results = await Future.wait([
-      _client
-          .from('spaces')
-          .select('id')
-          .eq('starred', true)
-          .isFilter('deleted_at', null)
-          .isFilter('archived_at', null),
-      _client
-          .from('space_items')
-          .select('id')
-          .eq('starred', true)
-          .isFilter('deleted_at', null)
-          .isFilter('archived_at', null),
+      for (final table in const ['spaces', 'space_items'])
+        where(
+          _client.from(table).select('id'),
+        ).isFilter('deleted_at', null).isFilter('archived_at', null),
     ]);
     return results[0].length + results[1].length;
   }

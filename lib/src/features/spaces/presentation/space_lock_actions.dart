@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
+import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
@@ -79,6 +80,7 @@ Future<bool> editSpaceExpiry(BuildContext context, Space space) async {
     await SpaceRepository(
       VaultSession.instance.masterKey,
     ).setExpiry(space.id, edit.at);
+    StorageCounts.instance.refresh();
     if (context.mounted) {
       showSuccessSnack(
         context,

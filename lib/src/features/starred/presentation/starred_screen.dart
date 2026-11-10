@@ -24,11 +24,14 @@ import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
-/// Quick access to starred spaces and items from anywhere. Starring never
+/// Spaces and items gathered from anywhere: the starred ones (Starred), or
+/// with [selfDestruct] those set to self-destruct, soonest first. Neither
 /// moves anything - spaces and items keep their place in their own lists; this
-/// screen only gathers what's starred, each item labelled with where it lives.
+/// screen only gathers them, each item labelled with where it lives.
 class StarredScreen extends StatefulWidget {
-  const StarredScreen({super.key});
+  const StarredScreen({super.key, this.selfDestruct = false});
+
+  final bool selfDestruct;
 
   @override
   State<StarredScreen> createState() => _StarredScreenState();
@@ -67,6 +70,15 @@ class _StarredScreenState extends State<StarredScreen>
   TableWatcher? _spacesWatcher;
   TableWatcher? _itemsWatcher;
 
+  /// For the realtime channel names: one per view.
+  String get _view => widget.selfDestruct ? 'expiring' : 'starred';
+
+  /// Soonest to go first, in the Self-destruct view.
+  List<T> _ordered<T>(List<T> list, DateTime? Function(T) at) =>
+      widget.selfDestruct
+      ? (list..sort((a, b) => at(a)!.compareTo(at(b)!)))
+      : list;
+
   SpaceRepository get _spaceRepo =>
       SpaceRepository(VaultSession.instance.masterKey);
 
@@ -75,14 +87,14 @@ class _StarredScreenState extends State<StarredScreen>
     super.initState();
     _load();
     _spacesWatcher = TableWatcher(
-      channelName: 'starred-spaces',
+      channelName: '$_view-spaces',
       table: 'spaces',
       onChange: reloadWhenShown,
     );
     final userId = currentUserId();
     if (userId != null) {
       _itemsWatcher = TableWatcher(
-        channelName: 'starred-items',
+        channelName: '$_view-items',
         table: 'space_items',
         filterColumn: 'user_id',
         filterValue: userId,
@@ -103,7 +115,9 @@ class _StarredScreenState extends State<StarredScreen>
       final key = VaultSession.instance.masterKey;
       final results = await Future.wait([
         SpaceRepository(key).listSpaces(),
-        ItemRepository(key).listStarredItems(),
+        widget.selfDestruct
+            ? ItemRepository(key).listExpiringItems()
+            : ItemRepository(key).listStarredItems(),
       ]);
       final spaces = results[0] as ({List<Space> spaces, bool fromCache});
       final items = results[1] as ({List<SpaceItem> items, bool fromCache});
@@ -213,10 +227,17 @@ class _StarredScreenState extends State<StarredScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(current: DrawerPage.starred),
+      drawer: AppDrawer(
+        current: widget.selfDestruct
+            ? DrawerPage.selfDestruct
+            : DrawerPage.starred,
+      ),
       drawerEdgeDragWidth: AppDrawer.edgeDragWidth(context),
       // Keep Back; the drawer opens with a slide from the left.
-      appBar: AppBar(leading: const BackButton(), title: const Text('Starred')),
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: Text(widget.selfDestruct ? 'Self-destruct' : 'Starred'),
+      ),
       body: _spaces == null && _error == null
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
@@ -237,7 +258,9 @@ class _StarredScreenState extends State<StarredScreen>
     if (_spaces == null && _error != null) {
       return StateMessage(
         icon: Icons.cloud_off_outlined,
-        title: "Couldn't load starred",
+        title: widget.selfDestruct
+            ? "Couldn't load self-destruct"
+            : "Couldn't load starred",
         message: 'Something went wrong. Check your connection and try again.',
         actionLabel: 'Retry',
         actionIcon: Icons.refresh,
@@ -246,16 +269,29 @@ class _StarredScreenState extends State<StarredScreen>
       );
     }
     final allSpaces = _spaces ?? const <Space>[];
-    final spaces = allSpaces.where((s) => s.starred).toList();
-    final items = _items ?? const <SpaceItem>[];
+    final spaces = _ordered(
+      allSpaces
+          .where((s) => widget.selfDestruct ? s.expiresAt != null : s.starred)
+          .toList(),
+      (Space s) => s.expiresAt,
+    );
+    final items = _ordered([...?_items], (SpaceItem i) => i.expiresAt);
     if (spaces.isEmpty && items.isEmpty) {
-      return const StateMessage(
-        icon: Icons.star_outline_rounded,
-        title: 'Nothing starred yet',
-        message:
-            'Star a space or an item from its menu to keep it here for '
-            'quick access.',
-      );
+      return widget.selfDestruct
+          ? const StateMessage(
+              icon: Icons.hourglass_empty_rounded,
+              title: 'Nothing set to self-destruct',
+              message:
+                  'Set a space or an item to self-destruct from its menu, '
+                  'and it shows here until it goes.',
+            )
+          : const StateMessage(
+              icon: Icons.star_outline_rounded,
+              title: 'Nothing starred yet',
+              message:
+                  'Star a space or an item from its menu to keep it here for '
+                  'quick access.',
+            );
     }
     // Where each item lives: its space's path.
     final names = spacePathLabels(allSpaces);
