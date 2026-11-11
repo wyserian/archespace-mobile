@@ -13,6 +13,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_item_selection.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
@@ -51,7 +52,10 @@ class SpacesScreen extends StatefulWidget {
 }
 
 class _SpacesScreenState extends State<SpacesScreen>
-    with ItemActions<SpacesScreen>, ReloadWhenShown<SpacesScreen> {
+    with
+        ItemActions<SpacesScreen>,
+        SpaceItemSelection<SpacesScreen>,
+        ReloadWhenShown<SpacesScreen> {
   // Realtime changes reload this screen only while it's showing.
   @override
   Future<void> reloadShown() => _load();
@@ -69,9 +73,6 @@ class _SpacesScreenState extends State<SpacesScreen>
   bool _offline = false;
   TableWatcher? _watcher;
   TableWatcher? _itemsWatcher;
-  bool _selectMode = false;
-  final Set<String> _selected = {};
-  final Set<String> _selectedItems = {};
   String _sort = kSortDefault;
   String _view = 'list';
   final Set<String> _activeTags = {};
@@ -143,7 +144,7 @@ class _SpacesScreenState extends State<SpacesScreen>
   }
 
   bool get _canReorder =>
-      !_selectMode && !_offline && _sort == kSortDefault && _activeTags.isEmpty;
+      !selectMode && !_offline && _sort == kSortDefault && _activeTags.isEmpty;
 
   @override
   void dispose() {
@@ -267,43 +268,15 @@ class _SpacesScreenState extends State<SpacesScreen>
     }
   }
 
-  // Selection mode (spaces and dashboard items together)
-  int get _selectedCount => _selected.length + _selectedItems.length;
-
-  void _enterSelect() => setState(() => _selectMode = true);
-
-  void _exitSelect() => setState(() {
-    _selectMode = false;
-    _selected.clear();
-    _selectedItems.clear();
-  });
-
-  void _toggleSelect(String id) => setState(() {
-    if (!_selected.remove(id)) _selected.add(id);
-  });
-
-  void _toggleSelectItem(String id) => setState(() {
-    if (!_selectedItems.remove(id)) _selectedItems.add(id);
-  });
-
-  void _selectAll() => setState(() {
-    _selected
-      ..clear()
-      ..addAll(
-        (_spaces ?? const <Space>[])
-            .where((s) => s.parentId == null)
-            .map((s) => s.id),
-      );
-    _selectedItems
-      ..clear()
-      ..addAll((_items ?? const <SpaceItem>[]).map((i) => i.id));
-  });
-
-  /// "2 spaces", "3 items", or "2 spaces and 3 items".
-  String _selectionLabel(int spaces, int items) => [
-    if (spaces > 0) '$spaces ${spaces == 1 ? 'space' : 'spaces'}',
-    if (items > 0) '$items ${items == 1 ? 'item' : 'items'}',
-  ].join(' and ');
+  // Selection (spaces and dashboard items together): SpaceItemSelection.
+  // Select all takes the top-level spaces and every dashboard item.
+  void _selectAll() => selectOnly(
+    [
+      for (final s in _spaces ?? const <Space>[])
+        if (s.parentId == null) s.id,
+    ],
+    [for (final i in _items ?? const <SpaceItem>[]) i.id],
+  );
 
   void _snack(String message) {
     if (mounted) showErrorSnack(context, message);
@@ -352,104 +325,10 @@ class _SpacesScreenState extends State<SpacesScreen>
     _persistItemOrder(list);
   }
 
-  /// Run a bulk action on the selected spaces and items, then leave select
-  /// mode and refresh.
-  Future<bool> _runBulk(
-    Future<void> Function(List<String> spaceIds, List<String> itemIds) op,
-  ) async {
-    final spaceIds = _selected.toList();
-    final itemIds = _selectedItems.toList();
-    if (spaceIds.isEmpty && itemIds.isEmpty) return false;
-    try {
-      await op(spaceIds, itemIds);
-      if (mounted) {
-        _exitSelect();
-        _load();
-      }
-      return true;
-    } catch (_) {
-      _snack("Couldn't complete that action.");
-      return false;
-    }
-  }
-
-  /// Undo an archive or move-to-bin for the given spaces and items.
-  Future<void> _restore(List<String> spaceIds, List<String> itemIds) async {
-    try {
-      await Future.wait([
-        _spaceRepo.restoreSpaces(spaceIds),
-        _itemRepo.restoreItems(itemIds),
-      ]);
-      StorageCounts.instance.refresh();
-      if (mounted) _load();
-    } catch (_) {
-      if (mounted) showErrorSnack(context, "Couldn't undo that.");
-    }
-  }
-
-  Future<void> _bulkSetPinned(bool pinned) => _runBulk(
-    (spaceIds, itemIds) => Future.wait([
-      _spaceRepo.bulkSetPinned(spaceIds, pinned),
-      _itemRepo.bulkSetPinned(itemIds, pinned),
-    ]),
-  );
-
-  Future<void> _bulkArchive() async {
-    final spaceIds = _selected.toList();
-    final itemIds = _selectedItems.toList();
-    final ok = await _runBulk(
-      (s, i) =>
-          Future.wait([_spaceRepo.bulkArchive(s), _itemRepo.bulkArchive(i)]),
-    );
-    StorageCounts.instance.refresh();
-    if (ok && mounted) {
-      showUndoSnack(
-        context,
-        '${_selectionLabel(spaceIds.length, itemIds.length)} archived',
-        () => _restore(spaceIds, itemIds),
-      );
-    }
-  }
-
-  Future<void> _bulkDelete() async {
-    final spaceIds = _selected.toList();
-    final itemIds = _selectedItems.toList();
-    final label = _selectionLabel(spaceIds.length, itemIds.length);
-    final confirmed = await confirmAction(
-      context,
-      title: 'Move $label to bin?',
-      message: spaceIds.isNotEmpty
-          ? 'They and their items go to the bin.'
-          : 'They go to the bin.',
-      confirmLabel: 'Move to bin',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    final ok = await _runBulk(
-      (s, i) =>
-          Future.wait([_spaceRepo.bulkDelete(s), _itemRepo.bulkDelete(i)]),
-    );
-    StorageCounts.instance.refresh();
-    if (ok && mounted) {
-      showUndoSnack(
-        context,
-        '$label moved to bin',
-        () => _restore(spaceIds, itemIds),
-      );
-    }
-  }
-
-  /// Move the selected dashboard items into a space (items only).
-  Future<void> _bulkMoveItems() async {
-    final target = await pickMoveTarget(null);
-    if (target == null) return;
-    await _runBulk((_, itemIds) => _itemRepo.bulkMove(itemIds, target.id));
-  }
-
   /// Move spaces into another space (with everything in them).
   Future<void> _moveSpaces(List<String> ids) async {
     if (await moveSpacesTo(context, ids) && mounted) {
-      if (_selectMode) _exitSelect();
+      if (selectMode) exitSelect();
       _load();
     }
   }
@@ -475,7 +354,7 @@ class _SpacesScreenState extends State<SpacesScreen>
         showUndoSnack(
           context,
           'Space archived',
-          () => _restore([space.id], const []),
+          () => undoRemove([space.id], const []),
         );
       }
     } catch (_) {
@@ -508,7 +387,7 @@ class _SpacesScreenState extends State<SpacesScreen>
         showUndoSnack(
           context,
           'Space moved to bin',
-          () => _restore([space.id], const []),
+          () => undoRemove([space.id], const []),
         );
       }
     } catch (_) {
@@ -535,18 +414,18 @@ class _SpacesScreenState extends State<SpacesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: _selectMode
+      drawer: selectMode
           ? null
           : const AppDrawer(current: DrawerPage.dashboard),
       drawerEdgeDragWidth: AppDrawer.edgeDragWidth(context),
-      appBar: _selectMode
+      appBar: selectMode
           ? AppBar(
               leading: IconButton(
-                onPressed: _exitSelect,
+                onPressed: exitSelect,
                 icon: const Icon(Icons.close),
                 tooltip: 'Cancel',
               ),
-              title: Text('$_selectedCount selected'),
+              title: Text('$selectedCount selected'),
               actions: [
                 ActionIconButton(
                   icon: Icons.select_all,
@@ -556,55 +435,55 @@ class _SpacesScreenState extends State<SpacesScreen>
               ],
             )
           : null,
-      floatingActionButton: _selectMode
+      floatingActionButton: selectMode
           ? null
           : CreateFabs(
               onNewSpace: _createSpace,
               onAddItem: openAddItemSheet,
               onQuickNote: addQuickNote,
             ),
-      bottomNavigationBar: _selectMode
+      bottomNavigationBar: selectMode
           ? BulkActionBar(
-              count: _selectedCount,
+              count: selectedCount,
               actions: [
                 BulkAction(
                   icon: Icons.push_pin,
                   label: 'Pin',
-                  onPressed: () => _bulkSetPinned(true),
+                  onPressed: () => bulkSetPinned(true),
                 ),
                 BulkAction(
                   icon: Icons.push_pin_outlined,
                   label: 'Unpin',
                   struck: true,
-                  onPressed: () => _bulkSetPinned(false),
+                  onPressed: () => bulkSetPinned(false),
                 ),
                 // Spaces or items move, not both at once (a read-only space
                 // stays where it is).
-                if (_selectedItems.isNotEmpty && _selected.isEmpty)
+                if (selectedItems.isNotEmpty && selectedSpaces.isEmpty)
                   BulkAction(
                     icon: Icons.drive_file_move_outlined,
                     label: 'Move',
-                    onPressed: _bulkMoveItems,
+                    onPressed: bulkMoveItems,
                   ),
-                if (_selected.isNotEmpty &&
-                    _selectedItems.isEmpty &&
+                if (selectedSpaces.isNotEmpty &&
+                    selectedItems.isEmpty &&
                     !(_spaces ?? const <Space>[]).any(
-                      (s) => _selected.contains(s.id) && s.readOnly,
+                      (s) => selectedSpaces.contains(s.id) && s.readOnly,
                     ))
                   BulkAction(
                     icon: Icons.drive_file_move_outlined,
                     label: 'Move',
-                    onPressed: () => _moveSpaces(_selected.toList()),
+                    onPressed: () => _moveSpaces(selectedSpaces.toList()),
                   ),
                 BulkAction(
                   icon: Icons.archive_outlined,
                   label: 'Archive',
-                  onPressed: _bulkArchive,
+                  onPressed: bulkArchive,
                 ),
                 BulkAction(
                   icon: Icons.delete_outline,
                   label: 'Delete',
-                  onPressed: _bulkDelete,
+                  onPressed: bulkDelete,
                   destructive: true,
                 ),
               ],
@@ -615,13 +494,13 @@ class _SpacesScreenState extends State<SpacesScreen>
           : SafeArea(
               // No AppBar in normal mode, so this must take the top inset;
               // select mode still has an AppBar handling it.
-              top: !_selectMode,
+              top: !selectMode,
               child: Column(
                 children: [
                   // The search bar is the fixed top bar (with the drawer
                   // toggle); the "Spaces" count/actions header and tag filter
                   // scroll with the list (see _body).
-                  if (!_selectMode) _buildSearchBar(context),
+                  if (!selectMode) _buildSearchBar(context),
                   if (_offline) const OfflineBanner(),
                   ValueListenableBuilder<int>(
                     valueListenable: WriteQueue.instance.pending,
@@ -714,7 +593,7 @@ class _SpacesScreenState extends State<SpacesScreen>
           ActionIconButton(
             icon: Icons.checklist,
             tooltip: 'Select',
-            onPressed: _enterSelect,
+            onPressed: enterSelect,
           ),
         ],
       ),
@@ -785,7 +664,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     // only when both show.
     final bothSections = spaces.isNotEmpty && items.isNotEmpty;
     final firstLabel = spaces.isNotEmpty || items.isEmpty ? 'Spaces' : 'Items';
-    if (!_selectMode) {
+    if (!selectMode) {
       headerChildren.add(_buildSpacesHeader(context, firstLabel));
       if (allTags.isNotEmpty) headerChildren.add(_tagFilterBar(allTags));
       // A tag filter that matches nothing gets a clear note (keeping the tag
@@ -1010,9 +889,9 @@ class _SpacesScreenState extends State<SpacesScreen>
   Widget _spaceCard(Space space, {EdgeInsetsGeometry? margin}) => SpaceCard(
     space: space,
     margin: margin,
-    selectMode: _selectMode,
-    selected: _selected.contains(space.id),
-    onSelectToggle: () => _toggleSelect(space.id),
+    selectMode: selectMode,
+    selected: selectedSpaces.contains(space.id),
+    onSelectToggle: () => toggleSelectedSpace(space.id),
     onTap: () => _openSpace(space),
     onTogglePin: () => _togglePinSpace(space),
     onToggleStar: () => _toggleStarSpace(space),
@@ -1049,9 +928,9 @@ class _SpacesScreenState extends State<SpacesScreen>
     item: item,
     margin: margin,
     grid: grid,
-    selectMode: _selectMode,
-    selected: _selectedItems.contains(item.id),
-    onSelectToggle: () => _toggleSelectItem(item.id),
+    selectMode: selectMode,
+    selected: selectedItems.contains(item.id),
+    onSelectToggle: () => toggleSelectedItem(item.id),
     onTap: isEditableType(item.type) ? () => editItem(item) : null,
     onTogglePin: () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
