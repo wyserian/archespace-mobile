@@ -65,7 +65,7 @@ const List<ItemTypeDef> kItemTypes = [
   ),
   ItemTypeDef(
     // An old Markdown note: shown as Rich text, and saved as Rich text the
-    // next time it's edited. No longer offered in the add menu.
+    // next time it's edited. Not offered in the add menu.
     type: 'markdown',
     label: 'Rich text',
     description: 'Headings, lists, tasks, tables, links and more',

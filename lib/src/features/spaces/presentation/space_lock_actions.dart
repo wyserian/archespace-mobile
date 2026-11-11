@@ -3,13 +3,92 @@ import 'package:flutter/material.dart';
 import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_colors.dart';
+import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/vault_pin_prompt.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
+import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/expiry_widgets.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_chip.dart';
+
+/// Edit a space's details. True when saved (the caller reloads).
+Future<bool> editSpace(BuildContext context, Space space) async =>
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => SpaceEditorScreen(existing: space)),
+    ) ==
+    true;
+
+/// Archive a space with its sub-spaces, offering Undo. [reload] refreshes
+/// the caller's lists after either.
+Future<void> archiveSpace(
+  BuildContext context,
+  Space space,
+  VoidCallback reload,
+) => _removeSpace(
+  context,
+  space,
+  reload,
+  (repo) => repo.archiveSpace(space.id),
+  done: 'Space archived',
+  failed: "Couldn't archive the space.",
+);
+
+/// Move a space with its items to the bin, after asking, offering Undo.
+/// [reload] refreshes the caller's lists after either.
+Future<void> deleteSpace(
+  BuildContext context,
+  Space space,
+  VoidCallback reload,
+) async {
+  final name = space.name.isEmpty ? 'Untitled' : space.name;
+  final ok = await confirmAction(
+    context,
+    title: 'Move space to bin?',
+    message: '"$name" and its items will be moved to the bin.',
+    confirmLabel: 'Move to bin',
+    destructive: true,
+  );
+  if (!ok || !context.mounted) return;
+  await _removeSpace(
+    context,
+    space,
+    reload,
+    (repo) => repo.deleteSpace(space.id),
+    done: 'Space moved to bin',
+    failed: "Couldn't delete the space.",
+  );
+}
+
+Future<void> _removeSpace(
+  BuildContext context,
+  Space space,
+  VoidCallback reload,
+  Future<void> Function(SpaceRepository repo) remove, {
+  required String done,
+  required String failed,
+}) async {
+  SpaceRepository repo() => SpaceRepository(VaultSession.instance.masterKey);
+  try {
+    await remove(repo());
+  } catch (_) {
+    if (context.mounted) showErrorSnack(context, failed);
+    return;
+  }
+  StorageCounts.instance.refresh();
+  if (!context.mounted) return;
+  reload();
+  showUndoSnack(context, done, () async {
+    try {
+      await repo().restoreSpaces([space.id]);
+      StorageCounts.instance.refresh();
+      if (context.mounted) reload();
+    } catch (_) {
+      if (context.mounted) showErrorSnack(context, "Couldn't undo that.");
+    }
+  });
+}
 
 /// Open a protected space with the vault PIN. True when it can be shown.
 Future<bool> unlockSpace(BuildContext context, Space space) async {

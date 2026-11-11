@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
+import 'package:archespace_mobile/src/features/auth/presentation/sign_out.dart';
 import 'package:archespace_mobile/src/features/vault/data/biometric_service.dart';
 import 'package:archespace_mobile/src/features/vault/data/secure_key_store.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
-import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/secret_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -319,16 +319,6 @@ class _UnlockScreenState extends State<UnlockScreen> {
     VaultSession.instance.unlock(key);
   }
 
-  Future<void> _confirmSignOut() async {
-    final ok = await confirmAction(
-      context,
-      title: SignOutText.title,
-      message: SignOutText.message,
-      confirmLabel: SignOutText.label,
-    );
-    if (ok) await _auth.signOut();
-  }
-
   @override
   Widget build(BuildContext context) {
     final newRecoveryCode = _newRecoveryCode;
@@ -338,7 +328,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       appBar: AppBar(
         actions: [
           TextButton(
-            onPressed: _confirmSignOut,
+            onPressed: () => confirmSignOut(context),
             child: Text(SignOutText.label),
           ),
           const SizedBox(width: 8),

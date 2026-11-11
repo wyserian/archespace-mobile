@@ -26,7 +26,6 @@ import 'package:archespace_mobile/src/shared/sort/sort.dart';
 import 'package:archespace_mobile/src/shared/widgets/action_icon_button.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
-import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
@@ -342,56 +341,6 @@ class _SpacesScreenState extends State<SpacesScreen>
       }
     } catch (_) {
       if (mounted) showErrorSnack(context, "Couldn't duplicate the space.");
-    }
-  }
-
-  Future<void> _archiveSpace(Space space) async {
-    try {
-      await _spaceRepo.archiveSpace(space.id);
-      StorageCounts.instance.refresh();
-      if (mounted) {
-        _load();
-        showUndoSnack(
-          context,
-          'Space archived',
-          () => undoRemove([space.id], const []),
-        );
-      }
-    } catch (_) {
-      if (mounted) showErrorSnack(context, "Couldn't archive the space.");
-    }
-  }
-
-  Future<void> _editSpace(Space space) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => SpaceEditorScreen(existing: space)),
-    );
-    if (saved == true && mounted) _load();
-  }
-
-  Future<void> _deleteSpace(Space space) async {
-    final name = space.name.isEmpty ? 'Untitled' : space.name;
-    final confirmed = await confirmAction(
-      context,
-      title: 'Move space to bin?',
-      message: '"$name" and its items will be moved to the bin.',
-      confirmLabel: 'Move to bin',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    try {
-      await _spaceRepo.deleteSpace(space.id);
-      StorageCounts.instance.refresh();
-      if (mounted) {
-        _load();
-        showUndoSnack(
-          context,
-          'Space moved to bin',
-          () => undoRemove([space.id], const []),
-        );
-      }
-    } catch (_) {
-      if (mounted) showErrorSnack(context, "Couldn't delete the space.");
     }
   }
 
@@ -902,7 +851,9 @@ class _SpacesScreenState extends State<SpacesScreen>
         _load();
       }
     },
-    onEdit: () => _editSpace(space),
+    onEdit: () async {
+      if (await editSpace(context, space) && mounted) _load();
+    },
     onDuplicate: () => _duplicateSpace(space),
     onMove: () => _moveSpaces([space.id]),
     onExport: () => exportSpace(space),
@@ -911,8 +862,8 @@ class _SpacesScreenState extends State<SpacesScreen>
         : () async {
             if (await editSpaceExpiry(context, space) && mounted) _load();
           },
-    onArchive: () => _archiveSpace(space),
-    onDelete: () => _deleteSpace(space),
+    onArchive: () => archiveSpace(context, space, _load),
+    onDelete: () => deleteSpace(context, space, _load),
     onSetTags: _offline ? null : (tags) => _setSpaceTags(space, tags),
     activeTags: _activeTags,
     onTagClick: (tag) => setState(() {

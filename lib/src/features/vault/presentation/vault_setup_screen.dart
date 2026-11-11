@@ -2,13 +2,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
+import 'package:archespace_mobile/src/features/auth/presentation/sign_out.dart';
 import 'package:archespace_mobile/src/features/onboarding/data/welcome_space.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/features/vault/presentation/widgets/recovery_code_step.dart';
-import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 import 'package:archespace_mobile/src/shared/widgets/secret_field.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -24,7 +23,6 @@ class VaultSetupScreen extends StatefulWidget {
 }
 
 class _VaultSetupScreenState extends State<VaultSetupScreen> {
-  final AuthService _auth = AuthService();
   final VaultService _vault = VaultService();
   final TextEditingController _pin = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
@@ -89,16 +87,6 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
     }
   }
 
-  Future<void> _confirmSignOut() async {
-    final ok = await confirmAction(
-      context,
-      title: SignOutText.title,
-      message: SignOutText.message,
-      confirmLabel: SignOutText.label,
-    );
-    if (ok) await _auth.signOut();
-  }
-
   void _continue() {
     final key = _masterKey;
     if (key == null) return;
@@ -116,7 +104,7 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
         automaticallyImplyLeading: false,
         actions: [
           TextButton(
-            onPressed: _confirmSignOut,
+            onPressed: () => confirmSignOut(context),
             child: Text(SignOutText.label),
           ),
           const SizedBox(width: 8),

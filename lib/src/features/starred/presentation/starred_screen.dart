@@ -10,7 +10,6 @@ import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_paths.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_destinations_sheet.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_detail_screen.dart';
-import 'package:archespace_mobile/src/features/spaces/presentation/space_editor_screen.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/space_lock_actions.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_drawer.dart';
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
@@ -19,7 +18,6 @@ import 'package:archespace_mobile/src/features/vault/application/vault_session.d
 import 'package:archespace_mobile/src/shared/realtime/reload_when_shown.dart';
 import 'package:archespace_mobile/src/shared/realtime/table_watcher.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
-import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -150,56 +148,6 @@ class _StarredScreenState extends State<StarredScreen>
     } catch (_) {
       showItemError(errorMsg);
     }
-  }
-
-  Future<void> _restoreSpace(String id) =>
-      _spaceOp((r) => r.restoreSpaces([id]), "Couldn't undo that.");
-
-  Future<void> _archiveSpace(Space space) async {
-    try {
-      await _spaceRepo.archiveSpace(space.id);
-      StorageCounts.instance.refresh();
-      if (mounted) {
-        _load();
-        showUndoSnack(context, 'Space archived', () => _restoreSpace(space.id));
-      }
-    } catch (_) {
-      showItemError("Couldn't archive the space.");
-    }
-  }
-
-  Future<void> _deleteSpace(Space space) async {
-    final ok = await confirmAction(
-      context,
-      title: 'Move space to bin?',
-      message:
-          '"${space.name.isEmpty ? 'Untitled' : space.name}" and its items '
-          'will be moved to the bin.',
-      confirmLabel: 'Move to bin',
-      destructive: true,
-    );
-    if (!ok) return;
-    try {
-      await _spaceRepo.deleteSpace(space.id);
-      StorageCounts.instance.refresh();
-      if (mounted) {
-        _load();
-        showUndoSnack(
-          context,
-          'Space moved to bin',
-          () => _restoreSpace(space.id),
-        );
-      }
-    } catch (_) {
-      showItemError("Couldn't delete the space.");
-    }
-  }
-
-  Future<void> _editSpace(Space space) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => SpaceEditorScreen(existing: space)),
-    );
-    if (saved == true && mounted) _load();
   }
 
   void _openSpace(Space space) {
@@ -345,7 +293,9 @@ class _StarredScreenState extends State<StarredScreen>
         _load();
       }
     },
-    onEdit: () => _editSpace(space),
+    onEdit: () async {
+      if (await editSpace(context, space) && mounted) _load();
+    },
     onDuplicate: () => _spaceOp(
       (r) => r.duplicateSpace(space),
       "Couldn't duplicate the space.",
@@ -359,8 +309,8 @@ class _StarredScreenState extends State<StarredScreen>
         : () async {
             if (await editSpaceExpiry(context, space) && mounted) _load();
           },
-    onArchive: () => _archiveSpace(space),
-    onDelete: () => _deleteSpace(space),
+    onArchive: () => archiveSpace(context, space, _load),
+    onDelete: () => deleteSpace(context, space, _load),
     onSetTags: _offline
         ? null
         : (tags) async {

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
 import 'package:archespace_mobile/src/features/auth/data/mfa_service.dart';
 import 'package:archespace_mobile/src/features/auth/domain/totp_code.dart';
+import 'package:archespace_mobile/src/features/auth/presentation/sign_out.dart';
 import 'package:archespace_mobile/src/features/vault/domain/recovery_code.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
-import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/widgets/icon_tile.dart';
 
 /// Second-factor step shown after the password and before the vault. Accepts a
@@ -22,7 +21,6 @@ class MfaChallengeScreen extends StatefulWidget {
 }
 
 class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
-  final AuthService _auth = AuthService();
   final MfaService _mfa = MfaService();
   final TextEditingController _code = TextEditingController();
 
@@ -81,16 +79,6 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
     }
   }
 
-  Future<void> _confirmSignOut() async {
-    final ok = await confirmAction(
-      context,
-      title: SignOutText.title,
-      message: SignOutText.message,
-      confirmLabel: SignOutText.label,
-    );
-    if (ok) await _auth.signOut();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,7 +87,7 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
       appBar: AppBar(
         actions: [
           TextButton(
-            onPressed: _confirmSignOut,
+            onPressed: () => confirmSignOut(context),
             child: Text(SignOutText.label),
           ),
           const SizedBox(width: 8),
