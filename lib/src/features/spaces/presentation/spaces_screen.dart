@@ -19,7 +19,6 @@ import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_d
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
 import 'package:archespace_mobile/src/features/storage/application/storage_counts.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
-import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/realtime/reload_when_shown.dart';
 import 'package:archespace_mobile/src/shared/realtime/table_watcher.dart';
 import 'package:archespace_mobile/src/shared/sort/sort.dart';
@@ -29,7 +28,6 @@ import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/create_fabs.dart';
 import 'package:archespace_mobile/src/shared/widgets/offline_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/reorder_card.dart';
-import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
@@ -69,7 +67,6 @@ class _SpacesScreenState extends State<SpacesScreen>
   List<Space>? _spaces;
   List<SpaceItem>? _items;
   Object? _error;
-  bool _offline = false;
   TableWatcher? _watcher;
   TableWatcher? _itemsWatcher;
   String _sort = kSortDefault;
@@ -143,7 +140,7 @@ class _SpacesScreenState extends State<SpacesScreen>
   }
 
   bool get _canReorder =>
-      !selectMode && !_offline && _sort == kSortDefault && _activeTags.isEmpty;
+      !selectMode && _sort == kSortDefault && _activeTags.isEmpty;
 
   @override
   void dispose() {
@@ -164,18 +161,17 @@ class _SpacesScreenState extends State<SpacesScreen>
     // hide the spaces.
     final itemsFuture = _itemRepo
         .listItems(null)
-        .then<({List<SpaceItem> items, bool fromCache})?>((r) => r)
+        .then<List<SpaceItem>?>((r) => r)
         .catchError((Object _) => null);
     try {
-      final result = await _spaceRepo.listSpaces();
-      DrawerSpaces.instance.publish(result.spaces);
-      final itemsResult = await itemsFuture;
+      final spaces = await _spaceRepo.listSpaces();
+      DrawerSpaces.instance.publish(spaces);
+      final items = await itemsFuture;
       if (mounted) {
         setState(() {
-          _spaces = result.spaces;
-          if (itemsResult != null) _items = itemsResult.items;
+          _spaces = spaces;
+          if (items != null) _items = items;
           _items ??= const [];
-          _offline = result.fromCache || (itemsResult?.fromCache ?? false);
           _error = null;
         });
       }
@@ -450,18 +446,7 @@ class _SpacesScreenState extends State<SpacesScreen>
                   // toggle); the "Spaces" count/actions header and tag filter
                   // scroll with the list (see _body).
                   if (!selectMode) _buildSearchBar(context),
-                  if (_offline) const OfflineBanner(),
-                  ValueListenableBuilder<int>(
-                    valueListenable: WriteQueue.instance.pending,
-                    builder: (context, count, _) => count == 0
-                        ? const SizedBox.shrink()
-                        : StatusBanner(
-                            icon: Icons.sync,
-                            tone: StatusTone.pending,
-                            message:
-                                '$count change${count == 1 ? '' : 's'} waiting to sync',
-                          ),
-                  ),
+                  const OfflineBanner(),
                   Expanded(
                     child: RefreshIndicator(onRefresh: _load, child: _body()),
                   ),
@@ -857,14 +842,12 @@ class _SpacesScreenState extends State<SpacesScreen>
     onDuplicate: () => _duplicateSpace(space),
     onMove: () => _moveSpaces([space.id]),
     onExport: () => exportSpace(space),
-    onSetExpiry: _offline
-        ? null
-        : () async {
-            if (await editSpaceExpiry(context, space) && mounted) _load();
-          },
+    onSetExpiry: () async {
+      if (await editSpaceExpiry(context, space) && mounted) _load();
+    },
     onArchive: () => archiveSpace(context, space, _load),
     onDelete: () => deleteSpace(context, space, _load),
-    onSetTags: _offline ? null : (tags) => _setSpaceTags(space, tags),
+    onSetTags: (tags) => _setSpaceTags(space, tags),
     activeTags: _activeTags,
     onTagClick: (tag) => setState(() {
       if (!_activeTags.remove(tag)) _activeTags.add(tag);
@@ -885,15 +868,15 @@ class _SpacesScreenState extends State<SpacesScreen>
     onTap: isEditableType(item.type) ? () => editItem(item) : null,
     onTogglePin: () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
-    onSetReminder: _offline ? null : () => editItemReminder(item),
-    onSetExpiry: _offline ? null : () => editItemExpiry(item),
-    onSetColor: _offline ? null : () => editItemColor(item),
+    onSetReminder: () => editItemReminder(item),
+    onSetExpiry: () => editItemExpiry(item),
+    onSetColor: () => editItemColor(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: () => duplicateItem(item),
     onMove: () => moveItem(item),
     onArchive: () => archiveItem(item),
     onExport: () => exportItem(item),
     onDelete: () => deleteItem(item),
-    onSetTags: _offline ? null : (tags) => _setItemTags(item, tags),
+    onSetTags: (tags) => _setItemTags(item, tags),
   );
 }

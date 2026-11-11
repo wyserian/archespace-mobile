@@ -28,10 +28,9 @@ class DrawerSpaces extends ChangeNotifier {
     if (_loading) return;
     _loading = true;
     try {
-      final result = await SpaceRepository(
-        VaultSession.instance.masterKey,
-      ).listSpaces();
-      publish(result.spaces);
+      publish(
+        await SpaceRepository(VaultSession.instance.masterKey).listSpaces(),
+      );
     } catch (_) {
       // Keep the last known list on failure.
     } finally {

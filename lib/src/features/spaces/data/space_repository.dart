@@ -5,10 +5,7 @@ import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/spaces/domain/space_tree.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
-import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/expiry.dart';
-import 'package:archespace_mobile/src/shared/data/row_sync.dart';
-import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
@@ -22,65 +19,42 @@ class SpaceRepository {
 
   Db get _client => Db.instance;
 
-  /// Fetch spaces, caching the encrypted rows; on a network error, fall back
-  /// to the cache. `fromCache` is true when the offline fallback was used.
-  Future<({List<Space> spaces, bool fromCache})> listSpaces() async {
-    const cacheKey = 'spaces';
-    List<dynamic> rows;
-    try {
-      rows = await fetchChangedRows(
-        db: _client,
-        table: 'spaces',
-        columns:
-            'id, name, description, tags, color, parent_id, pinned, starred, '
-            'read_only, locked, position, expires_at, created_at, updated_at',
-        filter: (q) =>
-            q.isFilter('deleted_at', null).isFilter('archived_at', null),
-        order: (q) => q
-            .order('pinned', ascending: false)
-            .order('position', ascending: true)
-            .order('created_at', ascending: false)
-            // A stable last tie-break, as on the web.
-            .order('id', ascending: true),
-        // Local mode's data is on this device already.
-        kept: AppMode.isLocal ? const [] : await CacheStore.readRows(cacheKey),
-      );
-
-      // Per-space item counts (lightweight: no titles/content).
-      final itemRows = await _client
-          .from('space_items')
-          .select('space_id')
-          .isFilter('deleted_at', null)
-          .isFilter('archived_at', null)
-          .timeout(const Duration(seconds: 8));
-      final total = <String, int>{};
-      for (final r in itemRows) {
-        // Dashboard items belong to no space, so they count toward none.
-        final sid = r['space_id'] as String?;
-        if (sid == null) continue;
-        total[sid] = (total[sid] ?? 0) + 1;
-      }
-      // A space counts its own items and those of every sub-space below it.
-      final counts = rollUpCounts(total, {
-        for (final r in rows) r['id'] as String: r['parent_id'] as String?,
-      });
-      for (final r in rows) {
-        final m = r as Map<String, dynamic>;
-        m['_item_count'] = counts[m['id']] ?? 0;
-      }
-      await CacheStore.write(cacheKey, rows);
-      WriteQueue.instance.flush(); // network is up: drain any queued writes
-    } catch (_) {
-      final cached = await CacheStore.read(cacheKey);
-      if (cached is List) {
-        return (
-          spaces: _registerLocks(await decodeRows(cached)),
-          fromCache: true,
-        );
-      }
-      rethrow;
+  /// The active spaces, in list order, each with its item count.
+  Future<List<Space>> listSpaces() async {
+    final rows =
+        await _client
+                .from('spaces')
+                .select()
+                .isFilter('deleted_at', null)
+                .isFilter('archived_at', null)
+                .order('pinned', ascending: false)
+                .order('position', ascending: true)
+                .order('created_at', ascending: false)
+                // A stable last tie-break, as on the web.
+                .order('id', ascending: true)
+            as List;
+    final itemRows =
+        await _client
+                .from('space_items')
+                .select('space_id')
+                .isFilter('deleted_at', null)
+                .isFilter('archived_at', null)
+            as List;
+    final total = <String, int>{};
+    for (final r in itemRows) {
+      // Dashboard items belong to no space, so they count toward none.
+      final sid = r['space_id'] as String?;
+      if (sid == null) continue;
+      total[sid] = (total[sid] ?? 0) + 1;
     }
-    return (spaces: _registerLocks(await decodeRows(rows)), fromCache: false);
+    // A space counts its own items and those of every sub-space below it.
+    final counts = rollUpCounts(total, {
+      for (final r in rows) r['id'] as String: r['parent_id'] as String?,
+    });
+    for (final r in rows) {
+      (r as Map)['_item_count'] = counts[r['id']] ?? 0;
+    }
+    return _registerLocks(await decodeRows(rows));
   }
 
   /// Tell ContentLock which spaces are protected, so their items stay hidden

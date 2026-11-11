@@ -6,6 +6,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// JSON backup export/import, matching the web format. A backup is encrypted:
 /// `{ app, version: 3, encrypted: true, exportedAt, vault, data }`, where
@@ -282,6 +283,8 @@ class BackupRepository {
   }) async {
     final userId = currentUserId();
     if (userId == null) throw StateError('Not authenticated');
+    // Importing needs the server: checked once, before anything is written.
+    await whenOnline(() async {});
 
     final sealed = jsonDecode(text);
     if (!_isEncrypted(sealed)) {

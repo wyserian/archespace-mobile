@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/spaces/presentation/widgets/app_d
 import 'package:archespace_mobile/src/features/spaces/presentation/widgets/space_card.dart';
 import 'package:archespace_mobile/src/features/storage/data/storage_repository.dart';
 import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 import 'package:archespace_mobile/src/shared/widgets/bulk_action_bar.dart';
 import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
@@ -134,8 +135,8 @@ class _StorageScreenState extends State<StorageScreen> {
         // Say where it went; the bin can restore it.
         if (!_isBin) showSuccessSnack(context, 'Moved to the bin');
       }
-    } catch (_) {
-      _snack("Couldn't delete it.");
+    } catch (e) {
+      _snack(e is OfflineException ? e.message : "Couldn't delete it.");
     }
   }
 
@@ -200,8 +201,8 @@ class _StorageScreenState extends State<StorageScreen> {
         _load();
         if (!_isBin) showSuccessSnack(context, 'Moved to the bin');
       }
-    } catch (_) {
-      _snack("Couldn't delete them.");
+    } catch (e) {
+      _snack(e is OfflineException ? e.message : "Couldn't delete them.");
     }
   }
 
@@ -217,8 +218,8 @@ class _StorageScreenState extends State<StorageScreen> {
       await _repo.purgeAll();
       _exitSelect();
       if (mounted) _load();
-    } catch (_) {
-      _snack("Couldn't empty the bin.");
+    } catch (e) {
+      _snack(e is OfflineException ? e.message : "Couldn't empty the bin.");
     }
   }
 

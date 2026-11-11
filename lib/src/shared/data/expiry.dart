@@ -22,15 +22,6 @@ bool isExpired(Map<String, dynamic> row, [DateTime? now]) {
   return at != null && !at.isAfter(now ?? DateTime.now());
 }
 
-/// [rows] without the expired ones.
-List<Map<String, dynamic>> withoutExpired(
-  Iterable<Map<String, dynamic>> rows, [
-  DateTime? now,
-]) => [
-  for (final row in rows)
-    if (!isExpired(row, now)) row,
-];
-
 /// How long until [at], in short words: "in 45 min", "in 5 h", "in 3 days",
 /// or the day ("on 12 Dec 2026") beyond a month; "now" once it's due.
 String formatExpiresIn(DateTime at, [DateTime? now]) {

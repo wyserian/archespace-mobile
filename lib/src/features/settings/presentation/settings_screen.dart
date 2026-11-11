@@ -27,6 +27,7 @@ import 'package:archespace_mobile/src/shared/widgets/confirm_dialog.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/local_db.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// Settings, grouped like the web: Account, Vault, Appearance, Backup, About.
 /// Each row shows what it is and its current state; forms open on their own
@@ -294,6 +295,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } on FormatException {
       if (mounted) showErrorSnack(context, "That backup file isn't valid.");
+    } on OfflineException catch (e) {
+      if (mounted) showErrorSnack(context, e.message);
     } catch (_) {
       if (mounted) showErrorSnack(context, "Couldn't import the backup.");
     }

@@ -4,12 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/local_db.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
-/// The app's database: Supabase normally, or this device's own store in local
-/// mode (see AppMode). Queries read and await like supabase_flutter's, so the
-/// repositories work the same with either.
+/// The app's database: signed in, the account through this device's offline
+/// copy (OfflineDb), or this device's own store in local mode (see AppMode).
+/// Queries read and await like supabase_flutter's, so the repositories work
+/// the same with any of them.
 abstract class Db {
-  static Db get instance => AppMode.isLocal ? LocalDb.instance : _RemoteDb();
+  static Db get instance =>
+      AppMode.isLocal ? LocalDb.instance : OfflineDb.instance;
 
   DbQuery from(String table);
 
@@ -37,6 +40,9 @@ abstract class DbQuery implements Future<dynamic> {
   /// Like supabase_flutter, descending unless [ascending] is set.
   DbQuery order(String column, {bool ascending = false});
   DbQuery limit(int count);
+
+  /// Rows [from] to [to], inclusive, as supabase_flutter counts them.
+  DbQuery range(int from, int to);
   DbQuery single();
   DbQuery maybeSingle();
 
@@ -70,7 +76,7 @@ abstract class DbQuery implements Future<dynamic> {
 }
 
 /// Supabase, passed straight through.
-class _RemoteDb implements Db {
+class RemoteDb implements Db {
   SupabaseClient get _client => Supabase.instance.client;
 
   @override
@@ -123,6 +129,8 @@ class _RemoteQuery extends DbQuery {
       _next(_builder.order(column, ascending: ascending));
   @override
   DbQuery limit(int count) => _next(_builder.limit(count));
+  @override
+  DbQuery range(int from, int to) => _next(_builder.range(from, to));
   @override
   DbQuery single() => _next(_builder.single());
   @override

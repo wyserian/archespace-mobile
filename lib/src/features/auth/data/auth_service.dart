@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// Thin wrapper over Supabase Auth. The client is resolved lazily so the app
 /// only touches `Supabase.instance` after `Supabase.initialize` has run.
@@ -43,14 +44,22 @@ class AuthService {
     // Local mode has no session: "signing out" leaves the mode (the data
     // stays on the device).
     if (AppMode.isLocal) return AppMode.leave();
+    await _sendWaiting();
     await _client.auth.signOut(scope: SignOutScope.local);
   }
 
   /// Sign out of every device by revoking all of the user's sessions
   /// server-side (global scope). For an explicit "sign out of all devices".
   Future<void> signOutAllDevices() async {
+    await _sendWaiting();
     await _client.auth.signOut(scope: SignOutScope.global);
   }
+
+  /// Changes made offline go out before signing out, when the server answers.
+  Future<void> _sendWaiting() => OfflineDb.instance.sync().timeout(
+    const Duration(seconds: 10),
+    onTimeout: () {},
+  );
 
   /// Send a password reset email. The link opens the web app's reset page,
   /// where the user sets a new password, then signs in again here.

@@ -340,9 +340,9 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
   Future<MoveTarget?> pickMoveTarget(String? fromSpaceId) async {
     List<Space> spaces;
     try {
-      spaces = (await SpaceRepository(
+      spaces = await SpaceRepository(
         VaultSession.instance.masterKey,
-      ).listSpaces()).spaces;
+      ).listSpaces();
     } catch (_) {
       showItemError("Couldn't load spaces.");
       return null;
@@ -460,7 +460,6 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     color: item.color,
     expiresAt: item.expiresAt,
     createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
   );
 
   String pdfFileName(String name) {
@@ -474,18 +473,18 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     label: 'item',
   );
 
-  /// Export a space from its card: its items and sub-spaces load first (from
-  /// the cache when offline), as its own screen would load them.
+  /// Export a space from its card: its items and sub-spaces load first, as
+  /// its own screen would load them.
   Future<void> exportSpace(Space space) => exportPdf(
     build: () async {
       final key = VaultSession.instance.masterKey;
       final spaces = SpaceRepository(key).listSpaces();
-      final items = (await ItemRepository(key).listItems(space.id)).items;
+      final items = await ItemRepository(key).listItems(space.id);
       return PdfExporter.buildSpace(
         space.name,
         items,
         subSpaceNames: [
-          for (final s in (await spaces).spaces)
+          for (final s in await spaces)
             if (s.parentId == space.id) s.name.isEmpty ? 'Untitled' : s.name,
         ],
       );

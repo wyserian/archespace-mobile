@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 /// The tone of a [StatusBanner].
 enum StatusTone { info, pending }
 
-/// A thin, full-width status banner pinned at the top of a list (e.g. an
-/// offline notice or a pending-sync notice): a persistent state, unlike the
+/// A thin, full-width status banner pinned at the top of a list (e.g. the
+/// offline notice or a read-only notice): a persistent state, unlike the
 /// transient snackbars. [actionLabel] adds a button at its end ([onAction]
 /// null disables it).
 class StatusBanner extends StatelessWidget {

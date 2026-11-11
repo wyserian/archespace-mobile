@@ -21,11 +21,14 @@ import 'package:archespace_mobile/src/shared/util/uuid.dart';
 /// empties the bin by itself. The web app's local mode works the same
 /// way.
 class LocalDb implements Db {
-  LocalDb(this._store);
+  /// [userId] owns the rows it adds: the local user in local mode, the
+  /// account for an offline copy (OfflineDb).
+  LocalDb(this._store, {this.userId = AppMode.localUserId});
 
-  static final LocalDb instance = LocalDb(_FileStore());
+  static final LocalDb instance = LocalDb(FileStore('local'));
 
   final LocalStore _store;
+  final String userId;
   Future<Map<String, Map<String, Map<String, dynamic>>>>? _loading;
 
   /// The tables and their primary keys.
@@ -104,6 +107,14 @@ class LocalDb implements Db {
     _loading = null;
   }
 
+  /// A table's rows by key, live: for the offline copy's sync to merge into
+  /// directly, then [saveTable].
+  Future<Map<String, Map<String, dynamic>>> rowsOf(String table) async =>
+      (await _tables)[table]!;
+
+  /// Save a table after changing [rowsOf] directly.
+  Future<void> saveTable(String table) async => _persist(await _tables, table);
+
   static String _now() => DateTime.now().toUtc().toIso8601String();
 
   static dynamic _copy(dynamic value) => jsonDecode(jsonEncode(value));
@@ -180,7 +191,14 @@ class LocalDb implements Db {
         for (final o in q._orders.reversed) {
           selected.sort((a, b) => _compare(a[o.$1], b[o.$1], o.$2));
         }
-        return q._limit == null ? selected : selected.take(q._limit!).toList();
+        final limited = q._limit == null
+            ? selected
+            : selected.take(q._limit!).toList();
+        return switch (q._range) {
+          (final from, final to) =>
+            limited.skip(from).take(to - from + 1).toList(),
+          null => limited,
+        };
     }
   }
 
@@ -200,7 +218,7 @@ class LocalDb implements Db {
       'created_at': now,
     };
     if (tables[table] == 'id') row['id'] ??= newUuid();
-    row['user_id'] ??= AppMode.localUserId;
+    row['user_id'] ??= userId;
     if (table != 'user_encryption') row['updated_at'] = now;
     return row;
   }
@@ -412,6 +430,7 @@ class LocalQuery extends DbQuery {
   final List<bool Function(Map<String, dynamic>)> _filters = [];
   final List<(String, bool)> _orders = [];
   int? _limit;
+  (int, int)? _range;
   String? _one;
 
   @override
@@ -486,6 +505,8 @@ class LocalQuery extends DbQuery {
   @override
   DbQuery limit(int count) => this.._limit = count;
   @override
+  DbQuery range(int from, int to) => this.._range = (from, to);
+  @override
   DbQuery single() => this.._one = 'single';
   @override
   DbQuery maybeSingle() => this.._one = 'maybe';
@@ -529,12 +550,17 @@ abstract class LocalStore {
   Future<void> erase();
 }
 
-/// One JSON file per table in the app's private storage, replaced atomically
-/// (written beside it, then renamed) so a crash can't leave half a file.
-class _FileStore implements LocalStore {
+/// One JSON file per table in [folder] of the app's private storage, replaced
+/// atomically (written beside it, then renamed) so a crash can't leave half a
+/// file.
+class FileStore implements LocalStore {
+  FileStore(this.folder);
+
+  final String folder;
+
   Future<Directory> _dir() async {
     final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/local');
+    final dir = Directory('${base.path}/$folder');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
   }

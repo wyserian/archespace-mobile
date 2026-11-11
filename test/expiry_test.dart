@@ -19,15 +19,6 @@ void main() {
     expect(isExpired({'expires_at': null}, now), isFalse);
     expect(isExpired({'expires_at': 'soon'}, now), isFalse);
     expect(isExpired({}, now), isFalse);
-    expect(
-      withoutExpired([
-        {'id': 1, 'expires_at': at(-const Duration(minutes: 1))},
-        {'id': 2},
-      ], now),
-      [
-        {'id': 2},
-      ],
-    );
   });
 
   test('says how long is left in short words', () {

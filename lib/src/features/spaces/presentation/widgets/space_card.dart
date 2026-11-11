@@ -67,7 +67,7 @@ class SpaceCard extends StatefulWidget {
   /// Open the self-destruct sheet. Null hides it (the chip still shows).
   final VoidCallback? onSetExpiry;
 
-  /// Save a new tag list; true when saved. Null (e.g. offline) hides adding
+  /// Save a new tag list; true when saved. Null hides adding
   /// and removing tags.
   final Future<bool> Function(List<String> tags)? onSetTags;
   final bool selectMode;

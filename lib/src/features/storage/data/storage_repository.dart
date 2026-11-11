@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/spaces/data/space_repository.dart
 import 'package:archespace_mobile/src/features/spaces/domain/space.dart';
 import 'package:archespace_mobile/src/features/vault/application/content_lock.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// A space or item that is archived or in the bin, decrypted in full for its
 /// read-only card.
@@ -200,17 +201,18 @@ class StorageRepository {
 
   /// Permanently delete many. A space goes with what's inside it, except
   /// what was archived (see SpaceLifecycle.purge).
-  Future<void> purgeMany(Iterable<StoredEntry> entries) async {
+  /// Deleting for good needs the server, so it can't half-happen offline.
+  Future<void> purgeMany(Iterable<StoredEntry> entries) => whenOnline(() async {
     final (spaceIds, itemIds) = _split(entries);
     if (spaceIds.isNotEmpty) await SpaceLifecycle().purge(spaceIds);
     if (itemIds.isNotEmpty) {
       await _client.from('space_items').delete().inFilter('id', itemIds);
     }
-  }
+  });
 
   /// Permanently delete everything in the bin (all soft-deleted rows).
-  Future<void> purgeAll() async {
+  Future<void> purgeAll() => whenOnline(() async {
     await _client.from('space_items').delete().not('deleted_at', 'is', null);
     await SpaceLifecycle().purge(null);
-  }
+  });
 }

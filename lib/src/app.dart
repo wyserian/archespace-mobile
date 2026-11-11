@@ -23,6 +23,9 @@ import 'package:archespace_mobile/src/features/updates/application/app_updater.d
 import 'package:archespace_mobile/src/features/updates/presentation/update_flow.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
+import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/widgets/app_snackbar.dart';
 
 class ArcheApp extends StatelessWidget {
   const ArcheApp({super.key});
@@ -160,9 +163,11 @@ class _RootGate extends StatefulWidget {
   State<_RootGate> createState() => _RootGateState();
 }
 
-class _RootGateState extends State<_RootGate> {
+class _RootGateState extends State<_RootGate> with WidgetsBindingObserver {
   final AuthService _auth = AuthService();
   late final StreamSubscription<AuthState> _sub;
+  // Keeps the offline copy and the server in step while the app runs.
+  Timer? _syncEvery;
 
   // Show the app-open splash once per launch, before the login screen. A brand
   // new (or signed-out) user taps continue to reach login / create account.
@@ -176,14 +181,83 @@ class _RootGateState extends State<_RootGate> {
     _sub = _auth.onAuthStateChange.listen((state) {
       if (state.event == AuthChangeEvent.signedOut) {
         VaultSession.instance.lock();
-        // Don't leave a stored key, cached data or reminders behind for the
-        // next account.
+        // Don't leave a stored key, cached data, the offline copy or
+        // reminders behind for the next account.
         SecureKeyStore().clear();
         CacheStore.clear();
+        OfflineDb.instance.erase();
         ReminderNotifications.instance.clear();
       }
       if (mounted) setState(() {});
     });
+    _startSync();
+  }
+
+  void _startSync() {
+    final offline = OfflineDb.instance;
+    offline.onReport = _showSyncReport;
+    // An edit made on a version that changed meanwhile is kept as a copy,
+    // titled so it's easy to spot.
+    offline.copyTitle = (title) async {
+      final key = VaultSession.instance.unlocked.value
+          ? VaultSession.instance.masterKey
+          : null;
+      if (key == null || title.isEmpty) return title;
+      final text = await ArcheCrypto.decryptArc1(
+        title,
+        key,
+      ).catchError((_) => '');
+      return ArcheCrypto.encryptArc1(
+        '${text.isEmpty ? 'Untitled' : text} (offline copy)',
+        key,
+      );
+    };
+    WidgetsBinding.instance.addObserver(this);
+    _syncEvery = Timer.periodic(const Duration(seconds: 30), (_) => _sync());
+    _sync();
+  }
+
+  void _sync() {
+    if (!AppMode.isLocal) OfflineDb.instance.sync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _sync();
+  }
+
+  void _showSyncReport(SyncReport report) {
+    final context = ReminderNotifications.navigatorKey.currentContext;
+    final messenger = context == null
+        ? null
+        : ScaffoldMessenger.maybeOf(context);
+    if (context == null || messenger == null) return;
+    final scheme = Theme.of(context).colorScheme;
+    String count(int n, String one, String many) => '$n ${n == 1 ? one : many}';
+    if (report.copied > 0) {
+      showInfoVia(
+        messenger,
+        scheme,
+        '${count(report.copied, 'offline change was', 'offline changes were')} '
+        'saved as a copy: the item changed meanwhile.',
+      );
+    }
+    if (report.refused > 0) {
+      showErrorVia(
+        messenger,
+        scheme,
+        "${count(report.refused, "offline change wasn't", "offline changes weren't")} "
+        'saved: the space is read-only.',
+      );
+    }
+    if (report.lost > 0) {
+      showErrorVia(
+        messenger,
+        scheme,
+        "${count(report.lost, "offline change couldn't", "offline changes couldn't")} "
+        'be saved.',
+      );
+    }
   }
 
   /// Entering or leaving local mode; leaving locks the vault. The other
@@ -207,6 +281,9 @@ class _RootGateState extends State<_RootGate> {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!AppMode.isLocal) {
+        OfflineDb.instance.adoptOldQueue().then((_) => _sync());
+      }
       SpaceRepository.purgeExpired();
       ReminderNotifications.instance.sync();
       final update = await AppUpdater.instance.dailyCheck();
@@ -218,6 +295,8 @@ class _RootGateState extends State<_RootGate> {
   void dispose() {
     AppMode.local.removeListener(_onModeChanged);
     VaultSession.instance.unlocked.removeListener(_onUnlockChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    _syncEvery?.cancel();
     _sub.cancel();
     super.dispose();
   }

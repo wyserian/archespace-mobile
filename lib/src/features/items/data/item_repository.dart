@@ -3,10 +3,7 @@ import 'dart:convert';
 import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
-import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/expiry.dart';
-import 'package:archespace_mobile/src/shared/data/row_sync.dart';
-import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -22,10 +19,6 @@ class ItemRepository {
 
   Db get _client => Db.instance;
 
-  /// Offline cache key for a space's items, or the dashboard's for `null`.
-  static String cacheKeyFor(String? spaceId) =>
-      'items_${spaceId ?? 'dashboard'}';
-
   /// Restrict an items query to one space, or to the dashboard for `null`.
   DbQuery _whereSpace(DbQuery query, String? spaceId) => spaceId == null
       ? query.isFilter('space_id', null)
@@ -35,25 +28,22 @@ class ItemRepository {
   /// the database trigger to derive it from.
   String? get _userId => currentUserId();
 
-  /// Fetch a space's (or the dashboard's) items, caching the encrypted rows; on
-  /// a network error, fall back to the cache. `fromCache` is true when the
-  /// fallback was used.
-  Future<({List<SpaceItem> items, bool fromCache})> listItems(
-    String? spaceId,
-  ) => _list(cacheKeyFor(spaceId), (q) => _whereSpace(q, spaceId));
+  /// A space's (or the dashboard's) items.
+  Future<List<SpaceItem>> listItems(String? spaceId) =>
+      _list((q) => _whereSpace(q, spaceId));
 
   /// Starred items from every space and the dashboard (the Starred view).
-  Future<({List<SpaceItem> items, bool fromCache})> listStarredItems() =>
-      _list('items_starred', (q) => q.eq('starred', true));
+  Future<List<SpaceItem>> listStarredItems() =>
+      _list((q) => q.eq('starred', true));
 
   /// Items set to self-destruct, from every space and the dashboard
   /// (the Self-destruct view).
-  Future<({List<SpaceItem> items, bool fromCache})> listExpiringItems() =>
-      _list('items_expiring', (q) => q.not('expires_at', 'is', null));
+  Future<List<SpaceItem>> listExpiringItems() =>
+      _list((q) => q.not('expires_at', 'is', null));
 
   /// Items with a reminder, from every space and the dashboard (Reminders).
-  Future<({List<SpaceItem> items, bool fromCache})> listReminderItems() =>
-      _list('items_reminders', (q) => q.not('reminder', 'is', null));
+  Future<List<SpaceItem>> listReminderItems() =>
+      _list((q) => q.not('reminder', 'is', null));
 
   /// Every active item's reminder, by item id (for the notifications and the
   /// Reminders badge). Only the ids and reminders are fetched and decrypted.
@@ -76,46 +66,18 @@ class ItemRepository {
     return reminders;
   }
 
-  // updated_at: the version an offline edit is made on (WriteQueue), and what
-  // a refresh compares to download only changed rows (row_sync.dart).
-  static const _columns =
-      'id, space_id, type, title, content, tags, reminder, pinned, starred, '
-      'locked, color, position, expires_at, created_at, updated_at';
-
-  /// Fetch active items matching [where], caching the encrypted rows under
-  /// [cacheKey]; on a network error, fall back to that cache.
-  Future<({List<SpaceItem> items, bool fromCache})> _list(
-    String cacheKey,
-    DbQuery Function(DbQuery) where,
-  ) async {
-    List<dynamic> rows;
-    try {
-      rows = await fetchChangedRows(
-        db: _client,
-        table: 'space_items',
-        columns: _columns,
-        filter: (q) =>
-            where(q).isFilter('deleted_at', null).isFilter('archived_at', null),
-        order: (q) => q
-            .order('pinned', ascending: false)
-            .order('position', ascending: true)
-            // Items can share a position (one added after a delete), so ties
-            // break the same way here and on the web.
-            .order('created_at', ascending: true)
-            .order('id', ascending: true),
-        // Local mode's data is on this device already.
-        kept: AppMode.isLocal ? const [] : await CacheStore.readRows(cacheKey),
-      );
-      await CacheStore.write(cacheKey, rows);
-      WriteQueue.instance.flush(); // network is up: drain any queued writes
-    } catch (_) {
-      final cached = await CacheStore.read(cacheKey);
-      if (cached is List) {
-        return (items: await decodeRows(cached), fromCache: true);
-      }
-      rethrow;
-    }
-    return (items: await decodeRows(rows), fromCache: false);
+  /// Active items matching [where], in list order.
+  Future<List<SpaceItem>> _list(DbQuery Function(DbQuery) where) async {
+    final rows = await where(_client.from('space_items').select())
+        .isFilter('deleted_at', null)
+        .isFilter('archived_at', null)
+        .order('pinned', ascending: false)
+        .order('position', ascending: true)
+        // Items can share a position (one added after a delete), so ties
+        // break the same way here and on the web.
+        .order('created_at', ascending: true)
+        .order('id', ascending: true);
+    return decodeRows(rows as List);
   }
 
   /// Decrypt item rows (also the Archive's and Bin's), skipping any that fail
@@ -149,7 +111,6 @@ class ItemRepository {
             color: m['color'] as String?,
             expiresAt: expiresAtOf(m.cast<String, dynamic>()),
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
-            updatedAt: m['updated_at'] as String?,
           ),
         );
       } catch (_) {
@@ -218,47 +179,21 @@ class ItemRepository {
   Future<String> _encContent(Map<String, dynamic> content) =>
       ArcheCrypto.encryptArc1(jsonEncode(content), _masterKey);
 
-  /// Re-encrypt and save an existing item's title + content. Queued offline.
-  ///
-  /// Goes through the write queue as an upsert, so the row carries what a
-  /// fresh insert needs: `type` and `user_id` (NOT NULL, no default) and the
-  /// item's `space_id` (null for a dashboard item). Without them the insert
-  /// path fails even when the row already exists.
-  ///
-  /// [base] is the version the edit is made on (SpaceItem.updatedAt), so a
-  /// queued edit never overwrites a newer one (see WriteQueue); without it,
-  /// the version cached for the item's space. Returns the new version once
-  /// saved online, or null when queued.
-  Future<String?> updateItem({
+  /// Re-encrypt and save an existing item's title + content. Offline it waits
+  /// on this device and syncs later; an edit made on a version that changed
+  /// meanwhile is kept as a copy beside it (see OfflineDb).
+  Future<void> updateItem({
     required String id,
-    required String? spaceId,
-    required String type,
     required String title,
     required Map<String, dynamic> content,
-    String? base,
   }) async {
-    final row = {
-      'id': id,
-      'space_id': spaceId,
-      'user_id': ?_userId,
-      'type': type,
-      'title': await _encTitle(title),
-      'content': await _encContent(content),
-    };
-    final cacheKey = cacheKeyFor(spaceId);
-    final cached = (await CacheStore.readRows(
-      cacheKey,
-    )).where((r) => r['id'] == id).firstOrNull;
-    final queued = await WriteQueue.instance.upsert(
-      'space_items',
-      row,
-      base: base ?? cached?['updated_at'],
-      copyTitle: await _encTitle(
-        '${title.isEmpty ? 'Untitled' : title} (offline copy)',
-      ),
-    );
-    await CacheStore.upsertRow(cacheKey, row);
-    return queued ? null : row['updated_at'];
+    await _client
+        .from('space_items')
+        .update({
+          'title': await _encTitle(title),
+          'content': await _encContent(content),
+        })
+        .eq('id', id);
   }
 
   Future<void> setPinned(String id, bool pinned) async {
@@ -385,32 +320,25 @@ class ItemRepository {
     }
   }
 
-  /// Create a new item. Uses a client-generated id + cache-based position so it
-  /// works offline (queued) and appears immediately in the cache.
-  /// Creates an item and returns its new id (so callers can switch to update
-  /// mode for subsequent saves, e.g. auto-save).
+  /// Create an item at the end of its space (or the dashboard) and return its
+  /// id, so callers switch to updating it (auto-save).
   Future<String> createItem({
     required String? spaceId,
     required String type,
     String title = '',
     required Map<String, dynamic> content,
   }) async {
-    final cacheKey = cacheKeyFor(spaceId);
-    final position = (await CacheStore.readRows(cacheKey)).length;
     final id = newUuid();
-    final row = {
+    await _client.from('space_items').insert({
       'id': id,
       'space_id': spaceId,
       'user_id': ?_userId,
       'type': type,
       'title': await _encTitle(title),
       'content': await _encContent(content),
-      'position': position,
+      'position': await _endPosition(spaceId),
       'pinned': false,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    };
-    await WriteQueue.instance.upsert('space_items', row);
-    await CacheStore.upsertRow(cacheKey, row);
+    });
     return id;
   }
 }

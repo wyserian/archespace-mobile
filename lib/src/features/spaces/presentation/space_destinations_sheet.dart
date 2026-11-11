@@ -86,7 +86,7 @@ Future<bool> moveSpacesTo(BuildContext context, List<String> ids) async {
   final repo = SpaceRepository(VaultSession.instance.masterKey);
   List<Space> spaces;
   try {
-    spaces = (await repo.listSpaces()).spaces;
+    spaces = await repo.listSpaces();
   } catch (_) {
     if (context.mounted) showErrorSnack(context, "Couldn't load spaces.");
     return false;

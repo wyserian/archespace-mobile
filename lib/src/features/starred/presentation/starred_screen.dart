@@ -64,7 +64,6 @@ class _StarredScreenState extends State<StarredScreen>
   List<Space>? _spaces;
   List<SpaceItem>? _items;
   Object? _error;
-  bool _offline = false;
   TableWatcher? _spacesWatcher;
   TableWatcher? _itemsWatcher;
 
@@ -111,19 +110,15 @@ class _StarredScreenState extends State<StarredScreen>
   Future<void> _load() async {
     try {
       final key = VaultSession.instance.masterKey;
-      final results = await Future.wait([
-        SpaceRepository(key).listSpaces(),
-        widget.selfDestruct
-            ? ItemRepository(key).listExpiringItems()
-            : ItemRepository(key).listStarredItems(),
-      ]);
-      final spaces = results[0] as ({List<Space> spaces, bool fromCache});
-      final items = results[1] as ({List<SpaceItem> items, bool fromCache});
+      final itemsFuture = widget.selfDestruct
+          ? ItemRepository(key).listExpiringItems()
+          : ItemRepository(key).listStarredItems();
+      final spaces = await SpaceRepository(key).listSpaces();
+      final items = await itemsFuture;
       if (mounted) {
         setState(() {
-          _spaces = spaces.spaces;
-          _items = items.items;
-          _offline = spaces.fromCache || items.fromCache;
+          _spaces = spaces;
+          _items = items;
           _error = null;
         });
       }
@@ -192,7 +187,7 @@ class _StarredScreenState extends State<StarredScreen>
               top: false,
               child: Column(
                 children: [
-                  if (_offline) const OfflineBanner(),
+                  const OfflineBanner(),
                   Expanded(
                     child: RefreshIndicator(onRefresh: _load, child: _body()),
                   ),
@@ -304,20 +299,16 @@ class _StarredScreenState extends State<StarredScreen>
     onMove: () async {
       if (await moveSpacesTo(context, [space.id]) && mounted) _load();
     },
-    onSetExpiry: _offline
-        ? null
-        : () async {
-            if (await editSpaceExpiry(context, space) && mounted) _load();
-          },
+    onSetExpiry: () async {
+      if (await editSpaceExpiry(context, space) && mounted) _load();
+    },
     onArchive: () => archiveSpace(context, space, _load),
     onDelete: () => deleteSpace(context, space, _load),
-    onSetTags: _offline
-        ? null
-        : (tags) async {
-            final ok = await saveSpaceTags(context, space, tags);
-            if (ok && mounted) _load();
-            return ok;
-          },
+    onSetTags: (tags) async {
+      final ok = await saveSpaceTags(context, space, tags);
+      if (ok && mounted) _load();
+      return ok;
+    },
   );
 
   Widget _itemCard(SpaceItem item, String where) {
@@ -329,18 +320,16 @@ class _StarredScreenState extends State<StarredScreen>
       onTap: isEditableType(item.type) ? () => editItem(item) : null,
       onTogglePin: readOnly ? null : () => togglePinItem(item),
       onToggleStar: () => toggleStarItem(item),
-      onSetReminder: _offline ? null : () => editItemReminder(item),
-      onSetExpiry: _offline ? null : () => editItemExpiry(item),
-      onSetColor: _offline || readOnly ? null : () => editItemColor(item),
+      onSetReminder: () => editItemReminder(item),
+      onSetExpiry: () => editItemExpiry(item),
+      onSetColor: readOnly ? null : () => editItemColor(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),
       onArchive: readOnly ? null : () => archiveItem(item),
       onExport: () => exportItem(item),
       onDelete: readOnly ? null : () => deleteItem(item),
-      onSetTags: _offline || readOnly
-          ? null
-          : (tags) => _setItemTags(item, tags),
+      onSetTags: readOnly ? null : (tags) => _setItemTags(item, tags),
     );
   }
 }

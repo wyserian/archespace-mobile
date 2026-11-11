@@ -37,7 +37,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
 - **Starred**, **Self-destruct** (soonest first), **archive** and **bin** views
-- **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **offline mode**
+- **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **full offline use**: an encrypted copy on the device opens everything at once and takes every change, syncing when the connection is back (deleting for good, backup import and account settings need a connection)
 - **Encrypted backups** and **PDF export**
 - **Local mode**: no account, nothing leaves the phone
 - **Two-factor sign-in**
@@ -64,7 +64,7 @@ Spaces and items reorder by long-press and drag, or with Move up / Move down act
 
 Two separate secrets: a **login password** for the account and a **vault PIN** (or passphrase) for the content.
 
-- **Encrypted on the device.** Content is encrypted with AES-256-GCM before it leaves the phone; the server stores only ciphertext and non-sensitive metadata (IDs, timestamps, positions, flags). The offline cache and write queue hold ciphertext too.
+- **Encrypted on the device.** Content is encrypted with AES-256-GCM before it leaves the phone; the server stores only ciphertext and non-sensitive metadata (IDs, timestamps, positions, flags). The offline copy and its outbox of waiting changes hold ciphertext too.
 - **PIN never stored.** A random vault key is wrapped with a key derived from the PIN by Argon2id.
 - **Same format as the web app** (`arc1`), checked against shared test vectors in [`spec/`](spec/).
 - **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle, and when the phone locks (a switch in Settings). Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
@@ -196,7 +196,7 @@ On Android, a release build checks this repo's latest GitHub release at most onc
 | Markdown | `flutter_markdown_plus` (older Markdown notes) |
 | Syntax highlighting | `flutter_highlight` + `highlight` (automatic language detection for the Code item type) |
 | PDF export | `pdf` + `printing` (native share/print sheet) |
-| Files | `file_picker` (JSON backup), `path_provider` (offline cache) |
+| Files | `file_picker` (JSON backup), `path_provider` (offline copy) |
 | Preferences | `shared_preferences` (theme, accent, sort, and item view) |
 | Links | `url_launcher` (build-commit link) |
 | CI | GitHub Actions (stamped release APK) |
@@ -210,7 +210,7 @@ archespace-mobile/
   android/
   ios/
   lib/
-    main.dart             # bootstrap: Supabase init, appearance, write-queue replay
+    main.dart             # bootstrap: Supabase init, appearance
     src/
       app.dart            # root gate: login -> 2FA -> vault setup/unlock -> spaces
       features/
@@ -228,8 +228,7 @@ archespace-mobile/
       shared/
         config/           # app config + build info
         crypto/           # arc1 port (AES-GCM, Argon2id)
-        data/             # encrypted offline read cache
-        offline/          # durable write queue
+        data/             # database access: the offline copy and outbox, local mode
         realtime/         # postgres-changes watcher
         export/           # PDF exporter
         sort/             # sorting helpers

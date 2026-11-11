@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
-/// Subscribes to Supabase postgres changes on [table] (optionally filtered by
-/// [filterColumn] == [filterValue]) and calls [onChange], debounced to coalesce
+/// Hears Supabase postgres changes on [table] (optionally filtered by
+/// [filterColumn] == [filterValue]) and brings the offline copy up to date;
+/// calls [onChange] whenever a sync changed the copy. Debounced to coalesce
 /// bursts - e.g. a reorder that touches many rows, or the realtime echo of the
-/// app's own writes. Mirrors the web hooks' 250ms coalescing.
+/// app's own writes.
 class TableWatcher {
   TableWatcher({
     required String channelName,
@@ -19,6 +21,7 @@ class TableWatcher {
     // Local mode has no server to hear changes from; this device is the only
     // writer.
     if (AppMode.isLocal) return;
+    OfflineDb.instance.changes.addListener(onChange);
     _channel = Supabase.instance.client
         .channel(channelName)
         .onPostgresChanges(
@@ -44,12 +47,14 @@ class TableWatcher {
 
   void _schedule() {
     _timer?.cancel();
-    _timer = Timer(debounce, onChange);
+    _timer = Timer(debounce, OfflineDb.instance.sync);
   }
 
   void dispose() {
     _timer?.cancel();
     final channel = _channel;
-    if (channel != null) Supabase.instance.client.removeChannel(channel);
+    if (channel == null) return;
+    OfflineDb.instance.changes.removeListener(onChange);
+    Supabase.instance.client.removeChannel(channel);
   }
 }

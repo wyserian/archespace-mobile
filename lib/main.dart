@@ -9,7 +9,6 @@ import 'package:archespace_mobile/src/features/updates/application/app_updater.d
 import 'package:archespace_mobile/src/features/vault/application/auto_lock_controller.dart';
 import 'package:archespace_mobile/src/shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/error/error_handling.dart';
-import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 Future<void> main() async {
@@ -25,8 +24,7 @@ Future<void> main() async {
       return;
     }
 
-    // Independent start-up work runs side by side; the write queue needs
-    // Supabase and the app mode, so it follows.
+    // Independent start-up work runs side by side.
     await Future.wait([
       Supabase.initialize(
         url: AppConfig.supabaseUrl,
@@ -48,8 +46,6 @@ Future<void> main() async {
       AutoLockController.instance.load(),
       AppUpdater.instance.load(),
     ]);
-    await WriteQueue.instance.init();
-    WriteQueue.instance.flush(); // replay any writes queued while offline
 
     runApp(const ArcheApp());
   }, reportZoneError);

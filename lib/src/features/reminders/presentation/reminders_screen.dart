@@ -60,7 +60,6 @@ class _RemindersScreenState extends State<RemindersScreen>
   List<Space>? _spaces;
   List<SpaceItem>? _items;
   Object? _error;
-  bool _offline = false;
   TableWatcher? _itemsWatcher;
   // Regroup as time passes: a reminder moves on to its next time, or to Past
   // once it has gone off for the last time.
@@ -95,17 +94,13 @@ class _RemindersScreenState extends State<RemindersScreen>
   Future<void> _load() async {
     try {
       final key = VaultSession.instance.masterKey;
-      final results = await Future.wait([
-        SpaceRepository(key).listSpaces(),
-        ItemRepository(key).listReminderItems(),
-      ]);
-      final spaces = results[0] as ({List<Space> spaces, bool fromCache});
-      final items = results[1] as ({List<SpaceItem> items, bool fromCache});
+      final itemsFuture = ItemRepository(key).listReminderItems();
+      final spaces = await SpaceRepository(key).listSpaces();
+      final items = await itemsFuture;
       if (mounted) {
         setState(() {
-          _spaces = spaces.spaces;
-          _items = items.items;
-          _offline = spaces.fromCache || items.fromCache;
+          _spaces = spaces;
+          _items = items;
           _error = null;
         });
       }
@@ -159,7 +154,7 @@ class _RemindersScreenState extends State<RemindersScreen>
               top: false,
               child: Column(
                 children: [
-                  if (_offline) const OfflineBanner(),
+                  const OfflineBanner(),
                   Expanded(
                     child: RefreshIndicator(onRefresh: _load, child: _body()),
                   ),
@@ -258,18 +253,16 @@ class _RemindersScreenState extends State<RemindersScreen>
       onTap: isEditableType(item.type) ? () => editItem(item) : null,
       onTogglePin: readOnly ? null : () => togglePinItem(item),
       onToggleStar: () => toggleStarItem(item),
-      onSetReminder: _offline ? null : () => editItemReminder(item),
-      onSetExpiry: _offline ? null : () => editItemExpiry(item),
-      onSetColor: _offline || readOnly ? null : () => editItemColor(item),
+      onSetReminder: () => editItemReminder(item),
+      onSetExpiry: () => editItemExpiry(item),
+      onSetColor: readOnly ? null : () => editItemColor(item),
       onToggleLock: () => toggleLockItem(item),
       onDuplicate: readOnly ? null : () => duplicateItem(item),
       onMove: readOnly ? null : () => moveItem(item),
       onArchive: readOnly ? null : () => archiveItem(item),
       onExport: () => exportItem(item),
       onDelete: readOnly ? null : () => deleteItem(item),
-      onSetTags: _offline || readOnly
-          ? null
-          : (tags) => _setItemTags(item, tags),
+      onSetTags: readOnly ? null : (tags) => _setItemTags(item, tags),
     );
   }
 }

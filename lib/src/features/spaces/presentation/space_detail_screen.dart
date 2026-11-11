@@ -94,7 +94,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   Space? _loaded;
   Space get _space => _loaded ?? widget.space;
   Object? _error;
-  bool _offline = false;
   TableWatcher? _watcher;
   final GlobalKey _focusKey = GlobalKey();
   String? _flashId;
@@ -153,8 +152,8 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     super.dispose();
   }
 
-  /// Pick up the read-only flag from the server. Non-fatal: offline keeps the
-  /// last known value.
+  /// Pick up the read-only flag from the database (it may have changed
+  /// elsewhere). Non-fatal: a failure keeps the last known value.
   Future<void> _refreshReadOnly() async {
     try {
       final readOnly = await SpaceRepository(
@@ -209,10 +208,9 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       // items rather than after them.
       final spacesFuture = SpaceRepository(VaultSession.instance.masterKey)
           .listSpaces()
-          .then((r) => r.spaces)
           // Non-fatal: items still load without the sub-spaces and path.
           .catchError((Object _) => const <Space>[]);
-      final result = await ItemRepository(
+      final items = await ItemRepository(
         VaultSession.instance.masterKey,
       ).listItems(widget.space.id);
       final spaces = await spacesFuture;
@@ -224,7 +222,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           (id == widget.space.id ? widget.space.parentId : null);
       if (mounted) {
         setState(() {
-          _items = result.items;
+          _items = items;
           _loaded = byId[widget.space.id] ?? _loaded;
           _subSpaces = [
             for (final s in spaces)
@@ -234,7 +232,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             for (final id in ancestorsOf(widget.space.id, parentOf).reversed)
               ?byId[id],
           ];
-          _offline = result.fromCache;
           _error = null;
         });
       }
@@ -355,23 +352,19 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
       if (await moveSpacesTo(context, [sub.id]) && mounted) _load();
     },
     onExport: () => exportSpace(sub),
-    onSetExpiry: _offline
-        ? null
-        : () async {
-            if (await editSpaceExpiry(context, sub) && mounted) _load();
-          },
+    onSetExpiry: () async {
+      if (await editSpaceExpiry(context, sub) && mounted) _load();
+    },
     onArchive: () => _subSpaceOp(
       (r) => r.archiveSpace(sub.id),
       "Couldn't archive the space.",
     ),
     onDelete: () => _deleteSubSpace(sub),
-    onSetTags: _offline
-        ? null
-        : (tags) async {
-            final ok = await saveSpaceTags(context, sub, tags);
-            if (ok && mounted) _load();
-            return ok;
-          },
+    onSetTags: (tags) async {
+      final ok = await saveSpaceTags(context, sub, tags);
+      if (ok && mounted) _load();
+      return ok;
+    },
   );
 
   // Selection (sub-spaces and items together): SpaceItemSelection.
@@ -525,7 +518,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             StorageCounts.instance.refresh();
           }, "Couldn't update the star."),
         ),
-        if (!_readOnly && !_offline)
+        if (!_readOnly)
           ActionMenuEntry(
             group: 'mark',
             icon: Icons.sell_outlined,
@@ -587,15 +580,14 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
           label: 'Archive',
           onSelected: _archiveSpace,
         ),
-        if (!_offline)
-          ActionMenuEntry(
-            group: 'keep',
-            icon: Icons.hourglass_bottom_rounded,
-            label: _space.expiresAt == null
-                ? 'Self-destruct'
-                : 'Change self-destruct',
-            onSelected: _editExpiry,
-          ),
+        ActionMenuEntry(
+          group: 'keep',
+          icon: Icons.hourglass_bottom_rounded,
+          label: _space.expiresAt == null
+              ? 'Self-destruct'
+              : 'Change self-destruct',
+          onSelected: _editExpiry,
+        ),
         ActionMenuEntry(
           group: 'delete',
           icon: Icons.delete_outline,
@@ -696,7 +688,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
         if (_space.expiresAt case final at?)
           Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: ExpiryChip(at: at, onTap: _offline ? null : _editExpiry),
+            child: ExpiryChip(at: at, onTap: _editExpiry),
           ),
       ],
     );
@@ -833,7 +825,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
               top: false,
               child: Column(
                 children: [
-                  if (_offline) const OfflineBanner(),
+                  const OfflineBanner(),
                   if (_readOnly)
                     StatusBanner(
                       icon: Icons.edit_off_outlined,
@@ -841,7 +833,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
                           'Read-only. Items can be viewed, copied and '
                           'exported, not changed.',
                       actionLabel: 'Allow editing',
-                      onAction: _offline ? null : _toggleReadOnly,
+                      onAction: _toggleReadOnly,
                     ),
                   Expanded(
                     child: RefreshIndicator(onRefresh: _load, child: _body()),
@@ -925,7 +917,6 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     final canReorder =
         !_readOnly &&
         !selectMode &&
-        !_offline &&
         _sort == kSortDefault &&
         _activeTags.isEmpty &&
         query.isEmpty;
@@ -1180,16 +1171,16 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
     onTap: isEditableType(item.type) ? () => editItem(item) : null,
     onTogglePin: _readOnly ? null : () => togglePinItem(item),
     onToggleStar: () => toggleStarItem(item),
-    onSetReminder: _offline ? null : () => editItemReminder(item),
-    onSetExpiry: _offline ? null : () => editItemExpiry(item),
-    onSetColor: _offline || _readOnly ? null : () => editItemColor(item),
+    onSetReminder: () => editItemReminder(item),
+    onSetExpiry: () => editItemExpiry(item),
+    onSetColor: _readOnly ? null : () => editItemColor(item),
     onToggleLock: () => toggleLockItem(item),
     onDuplicate: _readOnly ? null : () => duplicateItem(item),
     onMove: _readOnly ? null : () => moveItem(item),
     onArchive: _readOnly ? null : () => archiveItem(item),
     onExport: () => exportItem(item),
     onDelete: _readOnly ? null : () => deleteItem(item),
-    onSetTags: _offline || _readOnly ? null : (tags) => _setTags(item, tags),
+    onSetTags: _readOnly ? null : (tags) => _setTags(item, tags),
   );
 }
 
