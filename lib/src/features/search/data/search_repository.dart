@@ -79,6 +79,19 @@ class SearchRepository {
           .isFilter('archived_at', null),
     ]);
 
+    await ArcheCrypto.warm([
+      for (final row in spaceRows) ...[
+        row['name'],
+        row['description'],
+        row['tags'],
+      ],
+      for (final row in itemRows) ...[
+        row['title'],
+        row['content'],
+        row['tags'],
+      ],
+    ], _masterKey);
+
     final hits = <SearchHit>[];
     final spaceNameById = <String, String>{};
     final parentById = <String, String?>{

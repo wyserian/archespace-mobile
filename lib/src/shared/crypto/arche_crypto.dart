@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -15,6 +16,9 @@ class ArcheCrypto {
 
   static const _prefix = 'arc1:';
   static const _tagLength = 16; // AES-GCM 128-bit auth tag
+  // On a phone, cryptography_flutter (registered by itself) runs larger values
+  // on the platform's own AES and keeps small ones in Dart, where a native
+  // call would cost more. A background isolate (see warm) uses Dart's.
   static final AesGcm _aes = AesGcm.with256bits(nonceLength: 12);
 
   // Argon2id parameters, matching the web (OWASP-aligned): 19 MiB, 2 passes,
@@ -85,6 +89,97 @@ class ArcheCrypto {
     return Uint8List.fromList(await key.extractBytes());
   }
 
+  // Decrypted text by ciphertext, kept in memory while unlocked. Every
+  // ciphertext has its own random IV, so an entry can never go stale: lists,
+  // search and reloads only decrypt values they haven't seen. An entry holds
+  // the key it was decrypted with and only answers for that key. Least
+  // recently used entries go first past the cap (in characters, ciphertext
+  // plus text).
+  static const _cacheMaxChars = 16 * 1024 * 1024;
+  static final _cache = <String, ({List<int> key, String text})>{};
+  static var _cachedChars = 0;
+  // Bumped on every clear, so work started before a lock can't refill it.
+  static var _generation = 0;
+
+  // A list with fewer values to decrypt than this stays on this isolate:
+  // starting another costs more than it saves.
+  static const _backgroundMin = 32;
+
+  static String? _cached(String value, List<int> key) {
+    final entry = _cache.remove(value);
+    if (entry == null) return null;
+    _cache[value] = entry; // now the most recently used
+    return identical(entry.key, key) ? entry.text : null;
+  }
+
+  static void _remember(
+    String value,
+    List<int> key,
+    String text,
+    int startedIn,
+  ) {
+    if (startedIn != _generation || _cache.containsKey(value)) return;
+    final size = value.length + text.length;
+    if (size > _cacheMaxChars) return;
+    _cache[value] = (key: key, text: text);
+    _cachedChars += size;
+    while (_cachedChars > _cacheMaxChars) {
+      final oldest = _cache.keys.first;
+      _cachedChars -= oldest.length + _cache.remove(oldest)!.text.length;
+    }
+  }
+
+  /// Forget every decrypted value (the vault locked).
+  static void clearCache() {
+    _cache.clear();
+    _cachedChars = 0;
+    _generation++;
+  }
+
+  /// Decrypt the `arc1:` values among [values] that aren't decrypted yet, all
+  /// at once: on a background isolate when there are many, so a long list
+  /// never stalls scrolling. Later [decryptArc1] calls for them are instant.
+  /// One that fails is left for [decryptArc1] to fail on.
+  static Future<void> warm(Iterable<Object?> values, List<int> keyBytes) async {
+    final missing = {
+      for (final v in values)
+        if (v is String &&
+            v.startsWith(_prefix) &&
+            _cached(v, keyBytes) == null)
+          v,
+    }.toList();
+    if (missing.isEmpty) return;
+    final startedIn = _generation;
+    final texts = missing.length < _backgroundMin
+        ? await _decryptAll(missing, keyBytes)
+        : await _decryptInBackground(missing, keyBytes);
+    for (var i = 0; i < missing.length; i++) {
+      final text = texts[i];
+      if (text != null) _remember(missing[i], keyBytes, text, startedIn);
+    }
+  }
+
+  // Its own function, so the isolate gets only these two values.
+  static Future<List<String?>> _decryptInBackground(
+    List<String> values,
+    List<int> keyBytes,
+  ) => Isolate.run(() => _decryptAll(values, keyBytes));
+
+  static Future<List<String?>> _decryptAll(
+    List<String> values,
+    List<int> keyBytes,
+  ) async {
+    final texts = <String?>[];
+    for (final value in values) {
+      try {
+        texts.add(await _decrypt(value, keyBytes));
+      } catch (_) {
+        texts.add(null);
+      }
+    }
+    return texts;
+  }
+
   /// Decrypt an `arc1:` value with a raw 32-byte AES key. An empty value
   /// decrypts to ''; anything else that isn't `arc1:` is rejected.
   static Future<String> decryptArc1(String value, List<int> keyBytes) async {
@@ -92,6 +187,15 @@ class ArcheCrypto {
     if (!value.startsWith(_prefix)) {
       throw const FormatException('Not an encrypted value');
     }
+    final hit = _cached(value, keyBytes);
+    if (hit != null) return hit;
+    final startedIn = _generation;
+    final text = await _decrypt(value, keyBytes);
+    _remember(value, keyBytes, text, startedIn);
+    return text;
+  }
+
+  static Future<String> _decrypt(String value, List<int> keyBytes) async {
     final body = value.substring(_prefix.length);
     final dot = body.indexOf('.');
     if (dot < 0) throw const FormatException('Invalid arc1 payload');
@@ -144,11 +248,16 @@ class ArcheCrypto {
     String plaintext,
     List<int> keyBytes,
   ) async {
+    final startedIn = _generation;
     final box = await _aes.encrypt(
       utf8.encode(plaintext),
       secretKey: SecretKey(keyBytes),
     );
     final ctWithTag = <int>[...box.cipherText, ...box.mac.bytes];
-    return '$_prefix${base64.encode(box.nonce)}.${base64.encode(ctWithTag)}';
+    final value =
+        '$_prefix${base64.encode(box.nonce)}.${base64.encode(ctWithTag)}';
+    // A saved value comes straight back from the server; no need to decrypt it.
+    _remember(value, keyBytes, plaintext, startedIn);
+    return value;
   }
 }

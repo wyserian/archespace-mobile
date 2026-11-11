@@ -5,6 +5,7 @@ import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/expiry.dart';
+import 'package:archespace_mobile/src/shared/data/row_sync.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/util/uuid.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
@@ -75,9 +76,11 @@ class ItemRepository {
     return reminders;
   }
 
+  // updated_at: the version an offline edit is made on (WriteQueue), and what
+  // a refresh compares to download only changed rows (row_sync.dart).
   static const _columns =
       'id, space_id, type, title, content, tags, reminder, pinned, starred, '
-      'locked, color, position, expires_at, created_at';
+      'locked, color, position, expires_at, created_at, updated_at';
 
   /// Fetch active items matching [where], caching the encrypted rows under
   /// [cacheKey]; on a network error, fall back to that cache.
@@ -87,16 +90,22 @@ class ItemRepository {
   ) async {
     List<dynamic> rows;
     try {
-      rows = await where(_client.from('space_items').select(_columns))
-          .isFilter('deleted_at', null)
-          .isFilter('archived_at', null)
-          .order('pinned', ascending: false)
-          .order('position', ascending: true)
-          // Items can share a position (one added after a delete), so ties
-          // break the same way here and on the web.
-          .order('created_at', ascending: true)
-          .order('id', ascending: true)
-          .timeout(const Duration(seconds: 8));
+      rows = await fetchChangedRows(
+        db: _client,
+        table: 'space_items',
+        columns: _columns,
+        filter: (q) =>
+            where(q).isFilter('deleted_at', null).isFilter('archived_at', null),
+        order: (q) => q
+            .order('pinned', ascending: false)
+            .order('position', ascending: true)
+            // Items can share a position (one added after a delete), so ties
+            // break the same way here and on the web.
+            .order('created_at', ascending: true)
+            .order('id', ascending: true),
+        // Local mode's data is on this device already.
+        kept: AppMode.isLocal ? const [] : await CacheStore.readRows(cacheKey),
+      );
       await CacheStore.write(cacheKey, rows);
       WriteQueue.instance.flush(); // network is up: drain any queued writes
     } catch (_) {
@@ -112,6 +121,11 @@ class ItemRepository {
   /// Decrypt item rows (also the Archive's and Bin's), skipping any that fail
   /// and any whose self-destruct time has passed (cached since).
   Future<List<SpaceItem>> decodeRows(List<dynamic> rows) async {
+    await ArcheCrypto.warm([
+      for (final row in rows)
+        for (final column in const ['title', 'content', 'tags', 'reminder'])
+          (row as Map)[column],
+    ], _masterKey);
     final items = <SpaceItem>[];
     for (final row in rows) {
       final m = row as Map;

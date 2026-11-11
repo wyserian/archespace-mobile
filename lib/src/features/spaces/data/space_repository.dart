@@ -7,6 +7,7 @@ import 'package:archespace_mobile/src/features/vault/application/content_lock.da
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/expiry.dart';
+import 'package:archespace_mobile/src/shared/data/row_sync.dart';
 import 'package:archespace_mobile/src/shared/offline/write_queue.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
@@ -27,19 +28,23 @@ class SpaceRepository {
     const cacheKey = 'spaces';
     List<dynamic> rows;
     try {
-      rows = await _client
-          .from('spaces')
-          .select(
-            'id, name, description, tags, color, parent_id, pinned, starred, read_only, locked, position, expires_at, created_at',
-          )
-          .isFilter('deleted_at', null)
-          .isFilter('archived_at', null)
-          .order('pinned', ascending: false)
-          .order('position', ascending: true)
-          .order('created_at', ascending: false)
-          // A stable last tie-break, as on the web.
-          .order('id', ascending: true)
-          .timeout(const Duration(seconds: 8));
+      rows = await fetchChangedRows(
+        db: _client,
+        table: 'spaces',
+        columns:
+            'id, name, description, tags, color, parent_id, pinned, starred, '
+            'read_only, locked, position, expires_at, created_at, updated_at',
+        filter: (q) =>
+            q.isFilter('deleted_at', null).isFilter('archived_at', null),
+        order: (q) => q
+            .order('pinned', ascending: false)
+            .order('position', ascending: true)
+            .order('created_at', ascending: false)
+            // A stable last tie-break, as on the web.
+            .order('id', ascending: true),
+        // Local mode's data is on this device already.
+        kept: AppMode.isLocal ? const [] : await CacheStore.readRows(cacheKey),
+      );
 
       // Per-space item counts (lightweight: no titles/content).
       final itemRows = await _client
@@ -88,6 +93,11 @@ class SpaceRepository {
   /// Decrypt space rows (also the Archive's and Bin's), skipping any that fail
   /// and any whose self-destruct time has passed (cached since).
   Future<List<Space>> decodeRows(List<dynamic> rows) async {
+    await ArcheCrypto.warm([
+      for (final row in rows)
+        for (final column in const ['name', 'description', 'tags'])
+          (row as Map)[column],
+    ], _masterKey);
     final spaces = <Space>[];
     for (final row in rows) {
       final m = row as Map;

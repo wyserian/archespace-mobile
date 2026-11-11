@@ -165,6 +165,34 @@ void main() {
     expect(p['c'], 'b');
   });
 
+  test(
+    'deleting for good keeps what was archived inside, at the top level',
+    () async {
+      await life.archive([ids['c']!]);
+      await db
+          .from('space_items')
+          .update({'archived_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', ids['bItem']!);
+      await life.delete([ids['a']!]);
+      await life.purge(null);
+      final p = await parents();
+      expect(p, {'c': null, 'd': 'c', 'e': null});
+      expect(await spaces(), {'c': 'archive', 'd': 'archive', 'e': 'active'});
+      final bItem = await db
+          .from('space_items')
+          .select()
+          .eq('id', ids['bItem']!)
+          .single();
+      expect(bItem['space_id'], null);
+      expect(stateOf(bItem), 'archive');
+      final aItem = await db
+          .from('space_items')
+          .select()
+          .eq('id', ids['aItem']!);
+      expect(aItem, isEmpty);
+    },
+  );
+
   test('hard-deleting a space removes every level below it', () async {
     await db.from('spaces').delete().eq('id', ids['a']!);
     final rows = await db.from('spaces').select('name') as List;
