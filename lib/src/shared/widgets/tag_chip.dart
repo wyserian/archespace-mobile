@@ -44,20 +44,23 @@ class TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget face = Container(
       height: kChipHeight,
-      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: _radius,
         border: Border.fromBorderSide(edge),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: kChipFontSize,
-          fontWeight: FontWeight.w600,
-          color: color,
-          height: 1,
+      // widthFactor keeps the chip as wide as its label, not the whole row.
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: kChipFontSize,
+            fontWeight: FontWeight.w600,
+            color: color,
+            height: 1,
+          ),
         ),
       ),
     );

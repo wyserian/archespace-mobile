@@ -44,7 +44,9 @@ void main() {
     expect(removed, 1);
   });
 
-  testWidgets('tag and reminder chips share one height', (tester) async {
+  testWidgets('tag and reminder chips share one height, tags fit their label', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _host(
         Wrap(
@@ -61,13 +63,14 @@ void main() {
         ),
       ),
     );
-    double faceHeight(Finder inner) => tester
-        .getSize(
-          find.ancestor(of: inner, matching: find.byType(Container)).first,
-        )
-        .height;
+    Size face(Finder inner) => tester.getSize(
+      find.ancestor(of: inner, matching: find.byType(Container)).first,
+    );
+    double faceHeight(Finder inner) => face(inner).height;
 
     expect(faceHeight(find.text('work')), kChipHeight);
+    // Not stretched across the row.
+    expect(face(find.text('work')).width, lessThan(100));
     expect(
       faceHeight(find.byIcon(Icons.notifications_none_rounded)),
       kChipHeight,
