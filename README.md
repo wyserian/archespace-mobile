@@ -37,7 +37,8 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
 - **Starred**, **Self-destruct** (soonest first), **archive** and **bin** views
-- **Realtime sync** with the [web app](https://github.com/wyserian/archespace), and **full offline use**: an encrypted copy on the device opens everything at once and takes every change, syncing when the connection is back (deleting for good, backup import and account settings need a connection)
+- **Realtime sync** with the [web app](https://github.com/wyserian/archespace)
+- **Works offline**, syncing when back (deleting for good, backup import and account settings need a connection)
 - **Encrypted backups** and **PDF export**
 - **Local mode**: no account, nothing leaves the phone
 - **Two-factor sign-in**
@@ -64,7 +65,7 @@ Spaces and items reorder by long-press and drag, or with Move up / Move down act
 
 Two separate secrets: a **login password** for the account and a **vault PIN** (or passphrase) for the content.
 
-- **Encrypted on the device.** Content is encrypted with AES-256-GCM before it leaves the phone; the server stores only ciphertext and non-sensitive metadata (IDs, timestamps, positions, flags). The offline copy and its outbox of waiting changes hold ciphertext too.
+- **Encrypted on the device.** Content is encrypted with AES-256-GCM before it leaves the phone; the server stores only ciphertext and non-sensitive metadata (IDs, timestamps, positions, flags). What's kept on the phone for offline use is ciphertext too.
 - **PIN never stored.** A random vault key is wrapped with a key derived from the PIN by Argon2id.
 - **Same format as the web app** (`arc1`), checked against shared test vectors in [`spec/`](spec/).
 - **Unlock.** The unlocked key lives only in memory and the vault auto-locks when idle, and when the phone locks (a switch in Settings). Fingerprint / face unlock keeps the wrapped key in the Android Keystore / iOS Keychain.
