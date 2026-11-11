@@ -230,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final userId = currentUserId();
       if (userId == null) return;
-      final json = await BackupRepository(
+      final (:json, :unreadable) = await BackupRepository(
         VaultSession.instance.masterKey,
       ).exportJson(await VaultService().backupMeta(userId));
       final bytes = Uint8List.fromList(utf8.encode(json));
@@ -241,7 +241,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         mimeType: 'application/json',
         bytes: bytes,
       );
-      if (saved != null && mounted) showSuccessSnack(context, 'Backup saved.');
+      if (saved == null || !mounted) return;
+      if (unreadable > 0) {
+        showErrorSnack(
+          context,
+          'Backup saved without $unreadable item${unreadable == 1 ? '' : 's'} '
+          "that couldn't be decrypted.",
+        );
+      } else {
+        showSuccessSnack(context, 'Backup saved.');
+      }
     } catch (_) {
       if (mounted) showErrorSnack(context, "Couldn't export the backup.");
     }

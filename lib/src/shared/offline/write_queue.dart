@@ -30,6 +30,15 @@ class WriteQueue {
 
   bool _flushing = false;
 
+  // Changes to the queue file, one at a time: a write queued while a flush
+  // runs is never lost to the flush writing back what it read.
+  Future<void> _last = Future.value();
+  Future<T> _exclusive<T>(Future<T> Function() change) {
+    final run = _last.then((_) => change());
+    _last = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
   Future<File> _file() async {
     final base = await getApplicationSupportDirectory();
     final dir = Directory('${base.path}/offline');
@@ -79,28 +88,30 @@ class WriteQueue {
       return false;
     } catch (e) {
       if (!isNetworkError(e)) rethrow;
-      final ops = await _read();
-      final same = ops.indexWhere(
-        (op) => op['table'] == table && (op['row'] as Map)['id'] == row['id'],
-      );
-      if (same >= 0) {
-        // Keep what the first write set (a new item's position) and the
-        // version the first edit was made on.
-        final first = ops[same];
-        ops[same] = {
-          ...first,
-          'row': {...(first['row'] as Map<String, dynamic>), ...row},
-          'copyTitle': copyTitle ?? first['copyTitle'],
-        };
-      } else {
-        ops.add({
-          'table': table,
-          'row': row,
-          'base': ?base,
-          'copyTitle': ?copyTitle,
-        });
-      }
-      await _writeAll(ops);
+      await _exclusive(() async {
+        final ops = await _read();
+        final same = ops.indexWhere(
+          (op) => op['table'] == table && (op['row'] as Map)['id'] == row['id'],
+        );
+        if (same >= 0) {
+          // Keep what the first write set (a new item's position) and the
+          // version the first edit was made on.
+          final first = ops[same];
+          ops[same] = {
+            ...first,
+            'row': {...(first['row'] as Map<String, dynamic>), ...row},
+            'copyTitle': copyTitle ?? first['copyTitle'],
+          };
+        } else {
+          ops.add({
+            'table': table,
+            'row': row,
+            'base': ?base,
+            'copyTitle': ?copyTitle,
+          });
+        }
+        await _writeAll(ops);
+      });
       return true;
     }
   }
@@ -112,27 +123,28 @@ class WriteQueue {
     _flushing = true;
     try {
       final ops = await _read();
-      final kept = <Map<String, dynamic>>[];
+      // Each op applied or dropped, as it was read.
+      final done = <String>{};
       final userId = currentUserId();
-      for (var i = 0; i < ops.length; i++) {
-        final op = ops[i];
+      for (final op in ops) {
         final row = op['row'] as Map<String, dynamic>;
-        if (row['user_id'] != null && row['user_id'] != userId) {
-          kept.add(op);
-          continue;
-        }
+        if (row['user_id'] != null && row['user_id'] != userId) continue;
         try {
           await _apply(op['table'] as String, row, op);
         } catch (e) {
-          if (isNetworkError(e)) {
-            kept.addAll(ops.sublist(i)); // try again next time
-            break;
-          }
-          // Permanent failure (e.g. row's parent gone): drop and continue.
+          if (isNetworkError(e)) break; // still offline: try again next time
+          // Permanent failure (e.g. row's parent gone): drop it, so it can't
+          // block the queue.
         }
-        await _writeAll([...kept, ...ops.sublist(i + 1)]);
+        done.add(jsonEncode(op));
+        // Read again: writes queued meanwhile stay, as does one changed since.
+        await _exclusive(
+          () async => _writeAll([
+            for (final queued in await _read())
+              if (!done.contains(jsonEncode(queued))) queued,
+          ]),
+        );
       }
-      await _writeAll(kept);
     } finally {
       _flushing = false;
     }

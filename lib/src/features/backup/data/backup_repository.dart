@@ -14,8 +14,8 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// server stores it). So it opens as-is in the same vault, and anywhere else
 /// with the vault PIN of the time. Each space carries its fields, its nesting
 /// (`key`, and its parent's as `parentKey`) and an `items` array ({ type,
-/// title, content, position, pinned, reminder }); the top-level `items` are
-/// the dashboard's (no space).
+/// title, content, position, pinned, tags, starred, color, locked, reminder });
+/// the top-level `items` are the dashboard's (no space).
 class BackupRepository {
   BackupRepository(this._masterKey);
 
@@ -29,12 +29,19 @@ class BackupRepository {
   Future<String> _encJson(Object? v) =>
       ArcheCrypto.encryptArc1(jsonEncode(v), _masterKey);
 
+  // Items the export couldn't decrypt (e.g. left from an earlier vault key),
+  // left out and counted for the caller to report.
+  var _unreadable = 0;
+
   /// Active items of one space, or the dashboard's items (no space) for `null`,
   /// decrypted for the backup.
   Future<List<Map<String, dynamic>>> _exportItems(String? spaceId) async {
     final query = _client
         .from('space_items')
-        .select('type, title, content, reminder, position, pinned, locked');
+        .select(
+          'type, title, content, tags, reminder, position, pinned, starred, '
+          'locked, color',
+        );
     final itemRows =
         await (spaceId == null
                 ? query.isFilter('space_id', null)
@@ -45,26 +52,41 @@ class BackupRepository {
 
     final items = <Map<String, dynamic>>[];
     for (final it in itemRows) {
-      final reminder = it['reminder'] is String
-          ? Reminder.fromJson(jsonDecode(await _dec(it['reminder'])))
-          : null;
-      items.add({
-        'type': it['type'],
-        'title': await _dec(it['title']),
-        'content': await ArcheCrypto.decryptJsonMap(it['content'], _masterKey),
-        'position': it['position'],
-        'pinned': it['pinned'] ?? false,
-        if (it['locked'] == true) 'locked': true,
-        'reminder': ?reminder?.toJson(),
-      });
+      try {
+        final reminder = it['reminder'] is String
+            ? Reminder.fromJson(jsonDecode(await _dec(it['reminder'])))
+            : null;
+        final tags = await ArcheCrypto.decryptTags(it['tags'], _masterKey);
+        items.add({
+          'type': it['type'],
+          'title': await _dec(it['title']),
+          'content': await ArcheCrypto.decryptJsonMap(
+            it['content'],
+            _masterKey,
+          ),
+          'position': it['position'],
+          'pinned': it['pinned'] ?? false,
+          if (tags.isNotEmpty) 'tags': tags,
+          if (it['starred'] == true) 'starred': true,
+          'color': ?it['color'],
+          if (it['locked'] == true) 'locked': true,
+          'reminder': ?reminder?.toJson(),
+        });
+      } catch (_) {
+        _unreadable++;
+      }
     }
     return items;
   }
 
-  /// Build the encrypted backup JSON (active spaces + items). [vaultMeta] is
-  /// the vault's PIN-wrapped key (VaultService.backupMeta), carried so the
-  /// file opens elsewhere with the vault PIN.
-  Future<String> exportJson(Map<String, String> vaultMeta) async {
+  /// Build the encrypted backup JSON (active spaces + items), and how many
+  /// items were left out as undecryptable. [vaultMeta] is the vault's
+  /// PIN-wrapped key (VaultService.backupMeta), carried so the file opens
+  /// elsewhere with the vault PIN.
+  Future<({String json, int unreadable})> exportJson(
+    Map<String, String> vaultMeta,
+  ) async {
+    _unreadable = 0;
     final spaceRows = await _client
         .from('spaces')
         .select(
@@ -108,7 +130,10 @@ class BackupRepository {
       'vault': vaultMeta,
       'data': await _encJson(contents),
     };
-    return const JsonEncoder.withIndent('  ').convert(payload);
+    return (
+      json: const JsonEncoder.withIndent('  ').convert(payload),
+      unreadable: _unreadable,
+    );
   }
 
   /// The order to import a backup's spaces in, parents first: (index,
@@ -213,14 +238,20 @@ class BackupRepository {
       }
       final title = it['title'] is String ? (it['title'] as String).trim() : '';
       final reminder = Reminder.fromJson(it['reminder']);
+      final tags = it['tags'] is List
+          ? (it['tags'] as List).map((e) => e.toString()).toList()
+          : <String>[];
       rows.add({
         'space_id': spaceId,
         'user_id': userId,
         'type': type,
         'title': await _enc(title),
         'content': await _encJson(content),
+        'tags': await _encJson(tags),
         'position': it['position'] is int ? it['position'] : rows.length,
         'pinned': it['pinned'] == true,
+        'starred': it['starred'] == true,
+        'color': it['color'] is String ? it['color'] : null,
         'locked': it['locked'] == true,
         'reminder': ?(reminder == null
             ? null

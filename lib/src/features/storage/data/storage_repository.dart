@@ -143,8 +143,6 @@ class StorageRepository {
     ];
   }
 
-  String _table(StoredEntry e) => e.isSpace ? 'spaces' : 'space_items';
-
   // Spaces restore and move with what went along with them, and restoring
   // anything brings back the removed spaces above it (see SpaceLifecycle).
 
@@ -155,10 +153,9 @@ class StorageRepository {
   /// Move an archived entry to the bin.
   Future<void> moveToBin(StoredEntry e) => moveManyToBin([e]);
 
-  /// Permanently delete (hard delete). For spaces, the DB cascade removes items.
-  Future<void> purge(StoredEntry e) async {
-    await _client.from(_table(e)).delete().eq('id', e.id);
-  }
+  /// Permanently delete (hard delete). A space goes with what's inside it,
+  /// except what was archived (see SpaceLifecycle.purge).
+  Future<void> purge(StoredEntry e) => purgeMany([e]);
 
   // Bulk operations (multi-select)
 
@@ -201,12 +198,11 @@ class StorageRepository {
     }
   }
 
-  /// Permanently delete many. For spaces, the DB cascade removes their items.
+  /// Permanently delete many. A space goes with what's inside it, except
+  /// what was archived (see SpaceLifecycle.purge).
   Future<void> purgeMany(Iterable<StoredEntry> entries) async {
     final (spaceIds, itemIds) = _split(entries);
-    if (spaceIds.isNotEmpty) {
-      await _client.from('spaces').delete().inFilter('id', spaceIds);
-    }
+    if (spaceIds.isNotEmpty) await SpaceLifecycle().purge(spaceIds);
     if (itemIds.isNotEmpty) {
       await _client.from('space_items').delete().inFilter('id', itemIds);
     }
@@ -214,7 +210,7 @@ class StorageRepository {
 
   /// Permanently delete everything in the bin (all soft-deleted rows).
   Future<void> purgeAll() async {
-    await _client.from('spaces').delete().not('deleted_at', 'is', null);
     await _client.from('space_items').delete().not('deleted_at', 'is', null);
+    await SpaceLifecycle().purge(null);
   }
 }

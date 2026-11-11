@@ -187,6 +187,36 @@ class SpaceLifecycle {
     await restore(ids);
   }
 
+  /// Delete spaces in the bin for good (null: every space in the bin). The
+  /// database takes everything inside them too, so any sub-space or item kept
+  /// inside that isn't in the bin (one archived before) first moves to the
+  /// top level or the dashboard, and stays where it's listed.
+  Future<void> purge(List<String>? ids) async {
+    final (:tree, :byId) = await _loadTree();
+    final roots =
+        ids ??
+        [
+          for (final s in tree)
+            if (s.deletedAt != null) s.id,
+        ];
+    if (roots.isEmpty) return;
+    final gone = {...roots, ..._below(roots, tree, (s) => s.deletedAt != null)};
+    final kept = [
+      for (final id in _below(roots, tree, (_) => true))
+        if (!gone.contains(id) && gone.contains(byId[id]?.parentId)) id,
+    ];
+    if (kept.isNotEmpty) {
+      await _db.from('spaces').update({'parent_id': null}).inFilter('id', kept);
+    }
+    await _db
+        .from('space_items')
+        .update({'space_id': null})
+        .inFilter('space_id', gone.toList())
+        .isFilter('deleted_at', null)
+        .not('archived_at', 'is', null);
+    await _db.from('spaces').delete().inFilter('id', gone.toList());
+  }
+
   /// Move archived spaces (with what was archived along with them) to the
   /// bin.
   Future<void> binArchived(List<String> ids) async {
