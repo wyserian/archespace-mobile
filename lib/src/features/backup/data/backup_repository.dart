@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
-import 'package:archespace_mobile/src/features/items/domain/item_types.dart';
+import 'package:archespace_mobile/src/features/items/domain/rich_doc.dart';
 import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
@@ -50,14 +50,15 @@ class BackupRepository {
                 : query.eq('space_id', spaceId))
             .isFilter('deleted_at', null)
             .isFilter('archived_at', null)
-            .order('position');
+            .order('position', ascending: true);
 
     final items = <Map<String, dynamic>>[];
     for (final it in itemRows) {
       try {
-        final reminder = it['reminder'] is String
-            ? Reminder.fromJson(jsonDecode(await _dec(it['reminder'])))
-            : null;
+        final r = it['reminder'];
+        final reminder = r is String
+            ? Reminder.fromJson(jsonDecode(await _dec(r)))
+            : Reminder.fromJson(r); // an older, plain one (or none)
         final tags = await ArcheCrypto.decryptTags(it['tags'], _masterKey);
         items.add({
           'type': it['type'],
@@ -96,11 +97,11 @@ class BackupRepository {
                 .from('spaces')
                 .select(
                   'id, parent_id, name, description, tags, color, pinned, '
-                  'locked, position',
+                  'starred, locked, read_only, position',
                 )
                 .isFilter('deleted_at', null)
                 .isFilter('archived_at', null)
-                .order('position')
+                .order('position', ascending: true)
             as List;
 
     // Nesting: each space's `key` is its place in the list, and a sub-space
@@ -118,7 +119,9 @@ class BackupRepository {
         'color': s['color'],
         'tags': await ArcheCrypto.decryptTags(s['tags'], _masterKey),
         'pinned': s['pinned'] ?? false,
+        if (s['starred'] == true) 'starred': true,
         if (s['locked'] == true) 'locked': true,
+        if (s['read_only'] == true) 'readOnly': true,
         'position': s['position'],
         'items': await _exportItems(s['id'] as String),
       });
@@ -215,6 +218,47 @@ class BackupRepository {
     }
   }
 
+  // The web's import limits (constants.js), all checked before anything is
+  // saved.
+  static const _maxFileSize = 10 * 1024 * 1024;
+  static const _maxSpaces = 500;
+  static const _maxItemsPerSpace = 1000;
+  static const _maxName = 255;
+  static const _maxDescription = 2000;
+  static const _maxTitle = 255;
+
+  static String _text(Object? v, int max) {
+    final s = v is String ? v.trim() : '';
+    return s.length > max ? s.substring(0, max) : s;
+  }
+
+  /// Whether [content] has the shape [type]'s editor expects (as on the
+  /// web). An old Markdown item, or any unknown type, is not accepted.
+  static bool _validContent(String type, Map content) {
+    bool list(Object? v, int max) => v is List && v.length <= max;
+    return switch (type) {
+      'textbox' => content['text'] is String,
+      'richtext' =>
+        isRichDoc(content.cast<String, dynamic>()) || content['html'] is String,
+      'code' => content['code'] is String,
+      'checkbox_list' ||
+      'menu_list' ||
+      'numbered_list' ||
+      'card_list' => list(content['items'], 1000),
+      'table' => list(content['columns'], 100) && list(content['rows'], 1000),
+      'kanban' =>
+        list(content['columns'], 50) &&
+            (content['columns'] as List).every(
+              (c) => c is Map && list(c['cards'], 1000),
+            ),
+      'whiteboard' =>
+        content['elements'] is List
+            ? list(content['elements'], 20000)
+            : list(content['strokes'], 10000),
+      _ => false,
+    };
+  }
+
   /// Validate, encrypt and insert a backup's items into a space, or onto the
   /// dashboard for a `null` [spaceId]. Items with an unknown type or malformed
   /// content are skipped rather than failing the import.
@@ -222,7 +266,6 @@ class BackupRepository {
     List<dynamic> items,
     String? spaceId,
     String userId,
-    Set<String> knownTypes,
   ) async {
     var skipped = 0;
     final rows = <Map<String, dynamic>>[];
@@ -234,15 +277,11 @@ class BackupRepository {
       // Backups made before the Whiteboard was renamed call it 'draw'.
       final type = it['type'] == 'draw' ? 'whiteboard' : it['type'];
       final content = it['content'];
-      if (type is! String || !knownTypes.contains(type)) {
+      if (type is! String || content is! Map || !_validContent(type, content)) {
         skipped++;
         continue;
       }
-      if (content is! Map) {
-        skipped++;
-        continue;
-      }
-      final title = it['title'] is String ? (it['title'] as String).trim() : '';
+      final title = _text(it['title'], _maxTitle);
       final reminder = Reminder.fromJson(it['reminder']);
       final tags = it['tags'] is List
           ? (it['tags'] as List).map((e) => e.toString()).toList()
@@ -285,14 +324,24 @@ class BackupRepository {
     if (userId == null) throw StateError('Not authenticated');
     // Importing needs the server: checked once, before anything is written.
     await whenOnline(() async {});
+    if (text.length > _maxFileSize) {
+      throw const FormatException(
+        'The file is too large. The maximum size is 10MB.',
+      );
+    }
 
-    final sealed = jsonDecode(text);
-    if (!_isEncrypted(sealed)) {
+    final Object? file;
+    try {
+      file = jsonDecode(text);
+    } on FormatException {
+      throw const FormatException("That backup file isn't valid.");
+    }
+    if (!_isEncrypted(file)) {
       throw const FormatException(
         'Only encrypted ArcheSpace backups can be imported.',
       );
     }
-    sealed as Map;
+    final sealed = file as Map;
     var contents = await _open(sealed, _masterKey);
     if (contents == null) {
       if (askBackupPin == null) {
@@ -316,19 +365,42 @@ class BackupRepository {
       throw const FormatException('The encrypted contents are damaged.');
     }
     final parsedSpaces = parsed['spaces'] as List;
+    if (parsedSpaces.length > _maxSpaces) {
+      throw const FormatException(
+        'Too many spaces. The maximum allowed is $_maxSpaces.',
+      );
+    }
+    if (parsedSpaces.any((s) => s is! Map)) {
+      throw const FormatException(
+        'Each space in the backup must be an object.',
+      );
+    }
+    for (final s in parsedSpaces.cast<Map>()) {
+      if (s['items'] is List &&
+          (s['items'] as List).length > _maxItemsPerSpace) {
+        final name = _text(s['name'], _maxName);
+        throw FormatException(
+          'Too many items in space "${name.isEmpty ? 'Imported Space' : name}". '
+          'The maximum allowed is $_maxItemsPerSpace.',
+        );
+      }
+    }
+    if (parsed['items'] is List &&
+        (parsed['items'] as List).length > _maxItemsPerSpace) {
+      throw const FormatException(
+        'Too many dashboard items. The maximum allowed is $_maxItemsPerSpace.',
+      );
+    }
 
+    // Top-level spaces go after the existing ones, each in its backup order.
     final existing = await _client
         .from('spaces')
         .select('id')
+        .isFilter('parent_id', null)
         .isFilter('deleted_at', null)
         .isFilter('archived_at', null);
-    var spacePos = existing.length;
+    final placed = <String?, int>{}; // parent id -> spaces placed in it so far
 
-    // An old Markdown item isn't accepted: the database no longer takes it.
-    final knownTypes = kItemTypes
-        .map((d) => d.type)
-        .where((t) => t != 'markdown')
-        .toSet();
     var itemsImported = 0;
     var itemsSkipped = 0;
     var spacesImported = 0;
@@ -336,17 +408,18 @@ class BackupRepository {
     final newIds = <int, String>{};
 
     for (final (index, parentIndex) in nestingOrder(parsedSpaces)) {
-      final raw = parsedSpaces[index];
-      if (raw is! Map) continue;
+      final raw = parsedSpaces[index] as Map;
       final parentId = parentIndex == null ? null : newIds[parentIndex];
+      final nth = placed[parentId] ?? 0;
+      placed[parentId] = nth + 1;
+      // Mobile backups carry each space's place; web ones list them in order.
+      final position =
+          (parentId == null ? existing.length : 0) +
+          (raw['position'] is int ? raw['position'] as int : nth);
 
-      final rawName = raw['name'];
-      final name = (rawName is String && rawName.trim().isNotEmpty)
-          ? rawName.trim()
-          : 'Imported Space';
-      final description = raw['description'] is String
-          ? (raw['description'] as String).trim()
-          : '';
+      final named = _text(raw['name'], _maxName);
+      final name = named.isEmpty ? 'Imported Space' : named;
+      final description = _text(raw['description'], _maxDescription);
       final color = raw['color'] is String ? raw['color'] as String : null;
       final tags = raw['tags'] is List
           ? (raw['tags'] as List).map((e) => e.toString()).toList()
@@ -361,15 +434,10 @@ class BackupRepository {
             'color': color,
             'tags': await _encJson(tags),
             'pinned': raw['pinned'] == true,
+            'starred': raw['starred'] == true,
             'locked': raw['locked'] == true,
             'parent_id': parentId,
-            // Top-level spaces go after the existing ones; sub-spaces keep
-            // their order.
-            'position': parentId == null
-                ? spacePos++
-                : raw['position'] is int
-                ? raw['position']
-                : 0,
+            'position': position,
           })
           .select('id')
           .single();
@@ -378,20 +446,23 @@ class BackupRepository {
       spacesImported++;
 
       final items = raw['items'];
-      if (items is! List) continue;
-      final result = await _importItems(items, spaceId, userId, knownTypes);
-      itemsImported += result.imported;
-      itemsSkipped += result.skipped;
+      if (items is List) {
+        final result = await _importItems(items, spaceId, userId);
+        itemsImported += result.imported;
+        itemsSkipped += result.skipped;
+      }
+      // Read-only last: it refuses the items otherwise.
+      if (raw['readOnly'] == true) {
+        await _client
+            .from('spaces')
+            .update({'read_only': true})
+            .eq('id', spaceId);
+      }
     }
 
     // Dashboard items (outside any space).
     if (parsed['items'] is List) {
-      final result = await _importItems(
-        parsed['items'] as List,
-        null,
-        userId,
-        knownTypes,
-      );
+      final result = await _importItems(parsed['items'] as List, null, userId);
       itemsImported += result.imported;
       itemsSkipped += result.skipped;
     }

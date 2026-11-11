@@ -293,8 +293,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context,
         'Imported $spacesLabel and $itemsLabel$skippedLabel.',
       );
-    } on FormatException {
-      if (mounted) showErrorSnack(context, "That backup file isn't valid.");
+    } on FormatException catch (e) {
+      // Says why: not a backup, from another vault, damaged, or too big.
+      if (mounted) showErrorSnack(context, e.message);
     } on OfflineException catch (e) {
       if (mounted) showErrorSnack(context, e.message);
     } catch (_) {
