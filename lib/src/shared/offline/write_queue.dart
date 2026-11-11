@@ -22,8 +22,16 @@ import 'package:archespace_mobile/src/shared/util/uuid.dart';
 /// Scope: covers the item create/edit path. Callers use [upsert]; when the
 /// network is down the op is stored and replayed by [flush] on reconnect.
 class WriteQueue {
-  WriteQueue._();
+  WriteQueue._() : _testDb = null, _testDir = null;
   static final WriteQueue instance = WriteQueue._();
+
+  /// A queue on [db], kept in [dir] (tests).
+  @visibleForTesting
+  WriteQueue.test(Db db, Directory dir) : _testDb = db, _testDir = dir;
+
+  final Db? _testDb;
+  final Directory? _testDir;
+  Db get _db => _testDb ?? Db.instance;
 
   /// Number of pending ops; UIs can watch this to show a "syncing" hint.
   final ValueNotifier<int> pending = ValueNotifier<int>(0);
@@ -40,8 +48,9 @@ class WriteQueue {
   }
 
   Future<File> _file() async {
-    final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/offline');
+    final dir =
+        _testDir ??
+        Directory('${(await getApplicationSupportDirectory()).path}/offline');
     if (!await dir.exists()) await dir.create(recursive: true);
     return File('${dir.path}/queue.json');
   }
@@ -78,10 +87,7 @@ class WriteQueue {
     String? copyTitle,
   }) async {
     try {
-      final saved = await Db.instance
-          .from(table)
-          .upsert(row)
-          .select('updated_at');
+      final saved = await _db.from(table).upsert(row).select('updated_at');
       if (saved is List && saved.isNotEmpty) {
         row['updated_at'] = (saved.first as Map)['updated_at'];
       }
@@ -157,10 +163,10 @@ class WriteQueue {
   ) async {
     final base = op['base'] as String?;
     if (base == null) {
-      await Db.instance.from(table).upsert(row);
+      await _db.from(table).upsert(row);
       return;
     }
-    final updated = await Db.instance
+    final updated = await _db
         .from(table)
         .update({'title': row['title'], 'content': row['content']})
         .eq('id', row['id'] as Object)
@@ -175,10 +181,10 @@ class WriteQueue {
       'title': op['copyTitle'] ?? row['title'],
     };
     try {
-      await Db.instance.from(table).insert(copy);
+      await _db.from(table).insert(copy);
     } catch (e) {
       if (isNetworkError(e) || copy['space_id'] == null) rethrow;
-      await Db.instance.from(table).insert({...copy, 'space_id': null});
+      await _db.from(table).insert({...copy, 'space_id': null});
     }
   }
 }

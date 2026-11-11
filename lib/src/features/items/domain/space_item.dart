@@ -17,6 +17,7 @@ class SpaceItem {
     this.color,
     this.expiresAt,
     this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -48,4 +49,8 @@ class SpaceItem {
   /// When it self-destructs (deleted for good), or null (see expiry.dart).
   final DateTime? expiresAt;
   final DateTime? createdAt;
+
+  /// The version it was loaded at, exactly as the server wrote it: an offline
+  /// edit only lands on this version (see WriteQueue).
+  final String? updatedAt;
 }

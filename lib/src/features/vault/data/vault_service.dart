@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -26,12 +27,15 @@ class VaultService {
   Db get _client => Db.instance;
 
   static const String _checkPlaintext = 'ARCHE_VAULT_V1_OK';
-  static const String _metaCacheKey = 'user_encryption';
+
+  // Per user (local mode has its own id), so one account's or local mode's
+  // vault never stands in for another's.
+  static String _metaCacheKey(String userId) => 'user_encryption_$userId';
 
   Future<bool> hasVault(String userId) async {
     // If unlock metadata is cached, a vault exists - answer instantly and skip
     // the network so launch never hangs on a stalled request when offline.
-    final cached = await CacheStore.read(_metaCacheKey);
+    final cached = await CacheStore.read(_metaCacheKey(userId));
     if (cached is Map) return true;
     try {
       final row = await _client
@@ -62,10 +66,10 @@ class VaultService {
           .select('salt, key_check, wrapped_key')
           .eq('user_id', userId)
           .maybeSingle();
-      if (meta != null) await CacheStore.write(_metaCacheKey, meta);
+      if (meta != null) await CacheStore.write(_metaCacheKey(userId), meta);
       return meta;
     } catch (_) {
-      final cached = await CacheStore.read(_metaCacheKey);
+      final cached = await CacheStore.read(_metaCacheKey(userId));
       if (cached is Map) return Map<String, dynamic>.from(cached);
       throw VaultException(
         "Can't reach the server, and there's no offline vault data on this "
@@ -83,9 +87,43 @@ class VaultService {
     if (meta == null) {
       throw VaultException('No vault PIN is configured for this account.');
     }
-    final masterKey = await _unlockWithPin(meta, pin);
+    final masterKey = await _checkPin(meta, pin);
     await _upgradeLegacyPinSalt(userId, pin, masterKey, meta);
     return masterKey;
+  }
+
+  /// [_unlockWithPin] behind the server's lockout (five wrong PINs lock it
+  /// for five minutes, schema.sql section 7), recording how it went, as the
+  /// web does. Offline, the attempt goes through: the lockout can't be read.
+  Future<Uint8List> _checkPin(Map<String, dynamic> meta, String pin) async {
+    final status = await _pinRpc('get_vault_pin_lock_status');
+    if (status is Map && status['locked'] == true) {
+      final seconds = (status['retry_after_seconds'] as num?)?.toInt() ?? 300;
+      final minutes = max(1, (seconds / 60).ceil());
+      throw VaultException(
+        'Too many wrong PINs. Try again in $minutes '
+        'minute${minutes == 1 ? '' : 's'}.',
+      );
+    }
+    try {
+      final masterKey = await _unlockWithPin(meta, pin);
+      await _pinRpc('record_vault_pin_unlock_success');
+      return masterKey;
+    } on VaultException catch (e) {
+      if (e.message == 'Incorrect PIN.') {
+        await _pinRpc('record_vault_pin_unlock_failure');
+      }
+      rethrow;
+    }
+  }
+
+  /// A lockout bookkeeping call; never lets a failure of its own block a PIN.
+  Future<dynamic> _pinRpc(String fn) async {
+    try {
+      return await _client.rpc(fn).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      return null;
+    }
   }
 
   /// A vault made before Argon2id (PBKDF2 salt) is re-wrapped with Argon2id
@@ -203,11 +241,16 @@ class VaultService {
     await _client.from('space_items').delete().eq('user_id', userId);
     await _client.from('spaces').delete().eq('user_id', userId);
     await _client.from('user_encryption').delete().eq('user_id', userId);
-    await CacheStore.delete(_metaCacheKey);
+    await CacheStore.delete(_metaCacheKey(userId));
 
     final masterKey = ArcheCrypto.randomAesKey();
     final recoveryCode = generateRecoveryCode();
-    await _persistPinWrapped(userId, pin, masterKey, recoveryCode: recoveryCode);
+    await _persistPinWrapped(
+      userId,
+      pin,
+      masterKey,
+      recoveryCode: recoveryCode,
+    );
     return (masterKey: masterKey, recoveryCode: recoveryCode);
   }
 
@@ -230,7 +273,7 @@ class VaultService {
       throw VaultException('No vault PIN is configured for this account.');
     }
 
-    final masterKey = await _unlockWithPin(meta, currentPin);
+    final masterKey = await _checkPin(meta, currentPin);
     await _persistPinWrapped(userId, newPin, masterKey);
     return masterKey;
   }
@@ -248,7 +291,7 @@ class VaultService {
       throw VaultException('No vault PIN is configured for this account.');
     }
 
-    final masterKey = await _unlockWithPin(meta, currentPin);
+    final masterKey = await _checkPin(meta, currentPin);
     final recoveryCode = generateRecoveryCode();
     final recoverySalt = ArcheCrypto.newSaltDescriptor();
     final recoveryKey = await ArcheCrypto.deriveVaultKey(
@@ -399,7 +442,7 @@ class VaultService {
     await _client.from('user_encryption').upsert(payload);
 
     // Keep the offline unlock cache in sync with the freshly wrapped key.
-    await CacheStore.write(_metaCacheKey, {
+    await CacheStore.write(_metaCacheKey(userId), {
       'salt': payload['salt'],
       'key_check': payload['key_check'],
       'wrapped_key': payload['wrapped_key'],

@@ -103,6 +103,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   // new item so later auto-saves update it instead of creating duplicates.
   late String? _itemId = widget.existing?.id;
 
+  // The version the next edit is made on: as loaded, then as last saved.
+  late String? _base = widget.existing?.updatedAt;
+
   bool _saving = false;
 
   // Snapshot of the last persisted state, for change detection.
@@ -234,13 +237,16 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       final title = _title.text.trim();
       final type = _type;
       if (_itemId != null) {
-        await repo.updateItem(
-          id: _itemId!,
-          spaceId: widget.spaceId,
-          type: type,
-          title: title,
-          content: _content,
-        );
+        _base =
+            await repo.updateItem(
+              id: _itemId!,
+              spaceId: widget.spaceId,
+              type: type,
+              title: title,
+              content: _content,
+              base: _base,
+            ) ??
+            _base;
       } else {
         _itemId = await repo.createItem(
           spaceId: widget.spaceId,
@@ -307,6 +313,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     color: _color,
     expiresAt: _expiresAt,
     createdAt: widget.existing?.createdAt,
+    updatedAt: _base,
   );
 
   /// Save pending edits, then run a menu action on the item. A failed save

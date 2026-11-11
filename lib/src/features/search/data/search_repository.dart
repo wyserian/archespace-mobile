@@ -110,15 +110,21 @@ class SearchRepository {
     for (final row in spaceRows) {
       final id = row['id'] as String;
       final locked = (row['locked'] ?? false) as bool;
-      final name = await ArcheCrypto.decryptArc1(
-        (row['name'] ?? '') as String,
-        _masterKey,
-      );
-      final description = await ArcheCrypto.decryptArc1(
-        (row['description'] ?? '') as String,
-        _masterKey,
-      );
-      final tags = await ArcheCrypto.decryptTags(row['tags'], _masterKey);
+      final String name, description;
+      final List<String> tags;
+      try {
+        name = await ArcheCrypto.decryptArc1(
+          (row['name'] ?? '') as String,
+          _masterKey,
+        );
+        description = await ArcheCrypto.decryptArc1(
+          (row['description'] ?? '') as String,
+          _masterKey,
+        );
+        tags = await ArcheCrypto.decryptTags(row['tags'], _masterKey);
+      } catch (_) {
+        continue; // left from an earlier vault key: skipped, as in the lists
+      }
       spaceNameById[id] = name;
       hits.add(
         SearchHit(
@@ -149,15 +155,19 @@ class SearchRepository {
 
     for (final row in itemRows) {
       final type = (row['type'] ?? '') as String;
-      final title = await ArcheCrypto.decryptArc1(
-        (row['title'] ?? '') as String,
-        _masterKey,
-      );
-      final content = await ArcheCrypto.decryptJsonMap(
-        row['content'],
-        _masterKey,
-      );
-      final tags = await ArcheCrypto.decryptTags(row['tags'], _masterKey);
+      final String title;
+      final Map<String, dynamic> content;
+      final List<String> tags;
+      try {
+        title = await ArcheCrypto.decryptArc1(
+          (row['title'] ?? '') as String,
+          _masterKey,
+        );
+        content = await ArcheCrypto.decryptJsonMap(row['content'], _masterKey);
+        tags = await ArcheCrypto.decryptTags(row['tags'], _masterKey);
+      } catch (_) {
+        continue; // left from an earlier vault key: skipped, as in the lists
+      }
       final spaceId = row['space_id'] as String?;
       hits.add(
         SearchHit(

@@ -17,11 +17,12 @@ import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 /// title, content, position, pinned, tags, starred, color, locked, reminder });
 /// the top-level `items` are the dashboard's (no space).
 class BackupRepository {
-  BackupRepository(this._masterKey);
+  BackupRepository(this._masterKey, [this._db]);
 
   final List<int> _masterKey;
+  final Db? _db;
 
-  Db get _client => Db.instance;
+  Db get _client => _db ?? Db.instance;
 
   Future<String> _dec(Object? v) =>
       ArcheCrypto.decryptArc1((v ?? '') as String, _masterKey);
@@ -87,15 +88,19 @@ class BackupRepository {
     Map<String, String> vaultMeta,
   ) async {
     _unreadable = 0;
-    final spaceRows = await _client
-        .from('spaces')
-        .select(
-          'id, parent_id, name, description, tags, color, pinned, locked, '
-          'position',
-        )
-        .isFilter('deleted_at', null)
-        .isFilter('archived_at', null)
-        .order('position');
+    // A List, not dynamic: `.indexed` below is an extension, which a
+    // dynamic value can't reach.
+    final spaceRows =
+        await _client
+                .from('spaces')
+                .select(
+                  'id, parent_id, name, description, tags, color, pinned, '
+                  'locked, position',
+                )
+                .isFilter('deleted_at', null)
+                .isFilter('archived_at', null)
+                .order('position')
+            as List;
 
     // Nesting: each space's `key` is its place in the list, and a sub-space
     // names its parent's as `parentKey`.

@@ -149,6 +149,7 @@ class ItemRepository {
             color: m['color'] as String?,
             expiresAt: expiresAtOf(m.cast<String, dynamic>()),
             createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
+            updatedAt: m['updated_at'] as String?,
           ),
         );
       } catch (_) {
@@ -223,12 +224,18 @@ class ItemRepository {
   /// fresh insert needs: `type` and `user_id` (NOT NULL, no default) and the
   /// item's `space_id` (null for a dashboard item). Without them the insert
   /// path fails even when the row already exists.
-  Future<void> updateItem({
+  ///
+  /// [base] is the version the edit is made on (SpaceItem.updatedAt), so a
+  /// queued edit never overwrites a newer one (see WriteQueue); without it,
+  /// the version cached for the item's space. Returns the new version once
+  /// saved online, or null when queued.
+  Future<String?> updateItem({
     required String id,
     required String? spaceId,
     required String type,
     required String title,
     required Map<String, dynamic> content,
+    String? base,
   }) async {
     final row = {
       'id': id,
@@ -238,21 +245,20 @@ class ItemRepository {
       'title': await _encTitle(title),
       'content': await _encContent(content),
     };
-    // The version this edit is made on, as last fetched, so a queued edit
-    // never overwrites a newer one (see WriteQueue).
     final cacheKey = cacheKeyFor(spaceId);
     final cached = (await CacheStore.readRows(
       cacheKey,
     )).where((r) => r['id'] == id).firstOrNull;
-    await WriteQueue.instance.upsert(
+    final queued = await WriteQueue.instance.upsert(
       'space_items',
       row,
-      base: cached?['updated_at'] as String?,
+      base: base ?? cached?['updated_at'],
       copyTitle: await _encTitle(
         '${title.isEmpty ? 'Untitled' : title} (offline copy)',
       ),
     );
     await CacheStore.upsertRow(cacheKey, row);
+    return queued ? null : row['updated_at'];
   }
 
   Future<void> setPinned(String id, bool pinned) async {

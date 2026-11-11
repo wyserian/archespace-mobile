@@ -460,6 +460,7 @@ mixin ItemActions<T extends StatefulWidget> on State<T> {
     color: item.color,
     expiresAt: item.expiresAt,
     createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
   );
 
   String pdfFileName(String name) {
