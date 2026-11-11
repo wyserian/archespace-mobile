@@ -194,11 +194,18 @@ class _RootGateState extends State<_RootGate> {
     if (mounted) setState(() {});
   }
 
-  /// Unlocked: delete what has self-destructed, schedule the reminders
-  /// (readable only now), open Reminders for one tapped while locked, and look
-  /// for an app update once a day.
+  /// Locked, however it happened (by hand, auto-lock, screen lock, sign-out):
+  /// close every screen opened on top, so none keeps showing its content over
+  /// the unlock screen. Unlocked: delete what has self-destructed, schedule
+  /// the reminders (readable only now), open Reminders for one tapped while
+  /// locked, and look for an app update once a day.
   void _onUnlockChanged() {
-    if (!VaultSession.instance.unlocked.value) return;
+    if (!VaultSession.instance.unlocked.value) {
+      ReminderNotifications.navigatorKey.currentState?.popUntil(
+        (route) => route.isFirst,
+      );
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       SpaceRepository.purgeExpired();
       ReminderNotifications.instance.sync();
