@@ -10,7 +10,7 @@ Widget _host(Widget child) => MaterialApp(
 );
 
 void main() {
-  testWidgets('tag chip: tap filters, long press offers Remove, above too', (
+  testWidgets('tag chip: tap filters, x removes only once confirmed', (
     tester,
   ) async {
     var filtered = 0;
@@ -27,18 +27,21 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.close), findsNothing);
-
-    // Just above the visible chip, inside its 36-tall tap area.
+    // Just above the visible label, inside its 36-tall tap area.
     final label = tester.getRect(find.text('work'));
-    final above = Offset(label.center.dx, label.top - 6);
-    await tester.tapAt(above);
+    await tester.tapAt(Offset(label.center.dx, label.top - 6));
     expect(filtered, 1);
     expect(removed, 0);
 
-    await tester.longPressAt(above);
+    await tester.tap(find.byTooltip('Remove tag'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove tag'));
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(removed, 0);
+
+    await tester.tap(find.byTooltip('Remove tag'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove'));
     await tester.pumpAndSettle();
     expect(filtered, 1);
     expect(removed, 1);

@@ -20,7 +20,7 @@ Future<void> _pump(WidgetTester tester, Widget child) async {
 }
 
 void main() {
-  testWidgets('space card tags: long press removes one', (tester) async {
+  testWidgets('space card tags: x removes one once confirmed', (tester) async {
     List<String>? saved;
     await _pump(
       tester,
@@ -47,13 +47,13 @@ void main() {
         },
       ),
     );
-    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byTooltip('Remove tag'), findsNWidgets(4));
     expect(find.byType(TextField), findsNothing);
 
     // Removing shows at once, before the save comes back.
-    await tester.longPress(find.text('work'));
+    await tester.tap(find.byTooltip('Remove tag').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove tag'));
+    await tester.tap(find.text('Remove'));
     await tester.pumpAndSettle();
     expect(saved, ['ideas', 'reading list', 'later']);
     expect(find.text('work'), findsNothing);
@@ -116,9 +116,7 @@ void main() {
       ),
     );
     expect(find.text('work'), findsOneWidget);
-    await tester.longPress(find.text('work'));
-    await tester.pumpAndSettle();
-    expect(find.text('Remove tag'), findsNothing);
+    expect(find.byTooltip('Remove tag'), findsNothing);
   });
 
   testWidgets('item card: no collapse arrow, Copy in the menu', (tester) async {
