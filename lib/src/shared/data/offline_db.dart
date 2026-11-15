@@ -255,12 +255,13 @@ class OfflineDb implements Db {
         await _apply(_remote, table, calls).timeout(_timeout);
         return null;
       }
-      // Only if still on the version it was made on (filters go before the
-      // select, which ends a query).
+      // Only if still on the version it was made on, answered as a list (the
+      // app's own select / single would make it one row or none).
       final landed =
           await _apply(_remote, table, [
                 for (final c in calls)
-                  if (c[0] != 'select') c,
+                  if (!const {'select', 'single', 'maybeSingle'}.contains(c[0]))
+                    c,
                 ['eq', 'updated_at', base],
                 ['select', 'id, updated_at'],
               ]).timeout(_timeout)
