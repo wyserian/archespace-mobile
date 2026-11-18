@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:archespace_mobile/src/features/items/domain/reminder.dart';
@@ -6,6 +7,7 @@ import 'package:archespace_mobile/src/features/vault/data/vault_service.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/audit_log.dart';
 import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// JSON backup export/import, matching the web format. A backup is encrypted:
@@ -139,6 +141,7 @@ class BackupRepository {
       'vault': vaultMeta,
       'data': await _encJson(contents),
     };
+    unawaited(logAudit('export'));
     return (
       json: const JsonEncoder.withIndent('  ').convert(payload),
       unreadable: _unreadable,
@@ -466,6 +469,7 @@ class BackupRepository {
       itemsImported += result.imported;
       itemsSkipped += result.skipped;
     }
+    unawaited(logAudit('import'));
     return (
       spaces: spacesImported,
       items: itemsImported,

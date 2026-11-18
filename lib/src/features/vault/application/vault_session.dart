@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/audit_log.dart';
 
 /// Holds the unlocked vault master key in memory for the lifetime of the
 /// process (biometric unlock keeps its own copy, see SecureKeyStore).
@@ -25,7 +28,10 @@ class VaultSession {
     unlocked.value = true;
   }
 
+  /// Lock, however it happens (by hand, idle, the screen locking, too many
+  /// wrong PINs); only an open vault's lock is logged.
   void lock() {
+    if (_masterKey != null) unawaited(logAudit('vault_lock'));
     _masterKey = null;
     ArcheCrypto.clearCache();
     unlocked.value = false;

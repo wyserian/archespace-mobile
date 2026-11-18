@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/config/app_config.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
+import 'package:archespace_mobile/src/shared/data/audit_log.dart';
 import 'package:archespace_mobile/src/shared/data/offline_db.dart';
 
 /// Thin wrapper over Supabase Auth. The client is resolved lazily so the app
@@ -15,6 +18,7 @@ class AuthService {
 
   Future<void> signIn({required String email, required String password}) async {
     await _client.auth.signInWithPassword(email: email, password: password);
+    unawaited(logAudit('login'));
   }
 
   /// Register a new account. When email confirmation is disabled in Supabase,
@@ -45,6 +49,7 @@ class AuthService {
     // stays on the device).
     if (AppMode.isLocal) return AppMode.leave();
     await _sendWaiting();
+    await logAudit('logout'); // while the session still exists
     await _client.auth.signOut(scope: SignOutScope.local);
   }
 
@@ -52,6 +57,7 @@ class AuthService {
   /// server-side (global scope). For an explicit "sign out of all devices".
   Future<void> signOutAllDevices() async {
     await _sendWaiting();
+    await logAudit('logout');
     await _client.auth.signOut(scope: SignOutScope.global);
   }
 
@@ -90,6 +96,7 @@ class AuthService {
   /// Change the login password (separate from the vault PIN).
   Future<void> updatePassword(String password) async {
     await _client.auth.updateUser(UserAttributes(password: password));
+    unawaited(logAudit('password_change'));
   }
 
   /// Permanently delete the signed-in user's account via a database RPC, then

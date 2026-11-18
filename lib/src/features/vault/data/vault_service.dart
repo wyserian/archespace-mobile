@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:archespace_mobile/src/features/vault/domain/recovery_code.dart';
 import 'package:archespace_mobile/src/features/vault/domain/vault_pin.dart';
 import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
+import 'package:archespace_mobile/src/shared/data/audit_log.dart';
 import 'package:archespace_mobile/src/shared/data/cache_store.dart';
 import 'package:archespace_mobile/src/shared/data/db.dart';
 
@@ -222,6 +224,7 @@ class VaultService {
       masterKey,
       recoveryCode: recoveryCode,
     );
+    unawaited(logAudit('vault_setup'));
     return (masterKey: masterKey, recoveryCode: recoveryCode);
   }
 
@@ -251,6 +254,7 @@ class VaultService {
       masterKey,
       recoveryCode: recoveryCode,
     );
+    unawaited(logAudit('vault_reset'));
     return (masterKey: masterKey, recoveryCode: recoveryCode);
   }
 
@@ -275,6 +279,7 @@ class VaultService {
 
     final masterKey = await _checkPin(meta, currentPin);
     await _persistPinWrapped(userId, newPin, masterKey);
+    unawaited(logAudit('vault_pin_change'));
     return masterKey;
   }
 
@@ -309,6 +314,7 @@ class VaultService {
         })
         .eq('user_id', userId);
 
+    unawaited(logAudit('recovery_code_created'));
     return recoveryCode;
   }
 
@@ -340,6 +346,7 @@ class VaultService {
     final masterKey = await _unlockWithRecovery(meta, recoveryCode);
     final nextCode = generateRecoveryCode();
     await _persistPinWrapped(userId, newPin, masterKey, recoveryCode: nextCode);
+    unawaited(logAudit('vault_pin_reset'));
     return (masterKey: masterKey, recoveryCode: nextCode);
   }
 

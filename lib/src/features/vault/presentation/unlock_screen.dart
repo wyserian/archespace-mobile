@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import 'package:archespace_mobile/src/features/auth/data/auth_service.dart';
+import 'package:archespace_mobile/src/shared/data/audit_log.dart';
 import 'package:archespace_mobile/src/features/auth/presentation/sign_out.dart';
 import 'package:archespace_mobile/src/features/vault/data/biometric_service.dart';
 import 'package:archespace_mobile/src/features/vault/data/secure_key_store.dart';
@@ -103,6 +105,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
         return;
       }
       VaultSession.instance.unlock(masterKey);
+      unawaited(logAudit('vault_unlock'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -136,6 +139,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       }
 
       VaultSession.instance.unlock(masterKey);
+      unawaited(logAudit('vault_unlock'));
     } on VaultException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
