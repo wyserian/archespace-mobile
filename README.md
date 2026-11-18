@@ -34,6 +34,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Self-destruct**: a space or item deletes itself for good at a time you set
 - **Spaces** with sub-spaces nested to any depth, tags (long-press one to remove it) and colours
 - **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types)), each with an optional card colour
+- **Undo and redo** in the item editor
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen
 - **Search** across spaces, tags and content
 - **Starred**, **Self-destruct** (soonest first), **archive** and **bin** views
