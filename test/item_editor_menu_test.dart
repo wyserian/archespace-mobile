@@ -1,5 +1,7 @@
 import 'package:archespace_mobile/src/features/items/domain/space_item.dart';
 import 'package:archespace_mobile/src/features/items/presentation/item_editor_screen.dart';
+import 'package:archespace_mobile/src/features/vault/application/vault_session.dart';
+import 'package:archespace_mobile/src/shared/crypto/arche_crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -131,5 +133,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Star'), findsOneWidget);
     expect(find.text('Add tag'), findsNothing);
+  });
+
+  testWidgets('Undo and Redo step through the content while it is open', (
+    tester,
+  ) async {
+    // Saves go nowhere here (no backend); the steps live in the editor.
+    VaultSession.instance.unlock(ArcheCrypto.randomAesKey());
+    addTearDown(VaultSession.instance.lock);
+    await _open(
+      tester,
+      ItemEditorScreen(spaceId: 's1', type: 'textbox', existing: _note),
+    );
+    IconButton button(String tip) => tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, tip == 'Undo' ? Icons.undo : Icons.redo),
+    );
+    expect(button('Undo').onPressed, isNull);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'milk'),
+      'milk and eggs',
+    );
+    await tester.pump(const Duration(seconds: 1)); // the editor's tick
+    await tester.pump();
+    expect(button('Undo').onPressed, isNotNull);
+
+    await tester.tap(find.byTooltip('Undo'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'milk'), findsOneWidget);
+    expect(button('Redo').onPressed, isNotNull);
+
+    await tester.tap(find.byTooltip('Redo'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'milk and eggs'), findsOneWidget);
+    expect(button('Redo').onPressed, isNull);
   });
 }

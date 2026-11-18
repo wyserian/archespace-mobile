@@ -141,6 +141,59 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   // The web's AUTO_SAVE_DELAY_MS.
   static const Duration _kAutoSaveDelay = Duration(seconds: 5);
 
+  // Undo / redo of the content while the item is open: each saved change is a
+  // step (an unsaved one counts when Undo is pressed). Renames and the menu's
+  // actions are not. Rich text and the Whiteboard have their own.
+  late final List<String> _steps;
+  int _stepAt = 0;
+  // Bumped when a step is applied, so the body's editors start from it.
+  int _bodyVersion = 0;
+  (bool, bool) _undoState = (false, false);
+  static const int _kMaxSteps = 100;
+
+  bool get _hasUndo =>
+      !widget.readOnly && !_isRichText && widget.type != 'whiteboard';
+  bool _contentChanged() => jsonEncode(_content) != _steps[_stepAt];
+  bool get _canUndo => _stepAt > 0 || _contentChanged();
+  bool get _canRedo => _stepAt < _steps.length - 1 && !_contentChanged();
+
+  void _recordStep(String json) {
+    if (json == _steps[_stepAt]) return;
+    _steps
+      ..removeRange(_stepAt + 1, _steps.length)
+      ..add(json);
+    if (_steps.length > _kMaxSteps) _steps.removeAt(0);
+    _stepAt = _steps.length - 1;
+  }
+
+  Future<void> _undo() async {
+    while (_saving) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    _recordStep(jsonEncode(_content));
+    if (_stepAt > 0) _applyStep(_stepAt - 1);
+  }
+
+  Future<void> _redo() async {
+    while (_saving) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    if (_canRedo) _applyStep(_stepAt + 1);
+  }
+
+  /// Show step [at] and save it at once, as the web does.
+  void _applyStep(int at) {
+    setState(() {
+      _stepAt = at;
+      _content
+        ..clear()
+        ..addAll(jsonDecode(_steps[at]) as Map<String, dynamic>);
+      _bodyVersion++;
+      _undoState = (_canUndo, _canRedo);
+    });
+    _save(silent: true);
+  }
+
   // Read-only viewer: a tap (not a scroll or long press, which select text to
   // copy) on the content says why nothing changes, once per little while.
   Offset? _tapDown;
@@ -178,6 +231,8 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   @override
   void initState() {
     super.initState();
+    // The content as opened, read before any edit can change it.
+    _steps = [_savedContentJson];
     if (widget.readOnly) return; // nothing to save
     _autoSaveTimer = Timer.periodic(
       const Duration(seconds: 1),
@@ -213,6 +268,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
         curJson != _tickContentJson ||
         _type != _tickType;
     if (changed) _lastEditAt = DateTime.now();
+    // Typing doesn't rebuild this screen: refresh Undo / Redo when they change.
+    if (_hasUndo && (_canUndo, _canRedo) != _undoState) {
+      setState(() => _undoState = (_canUndo, _canRedo));
+    }
     _tickTitle = curTitle;
     _tickContentJson = curJson;
     _tickType = _type;
@@ -247,10 +306,12 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       _savedContentJson = jsonEncode(_content);
       _savedType = type;
       _savedAny = true;
+      _recordStep(_savedContentJson);
       if (mounted) {
         setState(() {
           _saving = false;
           _saveFailed = false;
+          _undoState = (_canUndo, _canRedo);
         });
       }
       return true;
@@ -584,6 +645,18 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                       ),
                     ),
                   ),
+                if (_hasUndo) ...[
+                  IconButton(
+                    onPressed: _undoState.$1 ? _undo : null,
+                    icon: const Icon(Icons.undo),
+                    tooltip: 'Undo',
+                  ),
+                  IconButton(
+                    onPressed: _undoState.$2 ? _redo : null,
+                    icon: const Icon(Icons.redo),
+                    tooltip: 'Redo',
+                  ),
+                ],
                 IconButton(
                   onPressed: _saveAndClose,
                   icon: const Icon(Icons.check),
@@ -676,7 +749,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       ..addAll(board);
   }
 
-  Widget _buildBody() {
+  Widget _buildBody() =>
+      KeyedSubtree(key: ValueKey(_bodyVersion), child: _editor());
+
+  Widget _editor() {
     final readOnly = widget.readOnly;
     switch (widget.type) {
       case 'textbox':
