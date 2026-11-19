@@ -166,18 +166,20 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     _stepAt = _steps.length - 1;
   }
 
-  Future<void> _undo() async {
+  Future<void> _saveDone() async {
     while (_saving) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
+  }
+
+  Future<void> _undo() async {
+    await _saveDone();
     _recordStep(jsonEncode(_content));
     if (_stepAt > 0) _applyStep(_stepAt - 1);
   }
 
   Future<void> _redo() async {
-    while (_saving) {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    }
+    await _saveDone();
     if (_canRedo) _applyStep(_stepAt + 1);
   }
 

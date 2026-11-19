@@ -504,9 +504,9 @@ class _SpacesScreenState extends State<SpacesScreen>
   }
 
   /// The controls row: sort, select, then the view toggle last.
-  Widget _buildSpacesHeader(BuildContext context) {
+  Widget _buildSpacesHeader() {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 4),
+      padding: const EdgeInsets.only(right: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -585,7 +585,7 @@ class _SpacesScreenState extends State<SpacesScreen>
     // an "Items" label starting the second only when both show.
     final bothSections = spaces.isNotEmpty && items.isNotEmpty;
     if (!selectMode) {
-      headerChildren.add(_buildSpacesHeader(context));
+      headerChildren.add(_buildSpacesHeader());
       if (allTags.isNotEmpty) headerChildren.add(_tagFilterBar(allTags));
       // A tag filter that matches nothing gets a clear note (keeping the tag
       // bar above it reachable), matching the space detail screen.

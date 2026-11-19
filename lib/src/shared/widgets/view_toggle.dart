@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'tap_area.dart';
+
 /// Grid / list switch, as on the web: a soft segmented control (no border),
 /// the active side raised on the surface colour. [value] is 'grid' or 'list'.
 class ViewToggle extends StatelessWidget {
@@ -66,31 +68,23 @@ class ViewToggle extends StatelessWidget {
       excludeSemantics: true,
       child: Tooltip(
         message: label,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        child: TapArea(
           onTap: pick,
-          child: SizedBox(
-            width: 42,
-            height: 48,
-            child: Center(
-              child: Material(
-                color: selected ? scheme.surface : Colors.transparent,
-                elevation: selected ? 1 : 0,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: pick,
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 42,
-                    height: 32,
-                    child: Icon(
-                      icon,
-                      size: 19,
-                      color: selected
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                    ),
-                  ),
+          minWidth: 0,
+          child: Material(
+            color: selected ? scheme.surface : Colors.transparent,
+            elevation: selected ? 1 : 0,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: pick,
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 42,
+                height: 32,
+                child: Icon(
+                  icon,
+                  size: 19,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
                 ),
               ),
             ),
