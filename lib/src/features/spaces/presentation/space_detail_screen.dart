@@ -37,6 +37,7 @@ import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/status_banner.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
+import 'package:archespace_mobile/src/shared/widgets/view_toggle.dart';
 
 // The space between sub-space cards, shared by the list and grid views; the
 // same as between space cards on the dashboard.
@@ -605,7 +606,7 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
   }
 
   /// A fixed row (not scrolling) with the in-space search field and the list
-  /// controls (view, sort, select) inline, in place of an "Items" label.
+  /// controls (sort, select, then view) inline, in place of an "Items" label.
   Widget _buildItemsHeader(BuildContext context) {
     return Padding(
       // A little room below, before the tags or items.
@@ -621,17 +622,11 @@ class _SpaceDetailScreenState extends State<SpaceDetailScreen>
             ),
           ),
           const SizedBox(width: 4),
-          _barAction(
-            _view == 'grid'
-                ? Icons.view_agenda_outlined
-                : Icons.grid_view_outlined,
-            _view == 'grid' ? 'List view' : 'Grid view',
-            () => _setView(_view == 'grid' ? 'list' : 'grid'),
-          ),
           SortMenu(value: _sort, onChanged: _setSort),
           // Every bulk action changes something here, so there's no
           // selecting while read-only.
           if (!_readOnly) _barAction(Icons.checklist, 'Select', enterSelect),
+          ViewToggle(value: _view, onChanged: _setView),
         ],
       ),
     );

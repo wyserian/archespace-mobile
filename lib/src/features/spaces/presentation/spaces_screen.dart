@@ -32,6 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archespace_mobile/src/shared/widgets/scrollable_message.dart';
 import 'package:archespace_mobile/src/shared/widgets/search_field.dart';
 import 'package:archespace_mobile/src/shared/widgets/tag_filter_bar.dart';
+import 'package:archespace_mobile/src/shared/widgets/view_toggle.dart';
 import 'package:archespace_mobile/src/shared/data/app_mode.dart';
 
 // The space between cards, shared by the list and grid views.
@@ -502,33 +503,20 @@ class _SpacesScreenState extends State<SpacesScreen>
     );
   }
 
-  /// The controls row, titled with the first section's name ([title]).
-  Widget _buildSpacesHeader(BuildContext context, String title) {
-    final theme = Theme.of(context);
+  /// The controls row: sort, select, then the view toggle last.
+  Widget _buildSpacesHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 4),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
-            title,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          ActionIconButton(
-            icon: _view == 'grid'
-                ? Icons.view_agenda_outlined
-                : Icons.grid_view_outlined,
-            tooltip: _view == 'grid' ? 'List view' : 'Grid view',
-            onPressed: () => _setView(_view == 'grid' ? 'list' : 'grid'),
-          ),
           SortMenu(value: _sort, onChanged: _setSort),
           ActionIconButton(
             icon: Icons.checklist,
             tooltip: 'Select',
             onPressed: enterSelect,
           ),
+          ViewToggle(value: _view, onChanged: _setView),
         ],
       ),
     );
@@ -593,13 +581,11 @@ class _SpacesScreenState extends State<SpacesScreen>
     // The count/actions header and tag filter scroll with the list, and are
     // hidden while selecting (the app bar shows the selection state instead).
     final headerChildren = <Widget>[];
-    // Spaces and items are separate sections under the shared controls: the
-    // header names the first section, and an "Items" label starts the second
-    // only when both show.
+    // Spaces and items are separate sections under the shared controls, with
+    // an "Items" label starting the second only when both show.
     final bothSections = spaces.isNotEmpty && items.isNotEmpty;
-    final firstLabel = spaces.isNotEmpty || items.isEmpty ? 'Spaces' : 'Items';
     if (!selectMode) {
-      headerChildren.add(_buildSpacesHeader(context, firstLabel));
+      headerChildren.add(_buildSpacesHeader(context));
       if (allTags.isNotEmpty) headerChildren.add(_tagFilterBar(allTags));
       // A tag filter that matches nothing gets a clear note (keeping the tag
       // bar above it reachable), matching the space detail screen.
