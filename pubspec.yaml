@@ -55,6 +55,13 @@ dev_dependencies:
   # Generates the app launcher icons from the ArcheSpace mark.
   flutter_launcher_icons: ^0.14.1
 
+# shortcut: jni 1.2.0 looks classes up as "Landroid/content/Context;" and fails,
+# breaking path_provider and shared_preferences on Android (sync shows
+# offline). Drop these once a newer jni works on a device.
+dependency_overrides:
+  jni: 1.1.2
+  jni_flutter: 1.0.4+1
+
 # App launcher icon: a dark background with the mint A mark.
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
