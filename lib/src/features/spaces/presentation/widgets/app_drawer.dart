@@ -28,7 +28,7 @@ enum DrawerPage {
   other,
 }
 
-/// The app's navigation drawer: the name at the top, All spaces and the
+/// The app's navigation drawer: the name at the top, Dashboard and the
 /// top-level spaces (folding under their heading), the library (Reminders,
 /// Starred, Self-destruct, Archive, Bin) with counts, and Lock vault and
 /// Settings at the bottom. Sign out lives in Settings.
@@ -169,16 +169,15 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
-  /// All spaces, the folding space list and the library.
+  /// Dashboard, the folding space list and the library.
   Widget _destinations(BuildContext context, List<Space> spaces) {
     return Column(
       children: [
         _tile(
           context,
           icon: Icons.grid_view_rounded,
-          label: 'All spaces',
+          label: 'Dashboard',
           selected: _isCurrent(DrawerPage.dashboard),
-          count: spaces.length,
           onTap: () => _go(context, here: _isCurrent(DrawerPage.dashboard)),
         ),
         if (spaces.isNotEmpty) ...[
