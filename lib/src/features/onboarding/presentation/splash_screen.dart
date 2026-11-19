@@ -27,7 +27,7 @@ class SplashScreen extends StatelessWidget {
                   const BrandName(fontSize: 30),
                   const SizedBox(height: 12),
                   Text(
-                    'Everything in One Encrypted Space',
+                    'Your Private Space',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,

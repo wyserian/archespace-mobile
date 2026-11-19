@@ -4,11 +4,15 @@
 [![Version](https://img.shields.io/github/v/release/wyserian/archespace-mobile)](https://github.com/wyserian/archespace-mobile/releases)
 [![License](https://img.shields.io/github/license/wyserian/archespace-mobile)](LICENSE)
 
-ArcheSpace is an open-source, encrypted space for capturing and organising your information, notes, projects, secrets, code, checklists and ideas. Group them into spaces, and fill each space with the content type that fits: plain notes, rich text documents, lists and checklists, tables, Kanban boards, code snippets and whiteboards. Anything sensitive can be protected so it only opens with your vault PIN. Everything is taggable, searchable and kept in one place, synced across your devices.
+ArcheSpace is a personal private space, built to keep everything in one place: projects and their secrets, ideas, features and bugs, and any random data. It started as a space for one person, then went public to be usable from anywhere, and is now open for anyone.
+
+Most note apps are a flat list behind an "Add note" button. ArcheSpace is structured more like a file manager: spaces inside spaces, each holding the right kind of item - a note, rich text, a list or checklist, a table, a Kanban board, code or a whiteboard.
 
 Privacy is built in, not bolted on. It follows a zero-knowledge architecture: your content is encrypted on-device and the backend only ever stores ciphertext, so the server, its operators, and the developers never see your data in readable form.
 
 This is the Android and iOS app, built with Flutter. It talks to the **same Supabase backend** as the [web app](https://github.com/wyserian/archespace) and shares the same client-side `arc1` encryption format, so a vault created on one client opens on the other.
+
+**Get it:** [download the latest APK](https://archespace.app/download/android), or pick a file on the [Releases page](https://github.com/wyserian/archespace-mobile/releases/latest).
 
 ## Table of contents
 
@@ -32,7 +36,7 @@ This is the Android and iOS app, built with Flutter. It talks to the **same Supa
 - **Vault PIN** with a recovery code, auto-lock, locking when the phone locks, and fingerprint / face unlock
 - **Protected** items and spaces, and **read-only** spaces
 - **Self-destruct**: a space or item deletes itself for good at a time you set
-- **Spaces** with sub-spaces nested to any depth, tags (long-press one to remove it) and colours
+- **Spaces** with sub-spaces nested to any depth, tags and colours
 - **Item types**: notes, rich text, lists, checklists, cards, tables, Kanban boards, whiteboards and code ([Item types](#item-types)), each with an optional card colour
 - **Undo and redo** in the item editor
 - **Reminders** as notifications that repeat or stay until turned off, all listed on one screen

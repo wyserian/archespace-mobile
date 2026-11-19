@@ -655,8 +655,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.system_update_outlined,
                     title: 'Check for updates',
                     subtitle:
-                        'Looks for a newer release on GitHub. This is '
-                        'v${BuildInfo.appVersion}.',
+                        'Looks for a newer release on GitHub.\n'
+                        'v${BuildInfo.appVersion}',
                     trailing: _checkingUpdate
                         ? const SizedBox.square(
                             dimension: 18,
